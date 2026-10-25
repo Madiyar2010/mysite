@@ -474,6 +474,7 @@ function metaShoot(k) {
 async function startGame(m) {
   loading('Готовим игру…');
   try { await ready; } catch (e) { }
+  if (MODES[m.mode].group !== 'traitor') { loading('Загружаем карту…'); try { await A.preload(smapModels(SMAPS[m.opts.smap] || SMAPS.warehouse)); } catch (e) { } }
   stopGame();
   $$('.modal').forEach(x => x.classList.remove('show'));
   S.roster = new Map(m.roster.map(r => [r.pid, r]));

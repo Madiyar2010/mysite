@@ -405,7 +405,7 @@ export class ShooterClient {
         const [, kid, vid, w, head] = f;
         const kn = this.name(kid), vn = this.name(vid);
         const kc = this.team && kid ? TEAM_COLORS[this.info(kid).team] : '#ffd166', vc = this.team ? TEAM_COLORS[this.info(vid).team] : '#fff';
-        const wi = WEAPONS[w] ? icon(WEAPONS[w].icon) : w === 'mover' ? icon('engine') : icon('skull');
+        const wi = WEAPONS[w] ? icon(WEAPONS[w].icon) : w === 'mover' ? icon(this.map.theme === 'street' ? 'steering' : 'engine') : w === 'blade' ? icon('swords') : icon('skull');
         this.killfeed(`${kid ? `<b style="color:${kc}">${esc(kn)}</b> ` : ''}${wi}${head ? ' ' + icon('target') : ''} <b style="color:${vc}">${esc(vn)}</b>`);
         if (kid === this.me && vid !== this.me) { shBanner(`${icon('swords')} Ты выбил ${esc(vn)}${head ? ' — в голову!' : ''}`, 'small', 1400); Sound.play('confirm', { vol: 0.8 }); vib([20, 30, 40]); }
         if (vid === this.me) {
@@ -419,6 +419,7 @@ export class ShooterClient {
       case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
       case 'puff': { const [, x, y, z, tp] = f; v.burst(x, y, z, tp === 'orb' ? '#b36bff' : '#ffffff', 6, 2, 0.08, 0.4); break; }
       case 'bounce': this.snd('thud', f[1], f[2], 0.4, 20); break;
+      case 'rise': { const [, x, z] = f; v.burst(x, 0.2, z, '#4a3b2c', 22, 3, 0.13, 1); v.burst(x, 0.3, z, '#9fe8a0', 8, 1.5, 0.08, 1.2); this.snd('glitch', x, z, 0.8, 30); if (!this.riseShown) { this.riseShown = true; shBanner(`${icon('skull')} Из могил встают скелеты!`, 'small', 2500); } break; }
       case 'tele': v.ring(f[1], f[2], f[3], f[4]); break;
       case 'heal': if (f[1] === this.me) { Sound.play('taskdone', { vol: 0.6 }); shBanner(`${icon('heart')} +60 здоровья`, 'small', 1200); } break;
       case 'round': { const [, n, wave] = f; shBanner(wave ? `Волна ${wave} из 6` : `Раунд ${n}`, 'big', 2200); Sound.play('j_meeting', { vol: 0.5 }); break; }

@@ -134,3 +134,6 @@ export function makeInstanced(name, placements, opts = {}) {
   }
   return group;
 }
+
+// Исходная модель (размер, рамка) — для собственной подгонки
+export const info = name => vals.get(name);
