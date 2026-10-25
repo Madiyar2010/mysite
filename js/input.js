@@ -1,7 +1,6 @@
 // Управление: джойстик и кнопки на телефоне/планшете, клавиатура и мышь на компьютере.
 export const Input = {
   touch: matchMedia('(pointer:coarse)').matches,
-  move: { x: 0, z: 0 },
   mouse: null,          // экранные координаты мыши
   mouseDown: false,
   atkHeld: false,
@@ -10,16 +9,17 @@ export const Input = {
   joy: null,
   active: false,
   onKey: null,          // (action) — одиночные действия с клавиатуры
-  init(zone, joyEl) {
-    this.zone = zone; this.joyEl = joyEl;
+  onKeyGame: null,
+  init(zones, joyEl) {
+    this.joyEl = joyEl;
     const KM = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
-    const ACT = { Space: 'sup', KeyQ: 'sup', KeyE: 'use', KeyF: 'kill', KeyR: 'rep', KeyG: 'sab', KeyB: 'em', KeyX: 'emo', KeyJ: 'atk', Enter: 'chat', Tab: 'board' };
+    const ACT = { Space: 'sup', KeyQ: 'sup', KeyE: 'use', KeyF: 'kill', KeyR: 'rep', KeyG: 'sab', KeyB: 'em', KeyX: 'emo', KeyJ: 'atk', Enter: 'chat', Tab: 'board', KeyV: 'vent', KeyM: 'map', Escape: 'esc' };
     addEventListener('keydown', e => {
       if (!this.active) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (KM[e.code]) { this.keys[KM[e.code]] = 1; e.preventDefault(); }
       const a = ACT[e.code];
-      if (a === 'atk') { this.atkHeld = true; }
+      if (a === 'atk') this.atkHeld = true;
       else if (a && !e.repeat) { e.preventDefault(); this.fire(a); }
     });
     addEventListener('keyup', e => {
@@ -28,15 +28,16 @@ export const Input = {
       if (e.code === 'Tab' && this.onKey) this.onKey('boardUp');
     });
     addEventListener('blur', () => { this.keys = {}; this.atkHeld = false; this.mouseDown = false; });
-    // мышь
+    addEventListener('mouseup', e => { if (e.button === 0) this.mouseDown = false; });
+    for (const zone of zones) this.bindZone(zone);
+  },
+  bindZone(zone) {
     zone.addEventListener('mousemove', e => { this.mouse = { x: e.clientX, y: e.clientY }; });
     zone.addEventListener('mousedown', e => { if (this.touch) return; if (e.button === 0) this.mouseDown = true; if (e.button === 2) this.fire('sup'); });
-    addEventListener('mouseup', e => { if (e.button === 0) this.mouseDown = false; });
     zone.addEventListener('contextmenu', e => e.preventDefault());
-    // сенсорный джойстик: левая часть экрана
+    // сенсорный джойстик: где коснулся — там и центр
     zone.addEventListener('pointerdown', e => {
-      if (e.pointerType === 'mouse' || !this.active) return;
-      if (this.joy) return;
+      if (e.pointerType === 'mouse' || !this.active || this.joy) return;
       this.touch = true;
       this.joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
       try { zone.setPointerCapture(e.pointerId); } catch (_) { }

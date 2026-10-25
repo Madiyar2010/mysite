@@ -111,7 +111,7 @@ export class ArenaSim {
       t.removeT = 2.5;
       const mt = MONSTERS[t.mtype];
       if (src && src.isPlayer) { src.kills++; src.pts += mt.pts; }
-      if (mt.boss) this.ev('msg', '🏆 Хранитель склепа повержен!');
+      if (mt.boss) this.ev('msg', 'Хранитель склепа повержен!');
     }
   }
   colorOf(e) { return this.team ? TEAM_COLORS[e.team] : '#ffd166'; }
@@ -241,7 +241,7 @@ export class ArenaSim {
       hp: Math.round(m.hp * hpMul), maxhp: Math.round(m.hp * hpMul), speed: m.speed, dead: false, atkCd: rnd(0.5, 1.5), supCd: 0, anim: 0, animN: 0, animT: 0,
       protT: 0.5, shieldT: 0, invisT: 0, dashT: 0, big: m.boss ? 1.2 : 0, aiT: 0, strafe: Math.random() < 0.5 ? 1 : -1, slamT: 6, summonT: 14, volleyT: 9, inp: {} };
     this.ents.set(id, e);
-    if (m.boss) { this.bossId = id; this.ev('msg', '💀 Появился Хранитель склепа!'); }
+    if (m.boss) { this.bossId = id; this.ev('msg', 'Появился Хранитель склепа!'); }
     return e;
   }
   humanCount() { let n = 0; for (const e of this.ents.values()) if (e.isPlayer && !e.left) n++; return Math.max(1, n); }
@@ -284,7 +284,7 @@ export class ArenaSim {
         e.slamAt = null;
       }
     }
-    if (e.summonT <= 0) { e.summonT = enraged ? 11 : 15; for (let i = 0; i < 3; i++) this.spawnMonster('skeleton', { x: e.x + rnd(-2, 2), z: e.z + rnd(-2, 2) }); this.ev('msg', '💀 Хранитель призвал скелетов!'); }
+    if (e.summonT <= 0) { e.summonT = enraged ? 11 : 15; for (let i = 0; i < 3; i++) this.spawnMonster('skeleton', { x: e.x + rnd(-2, 2), z: e.z + rnd(-2, 2) }); this.ev('msg', 'Хранитель призвал скелетов!'); }
     if (enraged && e.volleyT <= 0) { e.volleyT = 7; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; this.projs.push({ id: ++this.pid, type: 'bossorb', owner: e.id, x: e.x, z: e.z, vx: Math.sin(a) * 7, vz: Math.cos(a) * 7, dmg: 18, life: 2.4, radius: 0, src: e }); } }
     e.speed = enraged ? 3.4 : 2.7;
   }
@@ -304,17 +304,17 @@ export class ArenaSim {
   // ---------- флаги ----------
   dropFlag(e) {
     if (!this.flags) return;
-    for (const f of this.flags) if (f.carrier === e.id) { f.carrier = null; f.x = e.x; f.z = e.z; f.home = false; f.dropT = 15; this.ev('msg', `🚩 ${e.name} потерял флаг!`); }
+    for (const f of this.flags) if (f.carrier === e.id) { f.carrier = null; f.x = e.x; f.z = e.z; f.home = false; f.dropT = 15; this.ev('msg', `${e.name} потерял флаг!`); }
   }
   flagTick(dt) {
     for (const f of this.flags) {
       if (f.carrier) { const c = this.ents.get(f.carrier); if (c) { f.x = c.x; f.z = c.z; } continue; }
-      if (!f.home) { f.dropT -= dt; if (f.dropT <= 0) { f.home = true; f.x = f.hx; f.z = f.hz; this.ev('msg', `🚩 Флаг команды «${TEAM_NAMES[f.team]}» вернулся на базу`); } }
+      if (!f.home) { f.dropT -= dt; if (f.dropT <= 0) { f.home = true; f.x = f.hx; f.z = f.hz; this.ev('msg', `Флаг команды «${TEAM_NAMES[f.team]}» вернулся на базу`); } }
       for (const e of this.ents.values()) {
         if (!e.isPlayer || e.dead || e.left) continue;
         if (Math.hypot(e.x - f.x, e.z - f.z) > 1.3) continue;
-        if (e.team !== f.team) { f.carrier = e.id; f.home = false; this.ev('msg', `🚩 ${e.name} схватил флаг!`); break; }
-        else if (!f.home) { f.home = true; f.x = f.hx; f.z = f.hz; e.pts += 1; this.ev('msg', `🛡️ ${e.name} вернул свой флаг`); break; }
+        if (e.team !== f.team) { f.carrier = e.id; f.home = false; this.ev('msg', `${e.name} схватил флаг!`); break; }
+        else if (!f.home) { f.home = true; f.x = f.hx; f.z = f.hz; e.pts += 1; this.ev('msg', `${e.name} вернул свой флаг`); break; }
       }
     }
     for (const f of this.flags) {
@@ -422,7 +422,7 @@ export class ArenaSim {
       this.waveT -= dt;
       if (this.waveT <= 0) {
         this.wave++; this.queue = this.waveList(this.wave); this.waveT = 6;
-        this.ev('msg', this.wave === 6 ? '⚠️ Финальная волна: БОСС!' : `🌊 Волна ${this.wave} из 6`);
+        this.ev('msg', this.wave === 6 ? 'Финальная волна: БОСС!' : `Волна ${this.wave} из 6`);
         for (const e of this.ents.values()) if (e.isPlayer && !e.dead) this.heal(e, 40);
       }
     }
@@ -446,7 +446,7 @@ export class ArenaSim {
       }
     } else if (this.mode === 'pve') {
       const boss = this.bossId && this.ents.get(this.bossId);
-      if (this.wave >= 6 && this.bossId && (!boss || boss.dead) && !this.queue.length) { end = true; players.forEach(p => winners.add(p.id)); winText = 'Монстры побеждены! Вы — герои! 🏆'; }
+      if (this.wave >= 6 && this.bossId && (!boss || boss.dead) && !this.queue.length) { end = true; players.forEach(p => winners.add(p.id)); winText = 'Монстры побеждены! Вы — герои! '; }
       else if (this.pveLost) { end = true; winText = `Монстры победили на волне ${this.wave}… Попробуйте ещё!`; }
     }
     if (!end) return;

@@ -17,57 +17,57 @@ export const LS = {
 };
 
 export const CLASSES = {
-  knight: { name: 'Рыцарь', icon: '🛡️', hp: 170, speed: 5.0, color: '#7cc4ff',
+  knight: { name: 'Рыцарь', icon: 'knight', hp: 170, speed: 5.0, color: '#7cc4ff',
     desc: 'Крепкий воин с мечом и щитом.', atkName: 'Удар мечом', supName: 'Рывок щитом',
     supDesc: 'Бросок вперёд, сбивает врагов и даёт щит',
     atk: { type: 'melee', range: 2.2, arc: 2.0, dmg: 28, cd: 0.55 }, sup: { cd: 6 } },
-  archer: { name: 'Лучник', icon: '🏹', hp: 100, speed: 5.6, color: '#9be15d',
+  archer: { name: 'Лучник', icon: 'archer', hp: 100, speed: 5.6, color: '#9be15d',
     desc: 'Стреляет издалека, быстрый.', atkName: 'Выстрел', supName: 'Залп',
     supDesc: 'Пять стрел веером',
     atk: { type: 'arrow', speed: 21, dmg: 20, cd: 0.5, range: 15 }, sup: { cd: 7 } },
-  mage: { name: 'Маг', icon: '🔮', hp: 110, speed: 5.1, color: '#ff7eb6',
+  mage: { name: 'Маг', icon: 'mage', hp: 110, speed: 5.1, color: '#ff7eb6',
     desc: 'Огненные шары взрываются по площади.', atkName: 'Огненный шар', supName: 'Лечение',
     supDesc: 'Лечит себя и друзей рядом',
     atk: { type: 'fireball', speed: 13, dmg: 26, cd: 0.8, radius: 1.8, range: 13 }, sup: { cd: 9 } },
-  ninja: { name: 'Ниндзя', icon: '🥷', hp: 105, speed: 6.6, color: '#b69cff',
+  ninja: { name: 'Ниндзя', icon: 'ninja', hp: 105, speed: 6.6, color: '#b69cff',
     desc: 'Очень быстрый, бьёт часто.', atkName: 'Удар', supName: 'Тень',
     supDesc: 'Телепорт вперёд и невидимость',
     atk: { type: 'melee', range: 2.0, arc: 1.8, dmg: 20, cd: 0.28 }, sup: { cd: 5 } }
 };
 
 export const MODES = {
-  ffa: { name: 'Каждый сам за себя', icon: '⚔️', group: 'arena', min: 1, desc: 'Кто больше всех выбьет соперников за 3 минуты.' },
-  tdm: { name: 'Команда на команду', icon: '🔴🔵', group: 'arena', min: 2, desc: 'Красные против синих. Первые до 15 очков.' },
-  ctf: { name: 'Захват флага', icon: '🚩', group: 'arena', min: 2, desc: 'Укради флаг врага и принеси на свою базу. До 3 захватов.' },
-  pve: { name: 'Все против монстров', icon: '💀', group: 'arena', min: 1, desc: 'Вместе отбивайтесь от волн скелетов. В конце — босс!' },
-  traitor: { name: 'Найди предателя', icon: '🕵️', group: 'traitor', min: 3, desc: 'Выполняйте задания в замке. Среди вас — тайный предатель!' }
+  ffa: { name: 'Каждый сам за себя', icon: 'swords', group: 'arena', min: 1, desc: 'Кто больше всех выбьет соперников за 3 минуты.' },
+  tdm: { name: 'Команда на команду', icon: 'users', group: 'arena', min: 2, desc: 'Красные против синих. Первые до 15 очков.' },
+  ctf: { name: 'Захват флага', icon: 'flag', group: 'arena', min: 2, desc: 'Укради флаг врага и принеси на свою базу. До 3 захватов.' },
+  pve: { name: 'Все против монстров', icon: 'skull', group: 'arena', min: 1, desc: 'Вместе отбивайтесь от волн скелетов. В конце — босс!' },
+  traitor: { name: 'Найди предателя', icon: 'impostor', group: 'traitor', min: 3, desc: 'Как Among Us: задания, саботаж, люки, собрания. Среди вас — предатель!' }
 };
 
 export const TEAM_COLORS = { 0: '#ff5d6c', 1: '#4da3ff' };
 export const TEAM_NAMES = { 0: 'Красные', 1: 'Синие' };
 
 export const HATS = [
-  { id: 'none', name: 'Без шапки', icon: '🚫', price: 0 },
-  { id: 'cap', name: 'Кепка', icon: '🧢', price: 40 },
-  { id: 'party', name: 'Колпак', icon: '🥳', price: 60 },
-  { id: 'tophat', name: 'Цилиндр', icon: '🎩', price: 90 },
-  { id: 'viking', name: 'Рога викинга', icon: '🐂', price: 120 },
-  { id: 'wizard', name: 'Шляпа мага', icon: '🧙', price: 150 },
-  { id: 'crown', name: 'Корона', icon: '👑', price: 220 },
-  { id: 'halo', name: 'Нимб', icon: '😇', price: 260 },
-  { id: 'propeller', name: 'Пропеллер', icon: '🚁', price: 320 }
+  { id: 'none', name: 'Без шапки', icon: 'close', price: 0 },
+  { id: 'cap', name: 'Кепка', icon: 'hat', price: 40 },
+  { id: 'party', name: 'Колпак', icon: 'hat', price: 60 },
+  { id: 'tophat', name: 'Цилиндр', icon: 'hat', price: 90 },
+  { id: 'viking', name: 'Рога викинга', icon: 'shield', price: 120 },
+  { id: 'wizard', name: 'Шляпа мага', icon: 'mage', price: 150 },
+  { id: 'crown', name: 'Корона', icon: 'crown', price: 220 },
+  { id: 'halo', name: 'Нимб', icon: 'angel', price: 260 },
+  { id: 'propeller', name: 'Пропеллер', icon: 'rotate', price: 320 }
 ];
 export const AURAS = [
-  { id: 'none', name: 'Обычная', icon: '⚪', price: 0, color: null },
-  { id: 'fire', name: 'Огонь', icon: '🔥', price: 80, color: '#ff7a2f' },
-  { id: 'ice', name: 'Лёд', icon: '❄️', price: 80, color: '#7fe3ff' },
-  { id: 'poison', name: 'Яд', icon: '🧪', price: 110, color: '#8cff5a' },
-  { id: 'gold', name: 'Золото', icon: '✨', price: 180, color: '#ffd34d' },
-  { id: 'void', name: 'Тьма', icon: '🌑', price: 220, color: '#b36bff' },
-  { id: 'rainbow', name: 'Радуга', icon: '🌈', price: 350, color: 'rainbow' }
+  { id: 'none', name: 'Обычная', icon: 'aura', price: 0, color: null },
+  { id: 'fire', name: 'Огонь', icon: 'aura', price: 80, color: '#ff7a2f' },
+  { id: 'ice', name: 'Лёд', icon: 'aura', price: 80, color: '#7fe3ff' },
+  { id: 'poison', name: 'Яд', icon: 'aura', price: 110, color: '#8cff5a' },
+  { id: 'gold', name: 'Золото', icon: 'aura', price: 180, color: '#ffd34d' },
+  { id: 'void', name: 'Тьма', icon: 'aura', price: 220, color: '#b36bff' },
+  { id: 'rainbow', name: 'Радуга', icon: 'aura', price: 350, color: 'rainbow' }
 ];
 
-export const PHRASES = ['Это не я! 🙅', 'Я делал задание', 'Я видел тело', 'Кто был рядом?', 'Подозрительно… 🤨', 'Он врёт!', 'Я был вместе с ним', 'Пропустим голосование', 'Голосую против', 'Видел, как кто-то убегал', 'Давайте подумаем 🤔', 'Я вам верю', '👍', '👎', '😱', '😂'];
+export const PHRASES = ['Это не я!', 'Я делал задание', 'Я видел тело', 'Кто был рядом?', 'Подозрительно…', 'Он врёт!', 'Видел, как кто-то вылез из люка', 'Пропустим голосование', 'Голосую против', 'Видел, как кто-то убегал', 'Давайте подумаем', 'Я вам верю', 'Да', 'Нет', 'Где тело?', 'Кто созвал?'];
 
 // Кошелёк и покупки — хранятся на этом устройстве
 export const Wallet = {

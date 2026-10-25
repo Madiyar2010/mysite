@@ -23,8 +23,10 @@ export const R = {
       const dt = Math.min(0.05, this.clock.getDelta());
       if (this.view) {
         this.view.update(dt);
-        this.renderer.render(this.view.scene, this.view.camera);
-        this.labels.render(this.view.scene, this.view.camera);
+        if (this.view.render) this.view.render(this.renderer); else this.renderer.render(this.view.scene, this.view.camera);
+        const hide = !!(this.view.cams);
+        this.labels.domElement.style.visibility = hide ? 'hidden' : '';
+        if (!hide) this.labels.render(this.view.scene, this.view.camera);
       }
     };
     loop();
@@ -616,4 +618,174 @@ export class ShowroomView {
     this.fx.update(dt);
   }
   dispose() { for (const h of this.heroes) h.dispose(); }
+}
+
+// ======================= КАРТЫ «НАЙДИ ПРЕДАТЕЛЯ» =======================
+const FLOOR_TINT = { metal: '#ffffff', grate: '#c9cbe0', cafe: '#ffe9c7', white: '#e9f6ff', green: '#d8ffe0', corridor: '#b9bdd6' };
+export function buildAmap3D(scene, map) {
+  const T = 2, root = new THREE.Group(); scene.add(root);
+  const { GW, GH, grid, W, Z } = map;
+  const isFloor = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH && grid[y * GW + x] > 0;
+  // пол
+  const floors = { 'st/floor': [], 'st/floor-panel': [], 'st/floor-detail': [] };
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const g = grid[y * GW + x]; if (!g) continue;
+    const r = map.roomOf[y * GW + x];
+    const type = g === 2 ? 'corridor' : map.rooms[r].floor;
+    const model = g === 2 ? 'st/floor-panel' : type === 'grate' ? 'st/floor-detail' : 'st/floor';
+    floors[model].push({ x: W(x), y: -0.6, z: Z(y), s: 2, color: FLOOR_TINT[type] || '#fff' });
+  }
+  for (const [m, list] of Object.entries(floors)) if (list.length) {
+    const g = A.makeInstanced(m, list, { shadow: false });
+    g.children.forEach(inst => { list.forEach((p, i) => inst.setColorAt(i, new THREE.Color(p.color))); if (inst.instanceColor) inst.instanceColor.needsUpdate = true; });
+    root.add(g);
+  }
+  // стены по краям пола + колонны в углах
+  const walls = [], deco = [], verts = new Map();
+  const addV = (vx, vy, dir) => { const k = vx + ',' + vy; const s = verts.get(k) || new Set(); s.add(dir); verts.set(k, s); };
+  let n = 0;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    if (!isFloor(x, y)) continue;
+    const cx = W(x), cz = Z(y);
+    const pushW = (px, pz, r, vx1, vy1, vx2, vy2, dir) => { n++; (n % 7 === 3 ? deco : walls).push({ x: px, z: pz, r, s: 2 }); addV(vx1, vy1, dir); addV(vx2, vy2, dir); };
+    if (!isFloor(x, y - 1)) pushW(cx, cz - T / 2, 0, x, y, x + 1, y, 'h');
+    if (!isFloor(x, y + 1)) pushW(cx, cz + T / 2, Math.PI, x, y + 1, x + 1, y + 1, 'h');
+    if (!isFloor(x - 1, y)) pushW(cx - T / 2, cz, Math.PI / 2, x, y, x, y + 1, 'v');
+    if (!isFloor(x + 1, y)) pushW(cx + T / 2, cz, -Math.PI / 2, x + 1, y, x + 1, y + 1, 'v');
+  }
+  root.add(A.makeInstanced('st/wall', walls));
+  root.add(A.makeInstanced('st/wall-detail', deco));
+  const pillars = [];
+  for (const [k, s] of verts) if (s.size > 1) { const [vx, vy] = k.split(',').map(Number); pillars.push({ x: W(vx) - T / 2, z: Z(vy) - T / 2, s: 2 }); }
+  root.add(A.makeInstanced('st/wall-pillar', pillars));
+  // предметы
+  const groups = {}, special = [];
+  for (const p of map.props) {
+    if (!p.model.includes('/')) { special.push(p); continue; }
+    (groups[p.model] = groups[p.model] || []).push({ x: p.x, z: p.z, r: p.rot, s: p.s });
+  }
+  for (const [m, list] of Object.entries(groups)) root.add(A.makeInstanced(m, list));
+  const out = { root, doors: [], vents: new Map(), scanner: null };
+  for (const p of special) {
+    if (p.model === 'button') {
+      const g = new THREE.Group();
+      const table = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.35, 0.85, 28), std('#9aa3c7')); table.position.y = 0.42; g.add(table);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.08, 28), std('#d7dcf0')); top.position.y = 0.88; g.add(top);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.18, 20), std('#555b75')); base.position.y = 1.0; g.add(base);
+      const btn = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ff2e44', emissive: '#a00010', emissiveIntensity: 0.8 })); btn.position.y = 1.08; g.add(btn);
+      const glass = new THREE.Mesh(new THREE.SphereGeometry(0.46, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.35, roughness: 0.1 })); glass.position.y = 1.08; g.add(glass);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      g.position.set(p.x, 0, p.z); root.add(g); out.button = btn;
+    } else if (p.model === 'scanner') {
+      const g = new THREE.Group();
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 0.12, 32), std('#7d86b0')); pad.position.y = 0.06; g.add(pad);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 32), new THREE.MeshBasicMaterial({ color: '#4dffb0' })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.14; g.add(ring);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 2.2, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#4dffb0', transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+      beam.position.y = 1.1; beam.visible = false; g.add(beam);
+      g.position.set(p.x, 0, p.z); root.add(g); out.scanner = { g, beam, ring };
+    }
+  }
+  // люки
+  for (const v of map.vents) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 1.0), std('#4a4f68')); frame.position.y = 0.03; g.add(frame);
+    const lid = new THREE.Group(); lid.position.set(0, 0.07, -0.45); g.add(lid);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.04, 0.85), std('#7b819e', { metalness: 0.5 })); plate.position.z = 0.43; lid.add(plate);
+    for (let i = -2; i <= 2; i++) { const sl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.03, 0.07), std('#30344a')); sl.position.set(0, 0.03, 0.43 + i * 0.15); lid.add(sl); }
+    g.position.set(v.x, 0, v.z); root.add(g);
+    out.vents.set(v.id, { g, lid, open: 0, target: 0 });
+  }
+  // двери
+  for (const d of map.doors) {
+    const g = new THREE.Group(); g.position.set(d.ex, 0, d.ez); g.rotation.y = d.rot; root.add(g);
+    const halves = [];
+    for (const s of [-1, 1]) {
+      const h = new THREE.Group(); g.add(h);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2, 1.95, 0.22), std('#8e97c4', { metalness: 0.3 })); panel.position.set(s * d.len / 4, 0.98, 0); panel.castShadow = true; h.add(panel);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2 * 0.9, 0.12, 0.24), new THREE.MeshStandardMaterial({ color: '#ffb02e', emissive: '#ff8a00', emissiveIntensity: 0.6 })); stripe.position.set(s * d.len / 4, 1.2, 0); h.add(stripe);
+      h.userData.s = s; halves.push(h);
+    }
+    g.visible = false;
+    out.doors.push({ g, halves, open: 1, len: d.len });
+  }
+  return out;
+}
+
+export class AmongView {
+  constructor(opts) {
+    this.opts = opts; this.map = opts.map; this.myId = opts.myPid;
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color('#05061a');
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+    this.scene.add(new THREE.HemisphereLight('#e2e6ff', '#2a2f55', 1.15));
+    const sun = new THREE.DirectionalLight('#fff4e0', 1.6);
+    sun.position.set(-6, 24, 10); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 60;
+    sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.03;
+    this.scene.add(sun); this.scene.add(sun.target); this.sun = sun;
+    // звёзды под станцией
+    const pts = []; for (let i = 0; i < 1600; i++) pts.push(rnd(-150, 150), rnd(-40, -12), rnd(-110, 110));
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    this.scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#cfd6ff', size: 0.35, sizeAttenuation: true })));
+    this.built = buildAmap3D(this.scene, this.map);
+    this.fx = new FX(this.scene);
+    this.ents = new Map();
+    this.focus = new THREE.Vector3(); this.camPos = new THREE.Vector3(0, 30, 10);
+    this.shake = 0; this.cams = null; this.camCams = [];
+    this.closedDoors = new Set();
+  }
+  resize(w, h) { this.w = w; this.h = h; this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.portrait = w < h; }
+  removeEnt(id) { const a = this.ents.get(id); if (a) { a.dispose(); this.ents.delete(id); } }
+  setDoors(closed) {
+    this.closedDoors = new Set(closed);
+    this.built.doors.forEach((d, i) => { d.target = this.closedDoors.has(i) ? 0 : 1; });
+  }
+  ventAnim(id) { const v = this.built.vents.get(id); if (v) { v.open = 1; } }
+  worldToScreen(x, y, z) { const v = new THREE.Vector3(x, y, z).project(this.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, behind: v.z > 1 }; }
+  update(dt) {
+    for (const a of this.ents.values()) a.update(dt, this);
+    this.fx.update(dt);
+    const t = performance.now() / 1000;
+    for (const d of this.built.doors) {
+      if (d.target == null) d.target = 1;
+      d.open += (d.target - d.open) * Math.min(1, dt * 7);
+      d.g.visible = d.open < 0.98;
+      for (const h of d.halves) h.position.x = h.userData.s * d.open * d.len / 2;
+    }
+    for (const v of this.built.vents.values()) { v.open = Math.max(0, v.open - dt * 1.5); v.lid.rotation.x = -Math.sin(Math.min(1, v.open) * Math.PI) * 1.2; }
+    if (this.built.button) this.built.button.material.emissiveIntensity = 0.6 + Math.sin(t * 4) * 0.3;
+    if (this.built.scanner) { this.built.scanner.ring.position.y = 0.14 + (this.scanning ? (Math.sin(t * 4) + 1) * 0.9 : 0); this.built.scanner.beam.visible = !!this.scanning; }
+    const me = this.ents.get(this.myId);
+    if (me) this.focus.lerp(new THREE.Vector3(me.x, 0, me.z), Math.min(1, dt * 7));
+    const zoom = this.portrait ? 1.6 : 1;
+    const target = this.focus.clone().add(new THREE.Vector3(0, 12.5 * zoom, 4.6 * zoom));
+    this.camPos.lerp(target, Math.min(1, dt * 6));
+    this.camera.position.copy(this.camPos);
+    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += rnd(-1, 1) * this.shake * 0.3; }
+    this.camera.lookAt(this.focus.x, 0.5, this.focus.z);
+    this.sun.position.set(this.focus.x - 6, 24, this.focus.z + 10); this.sun.target.position.copy(this.focus);
+    if (this.onFrame) this.onFrame(dt);
+  }
+  // режим камер наблюдения: 4 картинки
+  setCams(list) {
+    this.cams = list;
+    if (list && !this.camCams.length) for (let i = 0; i < 4; i++) this.camCams.push(new THREE.PerspectiveCamera(55, 1, 0.1, 100));
+  }
+  render(renderer) {
+    if (!this.cams) { renderer.setScissorTest(false); renderer.setViewport(0, 0, this.w, this.h); renderer.render(this.scene, this.camera); return; }
+    const w = this.w, h = this.h, pad = 8, top = 56;
+    const cw = (w - pad * 3) / 2, ch = (h - top - pad * 3) / 2;
+    renderer.setScissorTest(true);
+    renderer.setScissor(0, 0, w, h); renderer.setViewport(0, 0, w, h);
+    renderer.setClearColor('#05061a'); renderer.clear();
+    this.cams.forEach((c, i) => {
+      const cam = this.camCams[i]; cam.aspect = cw / ch; cam.updateProjectionMatrix();
+      cam.position.set(c.x, 11, c.z + 6.5); cam.lookAt(c.x, 0, c.z - 0.5);
+      const x = pad + (i % 2) * (cw + pad), y = pad + (1 - Math.floor(i / 2)) * (ch + pad);
+      renderer.setScissor(x, y, cw, ch); renderer.setViewport(x, y, cw, ch);
+      renderer.render(this.scene, cam);
+    });
+    renderer.setScissorTest(false);
+  }
+  dispose() { for (const a of this.ents.values()) a.dispose(); this.scene.traverse(o => { if (o.element) o.element.remove(); }); }
 }

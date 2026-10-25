@@ -34,6 +34,8 @@ function path(name) {
   if (name.startsWith('grave/')) return 'assets/grave/' + name.slice(6) + '.glb';
   if (name.startsWith('arena/')) return 'assets/arena/' + name.slice(6) + '.glb';
   if (name.startsWith('furn/')) return 'assets/furniture/' + name.slice(5) + '.glb';
+  if (name.startsWith('st/')) return 'assets/station/' + name.slice(3) + '.glb';
+  if (name.startsWith('sp/')) return 'assets/space/' + name.slice(3) + '.glb';
   return name;
 }
 

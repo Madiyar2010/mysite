@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#1b1640">
-<meta name="description" content="Замок Героев — семейная 3D-игра: арена героев и «Найди предателя». Играйте вместе с телефонов, планшетов и компьютеров.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Замок Героев — семейная 3D-игра: шутер и «Найди предателя». Играйте вместе с телефонов, планшетов и компьютеров.">
 <title>Замок Героев</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231b1640'/><path d='M20 80V40l10 6V30l10 6V22l10 8 10-8v14l10-6v16l10-6v40z' fill='%23ffc94d'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700;800;900&display=swap" rel="stylesheet">
@@ -25,15 +27,16 @@
   <!-- ГЛАВНАЯ -->
   <section class="screen active" id="s-home">
     <div class="topbar">
-      <div class="logo-mini">🏰 <b>Замок Героев</b></div>
+      <div class="logo-mini"><i data-ic="castle"></i> <b>Замок Героев</b></div>
       <div class="grow"></div>
-      <button class="coins" data-act="shop">🪙 <span class="coin-n">0</span></button>
-      <button class="icon-btn" data-act="settings" title="Настройки">⚙️</button>
+      <button class="icon-btn" data-act="fullscreen" title="На весь экран"><i data-ic="fullscreen"></i></button>
+      <button class="coins" data-act="shop"><i data-ic="coin"></i> <span class="coin-n">0</span></button>
+      <button class="icon-btn" data-act="settings" title="Настройки"><i data-ic="gear"></i></button>
     </div>
     <div class="panel">
       <div class="logo">
         <h1>Замок<br>Героев</h1>
-        <p>Арена героев и «Найди предателя» — играйте все вместе!</p>
+        <p>Шутер и «Найди предателя» — играйте все вместе!</p>
       </div>
       <div class="load" id="load"><div class="load-bar"><i></i></div><span>Загружаем героев… 0%</span></div>
       <div class="card">
@@ -48,24 +51,24 @@
         <label class="lbl">Класс для арены</label>
         <div class="classes" id="classes"></div>
       </div>
-      <button class="btn big gold" id="btn-create">🏰 Создать комнату</button>
+      <button class="btn big gold" id="btn-create"><i data-ic="castle"></i> Создать комнату</button>
       <div class="divider">или войти к друзьям</div>
       <div class="row">
         <input class="field code" id="in-code" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters">
         <button class="btn teal" id="btn-join">Войти</button>
       </div>
       <p class="hint">Один создаёт комнату, остальные вводят код или сканируют QR. Лучше всем быть в одной Wi‑Fi сети.</p>
-      <p class="credits">3D-модели: Kenney (CC0) · Звук выключен, вместо него вибрация</p>
+      <p class="credits">3D-модели и звуки: Kenney (CC0) · Иконки: game-icons.net (CC BY 3.0)</p>
     </div>
   </section>
 
   <!-- ЛОББИ -->
   <section class="screen" id="s-lobby">
     <div class="topbar">
-      <button class="btn ghost sm" id="btn-leave">← Выйти</button>
+      <button class="btn ghost sm" id="btn-leave"><i data-ic="exit"></i> Выйти</button>
       <div class="grow"></div>
-      <button class="coins" data-act="shop">🪙 <span class="coin-n">0</span></button>
-      <button class="icon-btn" data-act="settings">⚙️</button>
+      <button class="coins" data-act="shop"><i data-ic="coin"></i> <span class="coin-n">0</span></button>
+      <button class="icon-btn" data-act="settings"><i data-ic="gear"></i></button>
     </div>
     <div class="panel">
       <div class="card room">
@@ -73,9 +76,9 @@
           <div class="lbl">Код комнаты</div>
           <div class="code-big" id="lb-code"></div>
           <div class="row wrapr">
-            <button class="btn ghost sm" id="btn-share">🔗 Позвать</button>
-            <button class="btn ghost sm" id="btn-hero">✏️ Мой герой</button>
-            <button class="btn ghost sm" data-act="shop">🛒 Магазин</button>
+            <button class="btn ghost sm" id="btn-share"><i data-ic="share"></i> Позвать</button>
+            <button class="btn ghost sm" id="btn-hero"><i data-ic="edit"></i> Мой герой</button>
+            <button class="btn ghost sm" data-act="shop"><i data-ic="shop"></i> Магазин</button>
           </div>
         </div>
         <div class="qr" id="lb-qr"></div>
@@ -96,85 +99,103 @@
   <!-- МАГАЗИН -->
   <section class="screen" id="s-shop">
     <div class="topbar">
-      <button class="btn ghost sm" id="btn-shop-back">← Назад</button>
+      <button class="btn ghost sm" id="btn-shop-back"><i data-ic="exit"></i> Назад</button>
       <div class="grow"></div>
-      <div class="coins big">🪙 <span class="coin-n">0</span></div>
+      <div class="coins big"><i data-ic="coin"></i> <span class="coin-n">0</span></div>
     </div>
     <div class="panel">
-      <h2>🛒 Магазин</h2>
+      <h2><i data-ic="shop"></i> Магазин</h2>
       <p class="muted">Монеты дают за каждую игру. Покупки сохраняются на этом устройстве.</p>
-      <div class="tabs" id="shop-tabs"><button data-tab="hats" class="on">🎩 Шапки</button><button data-tab="auras">✨ Ауры</button></div>
+      <div class="tabs" id="shop-tabs"><button data-tab="hats" class="on"><i data-ic="hat"></i> Шапки</button><button data-tab="auras"><i data-ic="aura"></i> Ауры</button></div>
       <div class="shop-grid" id="shop-grid"></div>
     </div>
   </section>
 
-  <!-- ИГРА -->
+  <!-- АРЕНА (шутер переделывается на этапе 2) -->
   <section class="screen" id="s-game">
     <div id="hud-top">
       <div class="pill" id="hud-timer">3:00</div>
       <div id="hud-score"></div>
       <div class="grow"></div>
-      <button class="icon-btn" id="btn-board" title="Счёт">🏅</button>
-      <button class="icon-btn" id="btn-pause" title="Меню">⏸</button>
+      <button class="icon-btn" id="btn-board" title="Счёт"><i data-ic="medal"></i></button>
+      <button class="icon-btn" data-act="pause" title="Меню"><i data-ic="pause"></i></button>
     </div>
-    <div id="t-top">
-      <div id="t-prog"><i></i><span>Задания команды: 0%</span></div>
-      <div class="row"><div class="role good" id="t-role">🛡️ Команда</div><div class="pill" id="t-room">Тронный зал</div></div>
-    </div>
-    <div id="t-tasks"><button id="t-tasks-toggle">📋 Задания</button><ul></ul></div>
     <div id="killfeed"></div>
     <div id="banner"></div>
-    <div id="bossbar"><b>💀 Хранитель склепа</b><div><i></i></div></div>
+    <div id="bossbar"><b>Хранитель склепа</b><div><i></i></div></div>
     <div id="center-big"></div>
     <div id="me-panel">
       <img id="me-thumb" alt="">
-      <div class="grow">
-        <div class="row"><span id="me-cls">🛡️</span><div id="me-hp"><i></i><span>100 / 100</span></div></div>
-      </div>
-      <div id="me-sup" class="ready">⚡</div>
+      <div class="grow"><div class="row"><span id="me-cls"></span><div id="me-hp"><i></i><span>100 / 100</span></div></div></div>
+      <div id="me-sup" class="ready"></div>
     </div>
     <div id="actions">
       <div class="arena-btns">
-        <button class="act small" id="b-emo"><span>👋</span></button>
-        <button class="act sup" id="b-sup"><span>⚡</span><small>Супер</small></button>
-        <button class="act atk" id="b-atk"><span>⚔️</span></button>
-      </div>
-      <div class="traitor-btns">
-        <button class="act small" id="b-emo2"><span>👋</span></button>
-        <button class="act" id="b-sab"><span>💡</span><small>Свет</small></button>
-        <button class="act" id="b-em"><span>🚨</span><small>Тревога</small></button>
-        <button class="act" id="b-rep"><span>📢</span><small>Сообщить</small></button>
-        <button class="act red" id="b-kill"><span>🔪</span><small>Выбить</small></button>
-        <button class="act use" id="b-use"><span>✋</span><small>Задание</small></button>
+        <button class="act small" id="b-emo"><span><i data-ic="emote"></i></span></button>
+        <button class="act sup" id="b-sup"><span></span><small>Супер</small></button>
+        <button class="act atk" id="b-atk"><span></span></button>
       </div>
     </div>
     <div id="keys-hint"></div>
-    <div id="joy"><i></i></div>
-    <div id="t-intro"></div>
-    <div id="board" class="modal"><div class="modal-card"><div class="row"><h3 class="grow">🏅 Счёт</h3><button class="icon-btn" data-close>✕</button></div><div id="board-body"></div></div></div>
-    <div id="meeting">
+    <div id="board" class="modal"><div class="modal-card"><div class="row"><h3 class="grow">Счёт</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div><div id="board-body"></div></div></div>
+  </section>
+
+  <!-- НАЙДИ ПРЕДАТЕЛЯ -->
+  <section class="screen" id="s-among">
+    <canvas id="am-vision"></canvas>
+    <div id="am-arrows"></div>
+    <div id="am-topl">
+      <div id="am-taskbar"><i></i><span>Задания экипажа</span></div>
+      <div id="am-tasks"><button id="am-tasks-tg">Задания</button><ul></ul></div>
+    </div>
+    <div id="am-topr">
+      <button class="icon-btn" id="am-vitals" title="Показатели жизни"><i data-ic="vitals"></i></button>
+      <button class="icon-btn" id="am-map" title="Карта (M)"><i data-ic="map"></i></button>
+      <button class="icon-btn" data-act="pause" title="Меню"><i data-ic="pause"></i></button>
+    </div>
+    <div class="pill" id="am-room">Кафетерий</div>
+    <div id="am-sab"></div>
+    <div id="am-banner"></div>
+    <div id="am-actions">
+      <button class="act small" id="am-emo"><span><i data-ic="emote"></i></span><small>Эмоция</small></button>
+      <button class="act" id="am-protect"><span><i data-ic="angel"></i></span><small>Защита</small></button>
+      <button class="act" id="am-shift"><span><i data-ic="shapeshifter"></i></span><small>Облик</small></button>
+      <button class="act red" id="am-sabbtn"><span><i data-ic="sabotage"></i></span><small>Саботаж</small></button>
+      <button class="act" id="am-ventbtn"><span><i data-ic="vent"></i></span><small>Люк</small></button>
+      <button class="act red" id="am-kill"><span><i data-ic="kill"></i></span><small>Выбить</small></button>
+      <button class="act" id="am-report"><span><i data-ic="report"></i></span><small>Сообщить</small></button>
+      <button class="act use" id="am-use"><span><i data-ic="use"></i></span><small>Действие</small></button>
+    </div>
+    <div id="am-vent"></div>
+    <div id="am-ov"><div class="ov-head"><div id="am-ov-title" class="grow"></div><button class="icon-btn" id="am-ov-close"><i data-ic="close"></i></button></div><div id="am-ov-body"></div></div>
+    <div id="am-pick"></div>
+    <div id="am-intro"></div>
+    <div id="am-killscr"></div>
+    <div id="am-splash"></div>
+    <div id="am-meeting">
       <div class="meet-card">
-        <div class="meet-head"><div id="meet-title" class="grow"></div><div class="pill" id="meet-time">80с</div></div>
+        <div class="meet-head"><div id="amm-title" class="grow"></div><div class="pill" id="amm-time"></div></div>
         <div class="meet-body">
           <div class="meet-left">
-            <div class="meet-players" id="meet-players"></div>
-            <div id="meet-info" class="meet-info"></div>
-            <button class="btn ghost" id="meet-skip">⏭️ Пропустить</button>
+            <div class="meet-players" id="amm-players"></div>
+            <div id="amm-info" class="meet-info"></div>
+            <button class="btn ghost" id="amm-skip">Пропустить</button>
           </div>
           <div class="meet-chat">
-            <div id="chat-log"></div>
-            <div id="chat-quick"></div>
-            <form id="chat-form" class="row"><input id="chat-in" class="field" maxlength="120" placeholder="Написать…" autocomplete="off"><button class="btn teal sm">➤</button></form>
+            <div id="amm-chat-log"></div>
+            <div id="amm-quick"></div>
+            <form id="amm-form" class="row"><input id="amm-in" class="field" maxlength="140" placeholder="Написать…" autocomplete="off"><button class="btn teal sm"><i data-ic="chat"></i></button></form>
           </div>
         </div>
       </div>
     </div>
+    <div id="am-eject"></div>
   </section>
 
   <!-- ИТОГИ -->
   <section class="screen" id="s-results">
     <div class="panel center-panel">
-      <div class="trophy">🏆</div>
+      <div class="trophy" id="res-icon"></div>
       <h1 id="res-title">Итоги</h1>
       <div id="res-coins"></div>
       <div class="card" id="res-list"></div>
@@ -183,27 +204,33 @@
   </section>
 </div>
 
+<div id="joy"><i></i></div>
+
 <!-- окна -->
 <div id="m-settings" class="modal"><div class="modal-card">
-  <div class="row"><h3 class="grow">⚙️ Настройки</h3><button class="icon-btn" data-close>✕</button></div>
-  <div class="set-row"><span>Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
-  <div class="set-row"><span>Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="row"><h3 class="grow"><i data-ic="gear"></i> Настройки</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <div class="set-row"><span><i data-ic="sound"></i> Эффекты</span><input type="range" id="set-sfx" min="0" max="100"></div>
+  <div class="set-row"><span><i data-ic="music"></i> Музыка</span><input type="range" id="set-music" min="0" max="100"></div>
+  <div class="set-row"><span>Тихий режим (вечер)</span><div class="seg" id="set-quiet"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="vibrate"></i> Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="sparkles"></i> Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
   <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро».</p>
 </div></div>
 <div id="m-hero" class="modal"><div class="modal-card wide">
-  <div class="row"><h3 class="grow">✏️ Мой герой</h3><button class="icon-btn" data-close>✕</button></div>
+  <div class="row"><h3 class="grow"><i data-ic="edit"></i> Мой герой</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
   <div class="heroes" id="heroes2"></div>
   <label class="lbl" style="margin-top:12px">Класс для арены</label>
   <div class="classes" id="classes2"></div>
   <button class="btn gold big" data-close style="margin-top:12px">Готово</button>
 </div></div>
 <div id="m-pause" class="modal"><div class="modal-card">
-  <h3>⏸ Меню</h3>
-  <button class="btn ghost big" data-close>▶ Продолжить</button>
-  <button class="btn ghost big" data-act="settings">⚙️ Настройки</button>
-  <button class="btn red big" id="btn-quit">🚪 Выйти из комнаты</button>
+  <h3><i data-ic="pause"></i> Меню</h3>
+  <button class="btn ghost big" data-close><i data-ic="play"></i> Продолжить</button>
+  <button class="btn ghost big" data-act="settings"><i data-ic="gear"></i> Настройки</button>
+  <button class="btn red big" id="btn-quit"><i data-ic="exit"></i> Выйти из комнаты</button>
 </div></div>
-<div id="loading"><div class="spin">🏰</div><div id="loading-text">Подключаемся…</div><button class="btn ghost sm" id="btn-cancel">Отмена</button></div>
+<div id="rotate"><div><i data-ic="rotate"></i><b>Поверни устройство</b><span>Играть удобнее горизонтально</span><button class="btn gold" data-act="fullscreen"><i data-ic="fullscreen"></i> На весь экран</button></div></div>
+<div id="loading"><div class="spin"><i data-ic="castle"></i></div><div id="loading-text">Подключаемся…</div><button class="btn ghost sm" id="btn-cancel">Отмена</button></div>
 <div id="toast"></div>
 
 <script type="module" src="js/main.js"></script>
