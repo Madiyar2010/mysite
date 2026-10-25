@@ -451,5 +451,4 @@ function showResults(res) {
 }
 
 window.addEventListener('beforeunload', e => { if (Net.isHost && H.players.size > 1) { e.preventDefault(); e.returnValue = ''; } });
-window.__game = { H, S };
 initHome();
