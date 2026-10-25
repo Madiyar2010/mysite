@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1b1640">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Замок Героев — семейная 3D-игра: шутер и «Найди предателя». Играйте вместе с телефонов, планшетов и компьютеров.">
+<title>Замок Героев</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231b1640'/><path d='M20 80V40l10 6V30l10 6V22l10 8 10-8v14l10-6v16l10-6v40z' fill='%23ffc94d'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="vision"></div>
+<div id="hurt"></div>
+
+<div id="ui">
+  <!-- ГЛАВНАЯ -->
+  <section class="screen active" id="s-home">
+    <div class="topbar">
+      <div class="logo-mini"><i data-ic="castle"></i> <b>Замок Героев</b></div>
+      <div class="grow"></div>
+      <button class="icon-btn" data-act="fullscreen" title="На весь экран"><i data-ic="fullscreen"></i></button>
+      <button class="coins" data-act="shop"><i data-ic="coin"></i> <span class="coin-n">0</span></button>
+      <button class="icon-btn" data-act="settings" title="Настройки"><i data-ic="gear"></i></button>
+    </div>
+    <div class="panel">
+      <div class="logo">
+        <h1>Замок<br>Героев</h1>
+        <p>Шутер и «Найди предателя» — играйте все вместе!</p>
+      </div>
+      <div class="load" id="load"><div class="load-bar"><i></i></div><span>Загружаем героев… 0%</span></div>
+      <div class="card">
+        <label class="lbl" for="in-name">Как тебя зовут?</label>
+        <input class="field" id="in-name" maxlength="14" placeholder="Имя" autocomplete="off">
+      </div>
+      <div class="card">
+        <div class="row"><label class="lbl grow">Выбери героя</label><span class="hero-name" id="hero-name"></span></div>
+        <div class="heroes" id="heroes"></div>
+      </div>
+      <button class="btn big gold" id="btn-create"><i data-ic="castle"></i> Создать комнату</button>
+      <div class="divider">или войти к друзьям</div>
+      <div class="row">
+        <input class="field code" id="in-code" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters">
+        <button class="btn teal" id="btn-join">Войти</button>
+      </div>
+      <p class="hint">Один создаёт комнату, остальные вводят код или сканируют QR. Лучше всем быть в одной Wi‑Fi сети.</p>
+      <p class="credits">3D-модели и звуки: Kenney (CC0) · Иконки: game-icons.net (CC BY 3.0)</p>
+    </div>
+  </section>
+
+  <!-- ЛОББИ -->
+  <section class="screen" id="s-lobby">
+    <div class="topbar">
+      <button class="btn ghost sm" id="btn-leave"><i data-ic="exit"></i> Выйти</button>
+      <div class="grow"></div>
+      <button class="coins" data-act="shop"><i data-ic="coin"></i> <span class="coin-n">0</span></button>
+      <button class="icon-btn" data-act="settings"><i data-ic="gear"></i></button>
+    </div>
+    <div class="panel">
+      <div class="card room">
+        <div class="grow">
+          <div class="lbl">Код комнаты</div>
+          <div class="code-big" id="lb-code"></div>
+          <div class="row wrapr">
+            <button class="btn ghost sm" id="btn-share"><i data-ic="share"></i> Позвать</button>
+            <button class="btn ghost sm" id="btn-hero"><i data-ic="edit"></i> Мой герой</button>
+            <button class="btn ghost sm" data-act="shop"><i data-ic="shop"></i> Магазин</button>
+          </div>
+        </div>
+        <div class="qr" id="lb-qr"></div>
+      </div>
+      <div class="card">
+        <div class="row"><h3 class="grow">Игроки</h3><span class="muted" id="lb-count"></span></div>
+        <div class="players" id="lb-players"></div>
+      </div>
+      <div class="card">
+        <h3 id="lb-mode-title">Режим</h3>
+        <div class="modes" id="lb-modes"></div>
+        <div class="opts" id="lb-opts"></div>
+      </div>
+      <div class="sticky" id="lb-action"></div>
+    </div>
+  </section>
+
+  <!-- МАГАЗИН -->
+  <section class="screen" id="s-shop">
+    <div class="topbar">
+      <button class="btn ghost sm" id="btn-shop-back"><i data-ic="exit"></i> Назад</button>
+      <div class="grow"></div>
+      <div class="coins big"><i data-ic="coin"></i> <span class="coin-n">0</span></div>
+    </div>
+    <div class="panel">
+      <h2><i data-ic="shop"></i> Магазин</h2>
+      <p class="muted">Монеты дают за каждую игру. Покупки сохраняются на этом устройстве.</p>
+      <div class="tabs" id="shop-tabs"><button data-tab="hats" class="on"><i data-ic="hat"></i> Шапки</button><button data-tab="auras"><i data-ic="aura"></i> Ауры</button></div>
+      <div class="shop-grid" id="shop-grid"></div>
+    </div>
+  </section>
+
+  <!-- ШУТЕР -->
+  <section class="screen" id="s-shoot">
+    <div id="sh-cross"><i></i><i></i><i></i><i></i></div>
+    <div id="sh-hit"><i></i><i></i><i></i><i></i></div>
+    <div id="sh-scope"><div class="lens"></div></div>
+    <div id="sh-top">
+      <div class="pill" id="sh-time"></div>
+      <div id="sh-score"></div>
+      <div class="grow"></div>
+      <button class="icon-btn" data-act="pause" title="Меню"><i data-ic="pause"></i></button>
+    </div>
+    <div id="sh-feed"></div>
+    <div id="sh-banner"></div>
+    <div id="sh-boss"><b>Хранитель склепа</b><div><i></i></div></div>
+    <div id="sh-rel"><span>Перезарядка</span><div><i></i></div></div>
+    <div id="sh-bl">
+      <div class="bar" id="sh-hp"><i data-ic="heart"></i><div><i></i></div><span>100</span></div>
+      <div class="bar armor" id="sh-ar"><i data-ic="shield"></i><div><i></i></div><span>0</span></div>
+    </div>
+    <div id="sh-br">
+      <div id="sh-slots"></div>
+      <div id="sh-wname"></div>
+      <div id="sh-ammo"></div>
+      <div id="sh-money">$0</div>
+    </div>
+    <div id="sh-touch">
+      <button class="act small" id="sh-cam"><span><i data-ic="eye"></i></span><small>1-е лицо</small></button>
+      <button class="act small" id="sh-buyb"><span><i data-ic="shop"></i></span><small>Закупка</small></button>
+      <button class="act small" id="sh-med"><span><i data-ic="heart"></i></span><small>Аптечка</small></button>
+      <button class="act small" id="sh-fire2"><span><i data-ic="target"></i></span></button>
+      <button class="act" id="sh-switch"><span></span><small>Оружие</small></button>
+      <button class="act" id="sh-nade"><span><i data-ic="bomb"></i></span><small>×0</small></button>
+      <button class="act" id="sh-reload"><span><i data-ic="rotate"></i></span><small>Перезар.</small></button>
+      <button class="act" id="sh-aim"><span><i data-ic="target"></i></span><small>Прицел</small></button>
+      <button class="act" id="sh-jump"><span><i data-ic="speed"></i></span><small>Прыжок</small></button>
+      <button class="act atk" id="sh-fire"><span><i data-ic="gun"></i></span></button>
+    </div>
+    <div id="sh-keys">WASD — ходить · Мышь — смотреть · ЛКМ — огонь · ПКМ/F — прицел · R — перезарядка · 1-4/колесо — оружие · G — граната · B — закупка · V — вид · H — аптечка · Tab — счёт</div>
+    <div id="sh-dead"></div>
+    <div id="sh-lock"><div><b>Нажми, чтобы играть</b><span>Мышь управляет взглядом. Esc — освободить мышь</span><button class="btn ghost sm" data-act="pause"><i data-ic="pause"></i> Меню</button></div></div>
+    <div id="sh-buy"><div class="buy-card">
+      <div class="row"><h3 class="grow"><i data-ic="shop"></i> Закупка</h3><div class="coins big" id="sh-buy-money">$0</div><button class="icon-btn" id="sh-buy-x"><i data-ic="close"></i></button></div>
+      <div id="sh-buy-list"></div>
+      <p class="muted small">Деньги дают за выбивания и раунды. Обычное, бластеры и игрушечное оружие — выбирай стиль!</p>
+    </div></div>
+    <div id="sh-board" class="modal"><div class="modal-card"><h3>Счёт</h3><div id="sh-board-body"></div></div></div>
+    <div id="hurtlow"></div><div id="slowfx"></div>
+  </section>
+
+  <!-- НАЙДИ ПРЕДАТЕЛЯ -->
+  <section class="screen" id="s-among">
+    <canvas id="am-vision"></canvas>
+    <div id="am-arrows"></div>
+    <div id="am-topl">
+      <div id="am-taskbar"><i></i><span>Задания экипажа</span></div>
+      <div id="am-tasks"><button id="am-tasks-tg">Задания</button><ul></ul></div>
+    </div>
+    <div id="am-topr">
+      <button class="icon-btn" id="am-vitals" title="Показатели жизни"><i data-ic="vitals"></i></button>
+      <button class="icon-btn" id="am-map" title="Карта (M)"><i data-ic="map"></i></button>
+      <button class="icon-btn" data-act="pause" title="Меню"><i data-ic="pause"></i></button>
+    </div>
+    <div class="pill" id="am-room">Кафетерий</div>
+    <div id="am-sab"></div>
+    <div id="am-banner"></div>
+    <div id="am-actions">
+      <button class="act small" id="am-emo"><span><i data-ic="emote"></i></span><small>Эмоция</small></button>
+      <button class="act" id="am-protect"><span><i data-ic="angel"></i></span><small>Защита</small></button>
+      <button class="act" id="am-shift"><span><i data-ic="shapeshifter"></i></span><small>Облик</small></button>
+      <button class="act red" id="am-sabbtn"><span><i data-ic="sabotage"></i></span><small>Саботаж</small></button>
+      <button class="act" id="am-ventbtn"><span><i data-ic="vent"></i></span><small>Люк</small></button>
+      <button class="act red" id="am-kill"><span><i data-ic="kill"></i></span><small>Выбить</small></button>
+      <button class="act" id="am-report"><span><i data-ic="report"></i></span><small>Сообщить</small></button>
+      <button class="act use" id="am-use"><span><i data-ic="use"></i></span><small>Действие</small></button>
+    </div>
+    <div id="am-vent"></div>
+    <div id="am-ov"><div class="ov-head"><div id="am-ov-title" class="grow"></div><button class="icon-btn" id="am-ov-close"><i data-ic="close"></i></button></div><div id="am-ov-body"></div></div>
+    <div id="am-pick"></div>
+    <div id="am-intro"></div>
+    <div id="am-killscr"></div>
+    <div id="am-splash"></div>
+    <div id="am-meeting">
+      <div class="meet-card">
+        <div class="meet-head"><div id="amm-title" class="grow"></div><div class="pill" id="amm-time"></div></div>
+        <div class="meet-body">
+          <div class="meet-left">
+            <div class="meet-players" id="amm-players"></div>
+            <div id="amm-info" class="meet-info"></div>
+            <button class="btn ghost" id="amm-skip">Пропустить</button>
+          </div>
+          <div class="meet-chat">
+            <div id="amm-chat-log"></div>
+            <div id="amm-quick"></div>
+            <form id="amm-form" class="row"><input id="amm-in" class="field" maxlength="140" placeholder="Написать…" autocomplete="off"><button class="btn teal sm"><i data-ic="chat"></i></button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="am-eject"></div>
+  </section>
+
+  <!-- ИТОГИ -->
+  <section class="screen" id="s-results">
+    <div class="panel center-panel">
+      <div class="trophy" id="res-icon"></div>
+      <h1 id="res-title">Итоги</h1>
+      <div id="res-coins"></div>
+      <div class="card" id="res-list"></div>
+      <div id="res-action"></div>
+    </div>
+  </section>
+</div>
+
+<div id="joy"><i></i></div>
+
+<!-- окна -->
+<div id="m-settings" class="modal"><div class="modal-card">
+  <div class="row"><h3 class="grow"><i data-ic="gear"></i> Настройки</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <div class="set-row"><span><i data-ic="sound"></i> Эффекты</span><input type="range" id="set-sfx" min="0" max="100"></div>
+  <div class="set-row"><span><i data-ic="music"></i> Музыка</span><input type="range" id="set-music" min="0" max="100"></div>
+  <div class="set-row"><span>Тихий режим (вечер)</span><div class="seg" id="set-quiet"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="vibrate"></i> Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="sparkles"></i> Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
+  <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро».</p>
+</div></div>
+<div id="m-hero" class="modal"><div class="modal-card wide">
+  <div class="row"><h3 class="grow"><i data-ic="edit"></i> Мой герой</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <div class="heroes" id="heroes2"></div>
+  <button class="btn gold big" data-close style="margin-top:12px">Готово</button>
+</div></div>
+<div id="m-pause" class="modal"><div class="modal-card">
+  <h3><i data-ic="pause"></i> Меню</h3>
+  <button class="btn ghost big" data-close><i data-ic="play"></i> Продолжить</button>
+  <button class="btn ghost big" data-act="settings"><i data-ic="gear"></i> Настройки</button>
+  <button class="btn red big" id="btn-quit"><i data-ic="exit"></i> Выйти из комнаты</button>
+</div></div>
+<div id="rotate"><div><i data-ic="rotate"></i><b>Поверни устройство</b><span>Играть удобнее горизонтально</span><button class="btn gold" data-act="fullscreen"><i data-ic="fullscreen"></i> На весь экран</button></div></div>
+<div id="loading"><div class="spin"><i data-ic="castle"></i></div><div id="loading-text">Подключаемся…</div><button class="btn ghost sm" id="btn-cancel">Отмена</button></div>
+<div id="toast"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
