@@ -47,10 +47,6 @@
         <div class="row"><label class="lbl grow">Выбери героя</label><span class="hero-name" id="hero-name"></span></div>
         <div class="heroes" id="heroes"></div>
       </div>
-      <div class="card">
-        <label class="lbl">Класс для арены</label>
-        <div class="classes" id="classes"></div>
-      </div>
       <button class="btn big gold" id="btn-create"><i data-ic="castle"></i> Создать комнату</button>
       <div class="divider">или войти к друзьям</div>
       <div class="row">
@@ -111,33 +107,53 @@
     </div>
   </section>
 
-  <!-- АРЕНА (шутер переделывается на этапе 2) -->
-  <section class="screen" id="s-game">
-    <div id="hud-top">
-      <div class="pill" id="hud-timer">3:00</div>
-      <div id="hud-score"></div>
+  <!-- ШУТЕР -->
+  <section class="screen" id="s-shoot">
+    <div id="sh-cross"><i></i><i></i><i></i><i></i></div>
+    <div id="sh-hit"><i></i><i></i><i></i><i></i></div>
+    <div id="sh-scope"><div class="lens"></div></div>
+    <div id="sh-top">
+      <div class="pill" id="sh-time"></div>
+      <div id="sh-score"></div>
       <div class="grow"></div>
-      <button class="icon-btn" id="btn-board" title="Счёт"><i data-ic="medal"></i></button>
       <button class="icon-btn" data-act="pause" title="Меню"><i data-ic="pause"></i></button>
     </div>
-    <div id="killfeed"></div>
-    <div id="banner"></div>
-    <div id="bossbar"><b>Хранитель склепа</b><div><i></i></div></div>
-    <div id="center-big"></div>
-    <div id="me-panel">
-      <img id="me-thumb" alt="">
-      <div class="grow"><div class="row"><span id="me-cls"></span><div id="me-hp"><i></i><span>100 / 100</span></div></div></div>
-      <div id="me-sup" class="ready"></div>
+    <div id="sh-feed"></div>
+    <div id="sh-banner"></div>
+    <div id="sh-boss"><b>Хранитель склепа</b><div><i></i></div></div>
+    <div id="sh-rel"><span>Перезарядка</span><div><i></i></div></div>
+    <div id="sh-bl">
+      <div class="bar" id="sh-hp"><i data-ic="heart"></i><div><i></i></div><span>100</span></div>
+      <div class="bar armor" id="sh-ar"><i data-ic="shield"></i><div><i></i></div><span>0</span></div>
     </div>
-    <div id="actions">
-      <div class="arena-btns">
-        <button class="act small" id="b-emo"><span><i data-ic="emote"></i></span></button>
-        <button class="act sup" id="b-sup"><span></span><small>Супер</small></button>
-        <button class="act atk" id="b-atk"><span></span></button>
-      </div>
+    <div id="sh-br">
+      <div id="sh-slots"></div>
+      <div id="sh-wname"></div>
+      <div id="sh-ammo"></div>
+      <div id="sh-money">$0</div>
     </div>
-    <div id="keys-hint"></div>
-    <div id="board" class="modal"><div class="modal-card"><div class="row"><h3 class="grow">Счёт</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div><div id="board-body"></div></div></div>
+    <div id="sh-touch">
+      <button class="act small" id="sh-cam"><span><i data-ic="eye"></i></span><small>1-е лицо</small></button>
+      <button class="act small" id="sh-buyb"><span><i data-ic="shop"></i></span><small>Закупка</small></button>
+      <button class="act small" id="sh-med"><span><i data-ic="heart"></i></span><small>Аптечка</small></button>
+      <button class="act small" id="sh-fire2"><span><i data-ic="target"></i></span></button>
+      <button class="act" id="sh-switch"><span></span><small>Оружие</small></button>
+      <button class="act" id="sh-nade"><span><i data-ic="bomb"></i></span><small>×0</small></button>
+      <button class="act" id="sh-reload"><span><i data-ic="rotate"></i></span><small>Перезар.</small></button>
+      <button class="act" id="sh-aim"><span><i data-ic="target"></i></span><small>Прицел</small></button>
+      <button class="act" id="sh-jump"><span><i data-ic="speed"></i></span><small>Прыжок</small></button>
+      <button class="act atk" id="sh-fire"><span><i data-ic="gun"></i></span></button>
+    </div>
+    <div id="sh-keys">WASD — ходить · Мышь — смотреть · ЛКМ — огонь · ПКМ/F — прицел · R — перезарядка · 1-4/колесо — оружие · G — граната · B — закупка · V — вид · H — аптечка · Tab — счёт</div>
+    <div id="sh-dead"></div>
+    <div id="sh-lock"><div><b>Нажми, чтобы играть</b><span>Мышь управляет взглядом. Esc — освободить мышь</span><button class="btn ghost sm" data-act="pause"><i data-ic="pause"></i> Меню</button></div></div>
+    <div id="sh-buy"><div class="buy-card">
+      <div class="row"><h3 class="grow"><i data-ic="shop"></i> Закупка</h3><div class="coins big" id="sh-buy-money">$0</div><button class="icon-btn" id="sh-buy-x"><i data-ic="close"></i></button></div>
+      <div id="sh-buy-list"></div>
+      <p class="muted small">Деньги дают за выбивания и раунды. Обычное, бластеры и игрушечное оружие — выбирай стиль!</p>
+    </div></div>
+    <div id="sh-board" class="modal"><div class="modal-card"><h3>Счёт</h3><div id="sh-board-body"></div></div></div>
+    <div id="hurtlow"></div><div id="slowfx"></div>
   </section>
 
   <!-- НАЙДИ ПРЕДАТЕЛЯ -->
@@ -219,8 +235,6 @@
 <div id="m-hero" class="modal"><div class="modal-card wide">
   <div class="row"><h3 class="grow"><i data-ic="edit"></i> Мой герой</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
   <div class="heroes" id="heroes2"></div>
-  <label class="lbl" style="margin-top:12px">Класс для арены</label>
-  <div class="classes" id="classes2"></div>
   <button class="btn gold big" data-close style="margin-top:12px">Готово</button>
 </div></div>
 <div id="m-pause" class="modal"><div class="modal-card">

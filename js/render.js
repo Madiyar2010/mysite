@@ -136,8 +136,9 @@ function buildShield(color) {
 }
 
 // ---------- персонаж ----------
-const ANIMS = ['idle', 'walk', 'sprint', 'attack-melee-right', 'holding-right-shoot', 'die', 'interact-right', 'emote-yes', 'emote-no', 'holding-both-shoot', 'attack-kick-right', 'pick-up'];
-export const ANIM = { idle: 0, walk: 1, run: 2, melee: 3, shoot: 4, die: 5, interact: 6, yes: 7, no: 8, cast: 9, kick: 10, pickup: 11 };
+export const GUN_ROT = [Math.PI / 2, 0, 0];
+const ANIMS = ['idle', 'walk', 'sprint', 'attack-melee-right', 'holding-right-shoot', 'die', 'interact-right', 'emote-yes', 'emote-no', 'holding-both-shoot', 'attack-kick-right', 'pick-up', 'holding-both', 'holding-right'];
+export const ANIM = { idle: 0, walk: 1, run: 2, melee: 3, shoot: 4, die: 5, interact: 6, yes: 7, no: 8, cast: 9, kick: 10, pickup: 11, hold2: 12, hold1: 13 };
 let rainbowHue = 0;
 
 export class Avatar {
@@ -149,7 +150,7 @@ export class Avatar {
     this.root = ch.root;
     this.root.userData.avatar = this;
     this.x = opts.x || 0; this.z = opts.z || 0; this.rot = opts.rot || 0;
-    this.tx = this.x; this.tz = this.z; this.trot = this.rot;
+    this.tx = this.x; this.tz = this.z; this.trot = this.rot; this.y = 0; this.ty = 0;
     this.root.position.set(this.x, 0, this.z);
     this.anim = -1; this.action = null;
     this.alpha = 1;
@@ -171,6 +172,7 @@ export class Avatar {
       else w.rotation.set(0.95, 0, 0);
       arm.add(w); this.weapon = w;
     }
+    if (opts.gun && arm) this.setGun(opts.gun, opts.gunW);
     if (opts.cls === 'knight' && armL) {
       const sh = buildShield(opts.ring || '#4d6cfa');
       const hand = this.handOffset(armL); sh.position.copy(hand); sh.position.z += 0.12 / s; sh.position.y *= 0.65; sh.scale.setScalar(1 / s);
@@ -208,6 +210,17 @@ export class Avatar {
     this.play(ANIM.idle);
   }
   auraColor() { const a = AURAS.find(x => x.id === this.opts.aura); return a && a.color; }
+  setGun(id, W) {
+    const arm = this.ch.parts['arm-right']; if (!arm || this.gunId === id) return;
+    if (this.weapon) { this.weapon.removeFromParent(); }
+    this.gunId = id;
+    const g = makeGun(id, W), hand = this.handOffset(arm), s = this.ch.scale * (this.opts.scale || 1) / (this.opts.scale || 1);
+    const wrap = new THREE.Group(); wrap.add(g);
+    wrap.position.copy(hand); wrap.scale.setScalar(1 / this.ch.scale);
+    wrap.rotation.set(GUN_ROT[0], GUN_ROT[1], GUN_ROT[2]);
+    arm.add(wrap); this.weapon = wrap;
+    if (this.mats) wrap.traverse(o => { if (o.isMesh) this.mats.push(o.material); });
+  }
   handOffset(arm) {
     const b = localBox(arm);
     return new THREE.Vector3((b.min.x + b.max.x) / 2, b.min.y + (b.max.y - b.min.y) * 0.1, (b.min.z + b.max.z) / 2);
@@ -228,8 +241,8 @@ export class Avatar {
     act.play();
     this.action = act;
   }
-  setTarget(x, z, rot) { this.tx = x; this.tz = z; this.trot = rot; }
-  snap() { this.x = this.tx; this.z = this.tz; this.rot = this.trot; this.root.position.set(this.x, 0, this.z); this.root.rotation.y = this.rot; }
+  setTarget(x, z, rot, y = 0) { this.tx = x; this.tz = z; this.trot = rot; this.ty = y; }
+  snap() { this.x = this.tx; this.z = this.tz; this.y = this.ty; this.rot = this.trot; this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.rot; }
   setHP(hp, max) { if (this.hpEl) { const p = clamp(hp / max, 0, 1); this.hpEl.style.width = (p * 100) + '%'; this.hpEl.style.background = p > 0.5 ? '#5ee07a' : p > 0.25 ? '#ffd166' : '#ff5d6c'; } }
   setAlpha(a) {
     if (Math.abs(a - this.alpha) < 0.01) return;
@@ -241,10 +254,10 @@ export class Avatar {
   setVisible(v) { this.root.visible = v; if (this.plateEl) this.plateEl.style.display = v ? '' : 'none'; }
   update(dt, view) {
     const k = Math.min(1, dt * 14);
-    this.x += (this.tx - this.x) * k; this.z += (this.tz - this.z) * k;
+    this.x += (this.tx - this.x) * k; this.z += (this.tz - this.z) * k; this.y += (this.ty - this.y) * k;
     let d = this.trot - this.rot; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     this.rot += d * Math.min(1, dt * 16);
-    this.root.position.set(this.x, 0, this.z); this.root.rotation.y = this.rot;
+    this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.rot;
     this.ch.mixer.update(dt);
     if (this.hat && this.hat.userData.spin) this.hat.userData.spin.rotation.y += dt * (this.opts.hat === 'propeller' ? 18 : 1.5);
     if (this.hat && this.hat.userData.bob) this.hat.userData.bob.position.y = 0.55 + Math.sin(performance.now() / 300) * 0.05;
@@ -585,7 +598,7 @@ export class ShowroomView {
   }
   // list: [{model, cls, hat, aura, name, me}]
   setHeroes(list) {
-    const key = JSON.stringify(list) + list.filter(o => A.has(o.model)).length;
+    const key = JSON.stringify(list) + list.filter(o => A.has(o.model)).length + '/' + list.filter(o => !o.gunW || A.has(o.gunW.model)).length;
     if (key === this.key) return;
     this.key = key;
     for (const h of this.heroes) h.dispose();
@@ -789,3 +802,51 @@ export class AmongView {
   }
   dispose() { for (const a of this.ents.values()) a.dispose(); this.scene.traverse(o => { if (o.element) o.element.remove(); }); }
 }
+
+// ======================= ОРУЖИЕ ШУТЕРА =======================
+// перекраска текстуры: real — металл, toy — яркий пластик, blaster — как есть
+const gunTex = new Map();
+function styledMap(map, style) {
+  const key = map.uuid + style;
+  if (gunTex.has(key)) return gunTex.get(key);
+  const img = map.image; if (!img || !img.width) return map;
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), a = d.data;
+  for (let i = 0; i < a.length; i += 4) {
+    let r = a[i], gg = a[i + 1], b = a[i + 2];
+    const l = (r * 0.3 + gg * 0.59 + b * 0.11);
+    if (style === 'real') { const v = l * 0.55 + 18; const warm = (r > gg + 30 && r > b + 30) ? 1 : 0; r = v + warm * 40; gg = v + warm * 18; b = v; }
+    else if (style === 'toy') { const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); if (mx - mn > 40) { const t = r; r = Math.min(255, b * 1.1 + 40); b = Math.min(255, gg * 0.6 + 30); gg = Math.min(255, t * 0.9 + 50); } else { r = Math.min(255, l + 60); gg = Math.min(255, l + 40); b = Math.min(255, l + 70); } }
+    a[i] = r; a[i + 1] = gg; a[i + 2] = b;
+  }
+  g.putImageData(d, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.flipY = map.flipY;
+  gunTex.set(key, t);
+  return t;
+}
+const GUN_LEN = { knife: 0.4, pistol: 0.42, laser: 0.42, water: 0.45, smg: 0.62, rifle: 0.9, shotgun: 0.85, sniper: 1.15, plasma: 0.8, railgun: 1.1, paint: 0.75, snow: 0.8, grenade: 0.18 };
+export function makeGun(id, W) {
+  const g = new THREE.Group();
+  if (id === 'knife' || !W || !W.model || !A.has(W.model)) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.05, 0.3), std('#e6ebf0', { metalness: 0.4, roughness: 0.3 })); blade.position.z = 0.16; g.add(blade);
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.12), std('#3a2a1c')); h.position.z = -0.04; g.add(h);
+    return g;
+  }
+  const src = A.makeProp(W.model, { s: 1 });
+  const box = new THREE.Box3().setFromObject(src), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const s = (GUN_LEN[id] || 0.6) / Math.max(size.z, 0.01);
+  src.scale.setScalar(s); src.position.set(-c.x * s, -c.y * s, -c.z * s);
+  src.traverse(o => {
+    if (!o.isMesh) return;
+    o.material = o.material.clone();
+    if (o.material.map && W.style !== 'blaster') o.material.map = styledMap(o.material.map, W.style);
+    if (W.style === 'real') { o.material.roughness = 0.45; o.material.metalness = 0.35; }
+    if (W.style === 'blaster') { o.material.emissive = new THREE.Color(W.tracer || '#66e0ff'); o.material.emissiveIntensity = 0.12; }
+    o.castShadow = true;
+  });
+  g.add(src);
+  g.userData.len = GUN_LEN[id] || 0.6;
+  return g;
+}
+export { buildFlag };

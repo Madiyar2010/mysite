@@ -36,6 +36,10 @@ function path(name) {
   if (name.startsWith('furn/')) return 'assets/furniture/' + name.slice(5) + '.glb';
   if (name.startsWith('st/')) return 'assets/station/' + name.slice(3) + '.glb';
   if (name.startsWith('sp/')) return 'assets/space/' + name.slice(3) + '.glb';
+  if (name.startsWith('bl/')) return 'assets/blaster/' + name.slice(3) + '.glb';
+  if (name.startsWith('in/')) return 'assets/industrial/' + name.slice(3) + '.glb';
+  if (name.startsWith('fa/')) return 'assets/factory/' + name.slice(3) + '.glb';
+  if (name.startsWith('ca/')) return 'assets/cars/' + name.slice(3) + '.glb';
   return name;
 }
 

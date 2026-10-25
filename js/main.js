@@ -1,13 +1,15 @@
 // Главный модуль: меню, лобби, магазин, хост и запуск игр.
 import * as A from './assets.js';
-import { R, ShowroomView, GameView, AmongView } from './render.js';
+import { R, ShowroomView, AmongView } from './render.js';
 import { Net } from './net.js';
 import { Input } from './input.js';
-import { MAPS, mapModels } from './maps.js';
 import { AMAPS, AMAP_LIST, amapModels } from './amap.js';
-import { ArenaSim, MONSTERS } from './sim-arena.js';
+import { ShooterSim, S_MONSTERS, SHOOT_DEFAULTS } from './shooter/ssim.js';
+import { ShooterView } from './shooter/sview.js';
+import { ShooterClient, shBanner } from './shooter/sclient.js';
+import { SMAPS, SMAP_LIST, smapModels } from './shooter/smap.js';
+import { WEAPONS } from './shooter/weapons.js';
 import { AmongSim, DEFAULT_OPTS } from './among-sim.js';
-import { ArenaClient, banner } from './client.js';
 import { AmongClient } from './among-client.js';
 import * as Tasks from './among-tasks.js';
 import { Sound } from './sound.js';
@@ -30,7 +32,7 @@ function hydrate(root = document) { root.querySelectorAll('[data-ic]').forEach(e
 
 // ---------- общий интерфейс ----------
 const S = { screen: 's-home', lobby: null, game: null, roster: null };
-const GAME_SCREENS = ['s-game', 's-among'];
+const GAME_SCREENS = ['s-shoot', 's-among'];
 function show(id) {
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   S.screen = id;
@@ -57,7 +59,7 @@ document.addEventListener('click', e => {
   }
 });
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
-if (Input.touch) { document.body.classList.add('touch'); document.body.classList.add('need-landscape'); }
+if (Input.touch) { document.body.classList.add('touch'); document.body.classList.add('need-landscape'); window.__touch = true; }
 hydrate();
 
 let wakeLock = null;
@@ -68,7 +70,7 @@ document.addEventListener('visibilitychange', () => { if (Net.peer && document.v
 R.init($('#gl'), $('#labels'));
 const showroom = new ShowroomView();
 R.setView(showroom);
-const ALL_MODELS = [...A.HEROES, ...Object.values(MONSTERS).map(m => m.model), ...mapModels(MAPS.arena), ...amapModels(AMAPS.station)];
+const ALL_MODELS = [...A.HEROES, ...Object.values(S_MONSTERS).map(m => m.model), 'grave/character-ghost', ...smapModels(SMAPS.warehouse), ...Object.values(WEAPONS).filter(w => w.model).map(w => w.model), ...amapModels(AMAPS.station)];
 A.preload(A.HEROES).then(refreshShowroom);
 const ready = A.preload([...new Set(ALL_MODELS)], p => {
   $('#load .load-bar i').style.width = (p * 100) + '%';
@@ -76,6 +78,7 @@ const ready = A.preload([...new Set(ALL_MODELS)], p => {
 }).then(() => { $('#load').classList.add('done'); refreshShowroom(); });
 ready.catch(e => { console.error(e); $('#load span').textContent = 'Не удалось загрузить модели. Обнови страницу.'; });
 
+const SHOW_GUNS = ['rifle', 'plasma', 'paint', 'sniper', 'smg', 'snow', 'railgun', 'water'];
 function refreshShowroom() {
   if (R.view !== showroom) return;
   const wide = innerWidth > 820 || innerWidth > innerHeight;
@@ -84,8 +87,8 @@ function refreshShowroom() {
   if (S.screen === 's-lobby' && S.lobby) {
     const list = S.lobby.players.filter(p => p.online);
     list.sort((a, b) => (b.pid === me.pid) - (a.pid === me.pid));
-    showroom.setHeroes(list.slice(0, 8).map(p => ({ model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, name: p.name, me: p.pid === me.pid })));
-  } else showroom.setHeroes([{ model: me.model, cls: me.cls, hat: S.preview?.hat ?? me.hat, aura: S.preview?.aura ?? me.aura, name: me.name, me: true }]);
+    showroom.setHeroes(list.slice(0, 8).map((p, i) => ({ model: p.model, gun: SHOW_GUNS[i % SHOW_GUNS.length], gunW: WEAPONS[SHOW_GUNS[i % SHOW_GUNS.length]], hat: p.hat, aura: p.aura, name: p.name, me: p.pid === me.pid })));
+  } else showroom.setHeroes([{ model: me.model, gun: 'rifle', gunW: WEAPONS.rifle, hat: S.preview?.hat ?? me.hat, aura: S.preview?.aura ?? me.aura, name: me.name, me: true }]);
 }
 addEventListener('resize', refreshShowroom);
 
@@ -93,7 +96,7 @@ addEventListener('resize', refreshShowroom);
 function renderPickers() {
   for (const [hid, cid] of [['#heroes', '#classes'], ['#heroes2', '#classes2']]) {
     $(hid).innerHTML = A.HEROES.map(h => `<button class="hero ${h === me.model ? 'sel' : ''}" data-h="${h}" title="${A.HERO_NAMES[h]}"><img src="${thumb(h)}" alt="${A.HERO_NAMES[h]}" loading="lazy"></button>`).join('');
-    $(cid).innerHTML = Object.entries(CLASSES).map(([id, c]) => `<button class="cls ${id === me.cls ? 'sel' : ''}" data-c="${id}"><span class="ci">${icon(c.icon)}</span><b>${c.name}</b><small>${c.desc} Супер: ${c.supName.toLowerCase()}.</small><span class="stats">${icon('heart')} ${c.hp} · ${icon('speed')} ${c.speed}</span></button>`).join('');
+    if ($(cid)) $(cid).innerHTML = Object.entries(CLASSES).map(([id, c]) => `<button class="cls ${id === me.cls ? 'sel' : ''}" data-c="${id}"><span class="ci">${icon(c.icon)}</span><b>${c.name}</b><small>${c.desc} Супер: ${c.supName.toLowerCase()}.</small><span class="stats">${icon('heart')} ${c.hp} · ${icon('speed')} ${c.speed}</span></button>`).join('');
   }
   $('#hero-name').textContent = A.HERO_NAMES[me.model];
 }
@@ -102,7 +105,7 @@ function bindPickers() {
     const b = e.target.closest('.hero'); if (!b) return;
     me.model = b.dataset.h; saveMe(); renderPickers(); refreshShowroom(); vibrate(10); sendProfile();
   });
-  for (const sel of ['#classes', '#classes2']) $(sel).addEventListener('click', e => {
+  for (const sel of ['#classes', '#classes2']) if ($(sel)) $(sel).addEventListener('click', e => {
     const b = e.target.closest('.cls'); if (!b) return;
     me.cls = b.dataset.c; saveMe(); renderPickers(); refreshShowroom(); vibrate(10); sendProfile();
     if (showroom.heroes[0]) showroom.heroes[0].play(7, true);
@@ -191,14 +194,15 @@ $('#shop-grid').addEventListener('click', e => {
 $('#btn-shop-back').onclick = () => { S.preview = null; show(shopFrom === 's-shop' ? 's-home' : shopFrom); if (S.screen === 's-lobby') renderLobby(); };
 
 // ======================= ХОСТ =======================
-const H = { players: new Map(), mode: 'ffa', opts: { bots: 0, ...DEFAULT_OPTS }, sim: null, pending: null, roster: null, inGame: false };
+const H = { players: new Map(), mode: 'tdm', opts: { ...SHOOT_DEFAULTS, ...DEFAULT_OPTS, bots: 0 }, sim: null, pending: null, roster: null, inGame: false };
 const BOT_NAMES = ['Бот Гоша', 'Бот Люся', 'Бот Шустрик', 'Бот Пиксель', 'Бот Ватрушка', 'Бот Чип'];
 // допустимые значения настроек «Найди предателя»
 const AM_SET = {
   maxPlayers: [4, 5, 6, 7, 8, 10], impostors: [1, 2, 3], meetings: [0, 1, 2, 3], discuss: [0, 15, 30, 60], vote: [30, 60, 90, 120],
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
-  engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5]
+  engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
+  match: ['rounds', 'timed'], rounds: [3, 5, 7], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
 const AM_BOOL = ['confirm', 'anon', 'visualTasks'];
 
@@ -232,7 +236,7 @@ Net.onHostMessage = (pid, m) => {
       if (m.t === 'hello') {
         if (H.inGame && H.sim) {
           if (H.roster.some(r => r.pid === pid)) { Net.sendTo(pid, startMsg()); H.sim.onJoin(pid); }
-          else if (H.sim instanceof ArenaSim) {
+          else if (H.sim instanceof ShooterSim) {
             const r = rosterEntry(p); if (H.mode === 'tdm' || H.mode === 'ctf') r.team = p.team;
             H.roster.push(r); H.sim.addLate(r);
             Net.broadcast({ t: 'roster', roster: H.roster }, pid);
@@ -247,6 +251,7 @@ Net.onHostMessage = (pid, m) => {
     case 'opt': {
       if (pid !== me.pid || H.inGame) return;
       if (m.k === 'map') { if (AMAP_LIST.some(x => x.id === m.v && x.ready)) H.opts.map = m.v; }
+      else if (m.k === 'smap') { if (SMAP_LIST.some(x => x.id === m.v && x.ready)) H.opts.smap = m.v; }
       else if (AM_BOOL.includes(m.k)) H.opts[m.k] = !!m.v;
       else if (AM_SET[m.k] && AM_SET[m.k].includes(m.v)) H.opts[m.k] = m.v;
       hostLobby(false);
@@ -282,7 +287,7 @@ function hostStartGame() {
   const roster = humans.map(rosterEntry);
   if (mode.group === 'arena' && H.opts.bots > 0) {
     const names = shuffle(BOT_NAMES);
-    for (let i = 0; i < H.opts.bots; i++) roster.push({ pid: 'bot' + i, name: names[i % names.length], model: pick(A.HEROES), cls: pick(Object.keys(CLASSES)), hat: pick(HATS).id, aura: 'none', bot: true, team: 0 });
+    for (let i = 0; i < H.opts.bots; i++) roster.push({ pid: 'bot' + i, name: names[i % names.length] + (i >= names.length ? ' ' + (i + 1) : ''), model: pick(A.HEROES), hat: pick(HATS).id, aura: 'none', bot: true, team: 0 });
   }
   if (H.mode === 'tdm' || H.mode === 'ctf') {
     for (const r of roster) if (r.bot) { const c0 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 0).length, c1 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 1).length; r.team = c0 <= c1 ? 0 : 1; r.assigned = true; }
@@ -298,7 +303,7 @@ function launchSim() {
   if (!H.pending) return;
   clearTimeout(H.pending.to); H.pending = null;
   const io = { broadcast: m => Net.broadcast(m), sendTo: (p, m) => Net.sendTo(p, m), end: res => hostEndGame(res) };
-  H.sim = MODES[H.mode].group === 'traitor' ? new AmongSim(io, { roster: H.roster, opts: H.opts }) : new ArenaSim(io, { mode: H.mode, roster: H.roster });
+  H.sim = MODES[H.mode].group === 'traitor' ? new AmongSim(io, { roster: H.roster, opts: H.opts }) : new ShooterSim(io, { mode: H.mode, roster: H.roster, opts: H.opts });
 }
 function hostEndGame(res) {
   if (H.sim) H.sim.stop();
@@ -379,6 +384,16 @@ function amongSettings(o) {
       ${optRow('Дальность выбивания', seg('killDist', AM_SET.killDist, o.killDist, ['Близко', 'Средне', 'Далеко']))}
     </details>`;
 }
+function shooterSettings(o, mode) {
+  const timedOnly = mode === 'ctf' || mode === 'pve';
+  const match = timedOnly ? 'timed' : o.match;
+  return `
+    <div class="opt-maps four">${SMAP_LIST.map(m => `<button class="opt-map smap ${o.smap === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}</button>`).join('')}</div>
+    ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Волны монстров, закупка между волнами' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
+    ${match === 'rounds' ? optRow('Побед для выигрыша', seg('rounds', AM_SET.rounds, o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
+    ${optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}
+    ${o.bots ? optRow('Уровень ботов', seg('botLevel', AM_SET.botLevel, o.botLevel, ['Легко', 'Средне', 'Сложно'])) : ''}`;
+}
 function renderLobby() {
   const L = S.lobby; if (!L) return;
   const isHost = Net.isHost;
@@ -404,7 +419,7 @@ function renderLobby() {
     <button class="mode ${id === L.mode ? 'sel' : ''} ${m.group === 'traitor' ? 'traitor' : ''}" data-m="${id}"><span class="mi">${icon(m.icon)}</span><b>${m.name}</b><small>${m.desc}</small></button>`).join('');
   const openGroups = new Set([...$$('#lb-opts details[open] summary')].map(s => s.textContent));
   let opts = '';
-  if (mode.group === 'arena') opts += optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, L.opts.bots));
+  if (mode.group === 'arena') opts += shooterSettings(L.opts, L.mode);
   else opts += amongSettings(L.opts);
   $('#lb-opts').innerHTML = opts;
   if (openGroups.size) $$('#lb-opts details').forEach(d => d.open = openGroups.has(d.querySelector('summary').textContent));
@@ -421,7 +436,7 @@ function renderLobby() {
 $('#lb-modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; if (!Net.isHost) { toast('Режим выбирает хост'); return; } vibrate(10); Net.toHost({ t: 'mode', mode: b.dataset.m }); });
 $('#lb-opts').addEventListener('click', e => {
   if (!Net.isHost) return;
-  const mp = e.target.closest('.opt-map'); if (mp) { Net.toHost({ t: 'opt', k: 'map', v: mp.dataset.map }); return; }
+  const mp = e.target.closest('.opt-map'); if (mp) { if (mp.dataset.smap) Net.toHost({ t: 'opt', k: 'smap', v: mp.dataset.smap }); else Net.toHost({ t: 'opt', k: 'map', v: mp.dataset.map }); return; }
   const b = e.target.closest('.seg button'); if (!b) return;
   const k = b.closest('.seg').dataset.o, raw = b.dataset.v;
   const v = AM_BOOL.includes(k) ? raw === '1' : isNaN(+raw) ? raw : +raw;
@@ -443,16 +458,18 @@ $('#btn-share').onclick = async () => {
 $('#btn-hero').onclick = () => { renderPickers(); openModal('#m-hero'); };
 
 // ---------- игра ----------
-function metaArena(k) {
-  if (k.startsWith('m:')) {
-    const mt = MONSTERS[k.slice(2)]; if (!mt) return null;
-    return { model: mt.model, name: mt.boss ? '' : mt.name, scale: mt.scale, hpBar: !mt.boss, nameColor: '#ffb3bd', ring: mt.boss ? '#ff3355' : null, label: !mt.boss };
+function metaShoot(k) {
+  if (String(k).startsWith('m:')) {
+    const mt = S_MONSTERS[k.slice(2)]; if (!mt) return null;
+    return { model: mt.model, name: mt.boss ? '' : mt.name, scale: mt.scale, hpBar: !mt.boss, nameColor: '#ffb3bd', label: !mt.boss };
   }
   const r = S.roster.get(k); if (!r) return null;
   const teams = S.game.mode === 'tdm' || S.game.mode === 'ctf';
   const mine = k === me.pid;
-  return { model: r.model, cls: r.cls, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: true,
-    ring: teams ? TEAM_COLORS[r.team] : mine ? '#ffd166' : null, nameColor: teams ? TEAM_COLORS[r.team] : mine ? '#ffd166' : '#fff' };
+  const myTeam = (S.roster.get(me.pid) || {}).team;
+  const ally = S.game.mode === 'pve' || (teams && r.team === myTeam);
+  return { model: r.model, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
+    ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: !mine };
 }
 async function startGame(m) {
   loading('Готовим игру…');
@@ -469,15 +486,15 @@ async function startGame(m) {
     $('#am-banner').innerHTML = '';
     show('s-among');
   } else {
-    const view = new GameView({ map: MAPS.arena, mode: m.mode, myPid: me.pid, metaOf: k => metaArena(k) });
+    const view = new ShooterView({ map: SMAPS[m.opts.smap] || SMAPS.warehouse, myPid: me.pid, metaOf: k => metaShoot(k) });
     S.game = { mode: m.mode, view }; R.setView(view);
-    S.game.ctrl = new ArenaClient({ ...ctx, view });
-    $('#banner').innerHTML = ''; $('#killfeed').innerHTML = ''; $('#center-big').className = ''; $('#center-big').dataset.mode = '';
-    show('s-game');
-    banner(`${icon(MODES[m.mode].icon)} ${MODES[m.mode].name}`, 'big', 2500);
+    S.game.ctrl = new ShooterClient({ ...ctx, view });
+    $('#sh-banner').innerHTML = ''; $('#sh-feed').innerHTML = '';
+    show('s-shoot');
+    shBanner(`${icon(MODES[m.mode].icon)} ${MODES[m.mode].name}`, 'big', 2500);
   }
-  document.body.dataset.game = group;
-  Input.active = true;
+  document.body.dataset.game = group === 'traitor' ? 'traitor' : 'shooter';
+  Input.active = group === 'traitor';
   loading(false);
   Net.toHost({ t: 'ready' });
 }
@@ -487,25 +504,13 @@ function stopGame() {
   Sound.siren(false); Sound.stopLoops();
   if (R.view !== showroom) { R.setView(showroom); showroom.key = null; }
 }
-Input.init([$('#s-game'), $('#s-among')], $('#joy'));
+Input.init([$('#s-among')], $('#joy'));
 Input.onKey = a => {
   if (!S.game) return;
-  if (S.game.mode !== 'traitor') {
-    if (a === 'board') { $('#board').classList.add('show'); S.game.ctrl.renderBoard && S.game.ctrl.renderBoard(); }
-    if (a === 'boardUp') $('#board').classList.remove('show');
-  } else if (a === 'chat' && $('#am-meeting').classList.contains('show')) $('#amm-in').focus();
-  if (a === 'esc' && !Tasks.isOpen() && S.game.mode !== 'traitor') openModal('#m-pause');
+  if (a === 'chat' && $('#am-meeting').classList.contains('show')) $('#amm-in').focus();
   if (Input.onKeyGame) Input.onKeyGame(a);
 };
-// кнопки арены на сенсорном экране
-const holdBtn = $('#b-atk');
-holdBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Input.atkHeld = true; holdBtn.setPointerCapture(e.pointerId); });
-const release = () => { Input.atkHeld = false; };
-holdBtn.addEventListener('pointerup', release); holdBtn.addEventListener('pointercancel', release); holdBtn.addEventListener('lostpointercapture', release);
-$('#b-sup').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Input.seq.sup++; vibrate(15); });
-$('#b-emo').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Input.seq.emo++; });
-$$('#actions .act, #hud-top button, #me-panel, #am-topr button, #am-actions .act').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
-$('#btn-board').onclick = () => { $('#board').classList.add('show'); S.game && S.game.ctrl.renderBoard && S.game.ctrl.renderBoard(); };
+$$('#am-topr button, #am-actions .act').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
 $('#btn-quit').onclick = () => { $('#m-pause').classList.remove('show'); if (Net.isHost && !confirm('Ты хост. Комната закроется для всех. Выйти?')) return; leaveRoom(); };
 
 // ---------- итоги ----------
@@ -525,7 +530,7 @@ function showResults(res) {
     let stat = '';
     if (res.mode === 'traitor') stat = r.role === 'impostor' ? `<span style="color:#ff6b78">${icon('impostor')} Предатель${r.sub ? ' · ' + SUBN[r.sub] : ''}</span> · ${icon('kill')} ${r.kills}` : `${icon('crew')} Экипаж${r.sub ? ' · ' + SUBN[r.sub] : ''} · ${icon('task')} ${r.tasks}${r.alive ? '' : ' · ' + icon('ghost')}`;
     else if (res.mode === 'pve') stat = `${icon('skull')} ${r.kills} монстров · выбит ${r.deaths} раз`;
-    else stat = `${icon('swords')} ${r.kills} · ${icon('skull')} ${r.deaths}${r.caps ? ' · ' + icon('flag') + ' ' + r.caps : ''}`;
+    else stat = `${r.rounds ? icon('trophy') + ' ' + r.rounds + ' · ' : ''}${icon('swords')} ${r.kills} · ${icon('skull')} ${r.deaths}${r.caps ? ' · ' + icon('flag') + ' ' + r.caps : ''}`;
     const teamCol = (res.mode === 'tdm' || res.mode === 'ctf') ? TEAM_COLORS[r.team] : '#fff';
     return `<div class="rr ${r.win ? 'win' : ''} ${r.pid === me.pid ? 'me' : ''}"><span class="rk">${r.win ? icon('trophy') : i + 1}</span><img src="${thumb(info.model || 'character-a')}"><div class="rn" style="color:${teamCol}">${esc(r.name)}${r.bot ? ' (бот)' : ''}<div class="rs">${stat}</div></div><div class="rc">${r.bot ? '' : '+' + r.coins + ' ' + icon('coin')}</div></div>`;
   }).join('');
@@ -539,4 +544,5 @@ function showResults(res) {
 }
 
 window.addEventListener('beforeunload', e => { if (Net.isHost && H.players.size > 1) { e.preventDefault(); e.returnValue = ''; } });
+if (location.search.includes('debug')) window.__dbg = { H, S };
 initHome();
