@@ -499,7 +499,7 @@ $('#lb-players').addEventListener('click', e => {
   if (!teams) return;
   if (b.dataset.pid === me.pid || Net.isHost) Net.toHost({ t: 'team', pid: b.dataset.pid });
 });
-$('#btn-leave').onclick = () => { if (Net.isHost && S.lobby && S.lobby.players.filter(p => p.online).length > 1 && !confirm('Ты хост. Если выйти — комната закроется для всех. Выйти?')) return; leaveRoom(); };
+$('#btn-leave').onclick = () => { if (!confirm(Net.isHost && S.lobby && S.lobby.players.filter(p => p.online).length > 1 ? 'Ты хост. Если выйти — комната закроется для всех. Выйти?' : 'Выйти из комнаты?')) return; leaveRoom(); };
 $('#btn-share').onclick = async () => {
   const url = location.origin + location.pathname + '?room=' + Net.code;
   const text = 'Заходи в «Замок Героев»! Код комнаты: ' + Net.code;
@@ -564,7 +564,7 @@ Input.onKey = a => {
   if (Input.onKeyGame) Input.onKeyGame(a);
 };
 $$('#am-topr button, #am-actions .act').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
-$('#btn-quit').onclick = () => { $('#m-pause').classList.remove('show'); if (Net.isHost && !confirm('Ты хост. Комната закроется для всех. Выйти?')) return; leaveRoom(); };
+$('#btn-quit').onclick = () => { $('#m-pause').classList.remove('show'); if (!confirm(Net.isHost ? 'Ты хост. Комната закроется для всех. Выйти?' : 'Выйти из комнаты?')) return; leaveRoom(); };
 
 // ---------- итоги ----------
 const SUBN = { sheriff: 'Шериф', engineer: 'Инженер', scientist: 'Учёный', angel: 'Ангел', shapeshifter: 'Оборотень' };
@@ -610,3 +610,17 @@ document.addEventListener('touchend', e => {
   if (now - lastTap < 320 && !e.target.closest('input,textarea,button,.modal-card,.panel')) e.preventDefault();
   lastTap = now;
 }, { passive: false });
+
+// защита от случайного выхода: свайп «назад» на айфоне и кнопка «Назад» не выкидывают из комнаты
+let guardOn = false;
+function armGuard() { if (guardOn || !Net.code) return; guardOn = true; history.pushState({ guard: 1 }, '', location.href); }
+addEventListener('popstate', () => {
+  if (!guardOn) return;
+  guardOn = false;
+  if (!Net.code) return;
+  armGuard();
+  renderPausePlayers(); openModal('#m-pause');
+  toast('Чтобы выйти, нажми «Выйти из комнаты»', 3000);
+});
+addEventListener('beforeunload', e => { if (Net.code) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(() => { if (Net.code && !guardOn) armGuard(); if (!Net.code) guardOn = false; }, 1000);
