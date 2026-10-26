@@ -115,7 +115,9 @@ export class ShooterClient {
   tStart(e) {
     window.__touch = true;
     const ui = e.target.closest && e.target.closest('#sh-buy,.sh-modal,#sh-board');
-    if (!ui) e.preventDefault(); // без этого браузер зумит страницу двойным тапом и щипком
+    // обычные кнопки (пауза и т.п.) получают настоящий клик — иначе браузер не даст, например, включить полный экран
+    const plainBtn = [...e.changedTouches].some(t => { const b = t.target.closest && t.target.closest('button'); return b && !b._tap && b.id !== 'sh-fire' && b.id !== 'sh-fire2'; });
+    if (!ui && !plainBtn) e.preventDefault(); // без этого браузер зумит страницу двойным тапом и щипком
     for (const t of e.changedTouches) {
       const el = t.target.closest ? t.target.closest('button,#sh-buy,.sh-modal,#sh-board') : null;
       if (el && (el.id === 'sh-fire' || el.id === 'sh-fire2')) {
@@ -123,7 +125,7 @@ export class ShooterClient {
         if (el.id === 'sh-fire' && !this.look) this.look = { id: t.identifier, x: t.clientX, y: t.clientY, fire: true }; else this.fireId = t.identifier;
         continue;
       }
-      if (el) { if (!ui) { if (el._tap) el._tap(); else el.click(); vib(10); } continue; }
+      if (el) { if (!ui && el._tap) { el._tap(); vib(10); } continue; }
       if (t.clientX < innerWidth * 0.42 && !this.joy) { this.joy = { id: t.identifier, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY }; this.drawJoy(); }
       else if (!this.look) this.look = { id: t.identifier, x: t.clientX, y: t.clientY };
     }

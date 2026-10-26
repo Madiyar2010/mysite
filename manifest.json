@@ -1,0 +1,10 @@
+{
+  "name": "Замок Героев",
+  "short_name": "Замок Героев",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1b1640",
+  "theme_color": "#1b1640",
+  "icons": [{ "src": "assets/thumbs/character-a.png", "sizes": "256x256", "type": "image/png" }]
+}
