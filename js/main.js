@@ -46,16 +46,29 @@ function loading(t) { if (t) { $('#loading-text').textContent = t; $('#loading')
 function vibrate(p) { if (prefs.vibe && navigator.vibrate) try { navigator.vibrate(p); } catch (e) { } }
 function updateCoins() { $$('.coin-n').forEach(e => e.textContent = Wallet.coins()); }
 function openModal(id) { $(id).classList.add('show'); Sound.play('open', { vol: 0.5 }); }
-async function goFullscreen() {
-  try { const d = document.documentElement; if (!document.fullscreenElement) await (d.requestFullscreen || d.webkitRequestFullscreen).call(d); } catch (e) { }
+// на весь экран: повторное нажатие выходит; на iPhone браузер не умеет — подсказываем добавить на экран «Домой»
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+async function goFullscreen(toggle) {
+  const d = document.documentElement;
+  const req = d.requestFullscreen || d.webkitRequestFullscreen;
+  if (fsEl()) { if (!toggle) return; try { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { } return; }
+  if (!req) {
+    if (navigator.standalone || !toggle) return;
+    toast('На iPhone: нажми «Поделиться» внизу Safari → «На экран „Домой“». Игра будет открываться на весь экран.', 6000);
+    return;
+  }
+  try { const r = req.call(d, { navigationUI: 'hide' }); if (r && r.then) await r; }
+  catch (e) { if (toggle) toast('Браузер не разрешил полный экран. Попробуй ещё раз.'); return; }
   try { await screen.orientation.lock('landscape'); } catch (e) { }
 }
+function updateFs() { const on = !!fsEl(); $$('.fs-label').forEach(x => x.textContent = on ? 'Выйти из полного экрана' : 'На весь экран'); }
+document.addEventListener('fullscreenchange', updateFs); document.addEventListener('webkitfullscreenchange', updateFs);
 document.addEventListener('click', e => {
   const c = e.target.closest('[data-close]'); if (c) c.closest('.modal').classList.remove('show');
   const a = e.target.closest('[data-act]');
   if (a) {
     const k = a.dataset.act;
-    if (k === 'shop') openShop(); if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(); if (k === 'pause') openModal('#m-pause');
+    if (k === 'shop') openShop(); if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(true); if (k === 'pause') openModal('#m-pause');
   }
 });
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
