@@ -10,7 +10,14 @@ import { CLASSES, AURAS, TEAM_COLORS, clamp, rnd, esc } from './util.js';
 export const R = {
   renderer: null, labels: null, view: null, clock: new THREE.Clock(), quality: 'high',
   init(canvas, labelsEl) {
-    const lowEnd = matchMedia('(pointer:coarse)').matches && Math.min(screen.width, screen.height) < 500;
+    let lowEnd = matchMedia('(pointer:coarse)').matches && Math.min(screen.width, screen.height) < 500;
+    // слабая встроенная графика (старые Маки и ноутбуки с Intel) — сразу режим «Быстро»
+    try {
+      const gl = document.createElement('canvas').getContext('webgl'), ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      const gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+      this.gpu = gpu;
+      if (/Intel|SwiftShader|llvmpipe|Mali-4|Adreno \(TM\) [345]/i.test(gpu) || (navigator.hardwareConcurrency || 8) <= 2) lowEnd = true;
+    } catch (e) { }
     this.quality = localStorage.getItem('ha_quality') ? JSON.parse(localStorage.getItem('ha_quality')) : (lowEnd ? 'low' : 'high');
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality === 'high', powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -31,7 +38,7 @@ export const R = {
       if (fps >= 26) { slow = 0; return; }
       if (++slow < 2) return; slow = 0;
       if (this.quality === 'high') { this.setQuality('low'); this.onAuto && this.onAuto('Игра тормозила — включили режим «Быстро»'); }
-      else if (this.scale > 0.6) { this.scale = Math.max(0.6, this.scale - 0.2); this.applyQuality(); }
+      else if (this.scale > 0.5) { this.scale = Math.max(0.5, this.scale - 0.15); this.applyQuality(); }
     };
     const loop = () => {
       requestAnimationFrame(loop);
