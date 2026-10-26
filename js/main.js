@@ -14,7 +14,7 @@ import { AmongClient } from './among-client.js';
 import * as Tasks from './among-tasks.js';
 import { Sound } from './sound.js';
 import { icon } from './icons.js';
-import { $, $$, esc, rid, pick, shuffle, LS, CLASSES, MODES, HATS, AURAS, TEAM_COLORS, Wallet } from './util.js';
+import { $, $$, esc, rid, pick, shuffle, LS, CLASSES, MODES, HATS, AURAS, TEAM_COLORS, TEAM_NAMES, Wallet } from './util.js';
 
 // ---------- я ----------
 let myPid;
@@ -280,7 +280,7 @@ Net.onHostMessage = (pid, m) => {
     case 'team': {
       if (H.inGame) return;
       const target = pid === me.pid && m.pid ? m.pid : pid;
-      const p = H.players.get(target); if (p) { p.team = 1 - p.team; hostLobby(false); }
+      const p = H.players.get(target); if (p) { p.team = m.to === 0 || m.to === 1 ? m.to : 1 - p.team; hostLobby(false); }
       break;
     }
     case 'start': if (pid === me.pid) hostStartGame(); break;
@@ -446,14 +446,19 @@ function renderLobby() {
   }
   const online = L.players.filter(p => p.online);
   $('#lb-count').textContent = online.length + (L.mode === 'traitor' ? ' / ' + L.opts.maxPlayers : '') + ' в комнате';
-  $('#lb-players').innerHTML = online.map(p => `
+  const card = p => `
     <button class="pl ${p.pid === me.pid ? 'me' : ''}" data-pid="${p.pid}">
       ${teams ? `<span class="team-dot" style="background:${TEAM_COLORS[p.team]}"></span>` : ''}
       <img src="${thumb(p.model)}" alt="">
       <div style="min-width:0"><div class="pn">${esc(p.name)}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
       <div class="ps">${icon(CLASSES[p.cls].icon)} ${CLASSES[p.cls].name} · ${icon('star')} ${p.pts}</div></div>
       ${isHost && p.pid !== me.pid ? `<span class="kick" data-kick="${p.pid}" title="Убрать из комнаты">${icon('close')}</span>` : ''}
-    </button>`).join('') + (teams ? `<div class="muted small" style="grid-column:1/-1">Нажми на себя, чтобы сменить команду${isHost ? ' (хост может менять любого)' : ''}</div>` : '');
+    </button>`;
+  if (teams) {
+    const mine = (online.find(p => p.pid === me.pid) || {}).team;
+    const col = t => { const list = online.filter(p => p.team === t); return `<div class="team-col" style="--tc:${TEAM_COLORS[t]}"><div class="tc-head"><b>${TEAM_NAMES[t]}</b><span>${list.length}</span></div>${list.map(card).join('')}${mine !== t && !L.inGame ? `<button class="btn sm tc-join" data-team="${t}">${icon('swap')} Перейти сюда</button>` : ''}</div>`; };
+    $('#lb-players').innerHTML = `<div class="teams2">${col(0)}${col(1)}</div>${isHost ? '<div class="muted small">Хост может перекинуть любого — нажми на игрока</div>' : ''}<div class="muted small">Боты сами делятся поровну</div>`;
+  } else $('#lb-players').innerHTML = online.map(card).join('');
   $('#lb-mode-title').textContent = isHost ? 'Выбери режим' : 'Режим';
   $('#lb-modes').innerHTML = Object.entries(MODES).map(([id, m]) => `
     <button class="mode ${id === L.mode ? 'sel' : ''} ${m.group === 'traitor' ? 'traitor' : ''}" data-m="${id}"><span class="mi">${icon(m.icon)}</span><b>${m.name}</b><small>${m.desc}</small></button>`).join('');
@@ -488,6 +493,7 @@ function askKick(pid) {
 }
 $('#lb-players').addEventListener('click', e => {
   const k = e.target.closest('[data-kick]'); if (k) { e.stopPropagation(); askKick(k.dataset.kick); return; }
+  const j = e.target.closest('.tc-join'); if (j) { vibrate(10); Net.toHost({ t: 'team', pid: me.pid, to: +j.dataset.team }); return; }
   const b = e.target.closest('.pl'); if (!b || !S.lobby) return;
   const teams = S.lobby.mode === 'tdm' || S.lobby.mode === 'ctf';
   if (!teams) return;

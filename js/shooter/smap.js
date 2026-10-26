@@ -218,27 +218,34 @@ export function navPath(map, from, to) {
     for (let r = 1; r < 6 && best < 0; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const x = gx + dx, z = gz + dz; if (x < 0 || z < 0 || x >= nx || z >= nz || !grid[z * nx + x]) continue; const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = z * nx + x; } }
     if (best < 0) return null; g = best;
   }
-  const open = [s], came = new Int32Array(nx * nz).fill(-1), gs = new Float32Array(nx * nz).fill(1e9), closed = new Uint8Array(nx * nz);
-  gs[s] = 0;
-  const h = i => Math.hypot(i % nx - g % nx, Math.floor(i / nx) - Math.floor(g / nx));
-  const fs = new Map([[s, h(s)]]);
-  let iter = 0;
-  while (open.length && iter++ < 4000) {
-    let bi = 0; for (let i = 1; i < open.length; i++) if (fs.get(open[i]) < fs.get(open[bi])) bi = i;
-    const cur = open.splice(bi, 1)[0];
-    if (cur === g) break;
-    closed[cur] = 1;
-    const x = cur % nx, z = Math.floor(cur / nx);
+  // A* с двоичной кучей; массивы переиспользуются — без рывков у хоста
+  const N = nx * nz;
+  if (!map.navBuf || map.navBuf.N !== N) map.navBuf = { N, came: new Int32Array(N), gs: new Float32Array(N), stamp: new Uint32Array(N), closed: new Uint32Array(N), run: 0 };
+  const B = map.navBuf, run = ++B.run, came = B.came, gs = B.gs;
+  const G = i => B.stamp[i] === run ? gs[i] : 1e9;
+  const gx = g % nx, gz = Math.floor(g / nx);
+  const h = i => { const dx = Math.abs(i % nx - gx), dz = Math.abs(Math.floor(i / nx) - gz); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+  const heap = [], hf = [];
+  const push = (i, f) => { heap.push(i); hf.push(f); let k = heap.length - 1; while (k > 0) { const q = (k - 1) >> 1; if (hf[q] <= hf[k]) break; [heap[q], heap[k]] = [heap[k], heap[q]]; [hf[q], hf[k]] = [hf[k], hf[q]]; k = q; } };
+  const pop = () => { const top = heap[0], li = heap.pop(), lf = hf.pop(); if (heap.length) { heap[0] = li; hf[0] = lf; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && hf[l] < hf[m]) m = l; if (r < heap.length && hf[r] < hf[m]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; [hf[m], hf[k]] = [hf[k], hf[m]]; k = m; } } return top; };
+  B.stamp[s] = run; gs[s] = 0; came[s] = -1; push(s, h(s));
+  let iter = 0, found = s === g;
+  while (heap.length && iter++ < 6000) {
+    const cur = pop();
+    if (B.closed[cur] === run) continue;
+    if (cur === g) { found = true; break; }
+    B.closed[cur] = run;
+    const x = cur % nx, z = Math.floor(cur / nx), gc = gs[cur];
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dz) continue;
       const X = x + dx, Z = z + dz; if (X < 0 || Z < 0 || X >= nx || Z >= nz) continue;
-      const n = Z * nx + X; if (!grid[n] || closed[n]) continue;
+      const n = Z * nx + X; if (!grid[n] || B.closed[n] === run) continue;
       if (dx && dz && (!grid[z * nx + X] || !grid[Z * nx + x])) continue;
-      const ng = gs[cur] + (dx && dz ? 1.414 : 1);
-      if (ng < gs[n]) { gs[n] = ng; came[n] = cur; fs.set(n, ng + h(n)); if (!open.includes(n)) open.push(n); }
+      const ng = gc + (dx && dz ? 1.414 : 1);
+      if (ng < G(n)) { B.stamp[n] = run; gs[n] = ng; came[n] = cur; push(n, ng + h(n)); }
     }
   }
-  if (came[g] < 0 && g !== s) return null;
+  if (!found) return null;
   const path = []; let c = g;
   while (c !== s && c >= 0) { path.push({ x: -map.W + c % nx + 0.5, z: -map.D + Math.floor(c / nx) + 0.5 }); c = came[c]; }
   return path.reverse();

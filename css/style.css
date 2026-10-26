@@ -769,3 +769,12 @@ body.touch #sh-keys{display:none}
 .pp-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:12px;padding:5px 8px}
 .pp-row img{width:30px;height:30px;object-fit:contain}
 .pp-row b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+#lb-players:has(.teams2){display:block}
+.teams2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.team-col{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:16px;background:color-mix(in srgb,var(--tc) 14%,transparent);border:2px solid color-mix(in srgb,var(--tc) 55%,transparent);min-width:0}
+.tc-head{display:flex;justify-content:space-between;align-items:center;font-size:15px;color:var(--tc)}
+.tc-head span{background:var(--tc);color:#fff;border-radius:999px;padding:1px 9px;font-weight:800;font-size:13px}
+.team-col .pl{min-width:0}
+.tc-join{background:var(--tc)!important;color:#fff!important;border:0}
+.team-col .team-dot{display:none}
