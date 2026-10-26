@@ -81,6 +81,7 @@ document.addEventListener('visibilitychange', () => { if (Net.peer && document.v
 
 // ---------- 3D ----------
 R.init($('#gl'), $('#labels'));
+R.onAuto = t => toast(t, 3500);
 const showroom = new ShowroomView();
 R.setView(showroom);
 const ALL_MODELS = [...A.HEROES, ...Object.values(S_MONSTERS).map(m => m.model), 'grave/character-ghost', ...smapModels(SMAPS.warehouse), ...Object.values(WEAPONS).filter(w => w.model).map(w => w.model), ...amapModels(AMAPS.station)];

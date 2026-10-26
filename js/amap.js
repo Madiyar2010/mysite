@@ -140,7 +140,6 @@ function underwaterDef() {
   const props = {};
   for (const [id, list] of Object.entries(d.props)) props[id] = list.map(([m, dx, dy, rot, sc, col, st]) => [m, w(id) - dx, dy, -rot, sc, col, st]);
   // в столовой кнопка тревоги остаётся по центру; добавим аквариумы
-  props.C.push(['sp/rock_crystals', 1.0, 4.2, 0, 2.4, [0.8, 0.8]]);
   props.H.push(['sp/rock_crystals', 5, 6.6, 1, 3, [1, 1]]);
   const vents = d.vents.map(v => ({ ...v, dx: w(v.room) - v.dx }));
   const links = d.links.filter(([a, b]) => !(a === 'A' && b === 'O') && !(a === 'R' && b === 'S')).concat([['M', 'S'], ['S', 'A']]);
