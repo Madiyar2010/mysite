@@ -18,7 +18,8 @@ import { $, $$, esc, rid, pick, shuffle, LS, CLASSES, MODES, HATS, AURAS, TEAM_C
 
 // ---------- я ----------
 let myPid;
-try { myPid = sessionStorage.getItem('ha_pid'); if (!myPid) { myPid = rid(); sessionStorage.setItem('ha_pid', myPid); } } catch (e) { myPid = rid(); }
+// постоянный номер устройства: после закрытия вкладки можно вернуться в ту же игру с теми же очками
+try { myPid = localStorage.getItem('ha_pid') || sessionStorage.getItem('ha_pid'); if (!myPid) myPid = rid(); localStorage.setItem('ha_pid', myPid); } catch (e) { myPid = rid(); }
 const me = {
   pid: myPid, name: LS.get('name', ''), model: LS.get('model', pick(A.HEROES)), cls: LS.get('cls', 'knight'),
   hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none')
@@ -134,6 +135,9 @@ function initHome() {
   const codeIn = $('#in-code');
   const q = new URLSearchParams(location.search).get('room');
   if (q) codeIn.value = q.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  // вернулись в ту же комнату (закрыли вкладку или перезагрузили) — заходим сами
+  const last = LS.get('last', null);
+  if (q && last && last.code === codeIn.value && Date.now() - last.t < 40 * 60 * 1000 && me.name) setTimeout(() => { if (!Net.code) $('#btn-join').click(); }, 600);
   codeIn.addEventListener('input', () => { codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); });
   codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') $('#btn-join').click(); });
   $('#in-name').addEventListener('input', () => { me.name = $('#in-name').value.trim().slice(0, 14); saveMe(); refreshShowroom(); });
@@ -151,7 +155,7 @@ function initHome() {
     if (c.length !== 4) { toast('Код — это 4 символа'); codeIn.focus(); return; }
     if (Input.touch) goFullscreen();
     loading('Ищем комнату ' + c + '…');
-    try { await Net.join(c, { t: 'hello', ...profile() }); keepAwake(); history.replaceState(null, '', location.pathname + '?room=' + c); }
+    try { await Net.join(c, { t: 'hello', ...profile() }); keepAwake(); history.replaceState(null, '', location.pathname + '?room=' + c); LS.set('last', { code: c, t: Date.now() }); }
     catch (e) { loading(false); toast(e.message === 'notfound' ? `Комната ${c} не найдена` : 'Не удалось подключиться. Код верный? Все в одной Wi‑Fi?', 3500); }
   };
   $('#btn-cancel').onclick = () => { loading(false); leaveRoom(); };
@@ -362,12 +366,20 @@ Net.onMessage = m => {
     default: if (S.game) S.game.ctrl.onMsg(m);
   }
 };
-Net.onHostLost = () => {
+// связь пропала — несколько раз пробуем вернуться сами (Wi‑Fi моргнул, телефон уснул)
+Net.onHostLost = async () => {
   if (S.kicked) { S.kicked = false; return; }
   const code = Net.code;
+  try { Net.reset(); } catch (e) { }
+  for (let i = 0; i < 6; i++) {
+    loading(`Связь пропала, возвращаемся в комнату ${code}… (${i + 1}/6)`);
+    await new Promise(r => setTimeout(r, i ? 2500 : 800));
+    try { await Net.join(code, { t: 'hello', ...profile() }); loading(false); toast('Вернулись в игру!'); return; } catch (e) { if (e && e.message === 'notfound' && i >= 2) break; }
+  }
+  loading(false);
   leaveRoom();
   $('#in-code').value = code;
-  toast('Связь с комнатой потеряна. Нажми «Войти», чтобы вернуться.', 4500);
+  toast('Комната закрылась или пропал интернет. Нажми «Войти», чтобы попробовать ещё раз.', 5000);
 };
 function renderPausePlayers() {
   const el = $('#pause-players'); if (!el) return;
@@ -376,6 +388,7 @@ function renderPausePlayers() {
 }
 $('#m-pause').addEventListener('click', e => { const k = e.target.closest('[data-kick]'); if (k) askKick(k.dataset.kick); });
 function leaveRoom() {
+  LS.set('last', null);
   stopGame();
   if (H.sim) H.sim.stop();
   H.sim = null; H.inGame = false; H.pending = null;

@@ -62,9 +62,12 @@ export class AmongSim {
   onJoin(pid) { const p = this.ps.get(pid); if (!p) return; p.left = false; this.sendRole(p); if (this.phase === 'meeting') this.io.sendTo(pid, this.meetMsg()); }
   onLeave(pid) {
     const p = this.ps.get(pid); if (!p) return;
-    p.left = true; p.inVent = null;
-    if (p.alive) { p.alive = false; this.ev('msg', `${p.name} вышел из игры`); }
-    this.checkWin();
+    p.left = true; p.inVent = null; p.leftAt = performance.now();
+    // ждём 30 секунд: вдруг просто пропала связь и игрок вернётся
+    if (p.alive) this.ev('msg', `${p.name} потерял связь…`);
+  }
+  dropLeft() {
+    for (const p of this.ps.values()) if (p.left && p.alive && performance.now() - p.leftAt > 30000) { p.alive = false; this.ev('msg', `${p.name} вышел из игры`); this.checkWin(); }
   }
   ev(...a) { this.fx.push(a); }
   near(p, x, z, d) { return Math.hypot(p.x - x, p.z - z) <= d; }
@@ -298,6 +301,7 @@ export class AmongSim {
     const now = performance.now(), dt = Math.min(0.06, (now - this.last) / 1000); this.last = now;
     if (this.phase === 'over') return;
     this.phaseT -= dt;
+    this.dropLeft();
     if (this.phase === 'intro' && this.phaseT <= 0) { this.phase = 'play'; this.sendState(); }
     else if (this.phase === 'meeting' && this.phaseT <= 0) {
       if (this.meetStage === 'discuss') { this.meetStage = 'vote'; this.phaseT = this.opts.vote; this.io.broadcast({ t: 'votenow', left: this.phaseT }); }
