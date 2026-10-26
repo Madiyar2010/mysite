@@ -6,7 +6,8 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Rubik,system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:none}
-input{-webkit-user-select:text;user-select:text;touch-action:manipulation}
+input{-webkit-user-select:text;user-select:text;touch-action:manipulation;font-size:16px}
+#s-shoot,#s-shoot *,#s-among{touch-action:none}
 button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
 h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.01em}
 h3{font-size:19px}
@@ -694,7 +695,8 @@ body.touch #sh-feed .kf{font-size:12px;padding:4px 8px}
 #sh-reload{right:calc(max(26px,env(safe-area-inset-right)) + 100px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 80px)}
 #sh-nade{right:calc(max(26px,env(safe-area-inset-right)) + 180px);bottom:max(18px,env(safe-area-inset-bottom))}
 #sh-switch{right:calc(max(26px,env(safe-area-inset-right)) + 178px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 80px)}
-#sh-fire2{left:max(18px,env(safe-area-inset-left));top:42%;width:58px;height:58px;background:rgba(230,57,70,.55)}
+#sh-fire2{left:max(18px,env(safe-area-inset-left));top:30%;width:58px;height:58px;background:rgba(230,57,70,.6);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center}
+#sh-fire2 svg{width:30px;height:30px}
 #sh-cam{right:calc(max(10px,env(safe-area-inset-right)) + 54px);top:max(6px,env(safe-area-inset-top));width:48px;height:48px}
 #sh-buyb{right:calc(max(10px,env(safe-area-inset-right)) + 108px);top:max(6px,env(safe-area-inset-top));width:48px;height:48px}
 #sh-med{left:calc(max(18px,env(safe-area-inset-left)) + 0px);top:calc(42% + 70px);width:52px;height:52px}
@@ -750,3 +752,10 @@ body.touch #sh-keys{display:none}
 .plate.marked .pn{color:#ff4dc4!important}
 .plate.marked::after{content:"";display:block;width:10px;height:10px;margin:2px auto 0;border-radius:50%;background:#ff4dc4;box-shadow:0 0 8px #ff4dc4}
 .opt-maps.four{grid-template-columns:repeat(4,1fr)}
+
+#sh-dead.mini{top:64px}
+#sh-dead.mini .dead-card{padding:6px 14px;font-size:14px;flex-direction:row;gap:10px}
+#sh-dead.mini .dead-card img{width:34px;height:34px}
+#sh-spec{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);display:none;z-index:5;pointer-events:none;background:rgba(10,8,25,.75);padding:6px 16px;border-radius:999px;font-weight:700;font-size:15px;white-space:nowrap}
+#sh-spec.show{display:flex;align-items:center;gap:6px}
+#sh-spec svg{width:18px;height:18px}

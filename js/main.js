@@ -153,6 +153,10 @@ function openSettings() {
   $('#set-sfx').oninput = e => { Sound.set('sfxVol', e.target.value / 100); };
   $('#set-sfx').onchange = () => Sound.play('confirm');
   $('#set-music').oninput = e => { Sound.set('musicVol', e.target.value / 100); };
+  $('#set-sens').value = LS.get('sens', 1) * 100; $('#set-sens').oninput = e => LS.set('sens', e.target.value / 100);
+  setSeg('#set-aim', LS.get('aimhelp', true) === false ? 0 : 1); setSeg('#set-auto', LS.get('autofire', true) === false ? 0 : 1);
+  $('#set-aim').onclick = e => { const b = e.target.closest('button'); if (!b) return; LS.set('aimhelp', b.dataset.v === '1'); setSeg('#set-aim', b.dataset.v); };
+  $('#set-auto').onclick = e => { const b = e.target.closest('button'); if (!b) return; LS.set('autofire', b.dataset.v === '1'); setSeg('#set-auto', b.dataset.v); };
   $('#set-quality').onclick = e => { const b = e.target.closest('button'); if (!b) return; R.setQuality(b.dataset.v); setSeg('#set-quality', b.dataset.v); };
   $('#set-vibe').onclick = e => { const b = e.target.closest('button'); if (!b) return; prefs.vibe = b.dataset.v === '1'; LS.set('vibe', prefs.vibe); setSeg('#set-vibe', b.dataset.v); vibrate(40); };
   $('#set-quiet').onclick = e => { const b = e.target.closest('button'); if (!b) return; Sound.set('quiet', b.dataset.v === '1'); setSeg('#set-quiet', b.dataset.v); };
@@ -474,6 +478,8 @@ function metaShoot(k) {
 async function startGame(m) {
   loading('Готовим игру…');
   try { await ready; } catch (e) { }
+  if (MODES[m.mode].group === 'traitor') { loading('Загружаем карту…'); try { await A.preload(amapModels(AMAPS[m.opts.map] || AMAPS.station)); } catch (e) { } }
+  if (MODES[m.mode].group !== 'traitor') { loading('Загружаем карту…'); try { await A.preload(smapModels(SMAPS[m.opts.smap] || SMAPS.warehouse)); } catch (e) { } }
   stopGame();
   $$('.modal').forEach(x => x.classList.remove('show'));
   S.roster = new Map(m.roster.map(r => [r.pid, r]));
@@ -546,3 +552,14 @@ function showResults(res) {
 window.addEventListener('beforeunload', e => { if (Net.isHost && H.players.size > 1) { e.preventDefault(); e.returnValue = ''; } });
 if (location.search.includes('debug')) window.__dbg = { H, S };
 initHome();
+
+// телефон: не даём браузеру зумить страницу щипком и двойным тапом
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTap = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 320 && !e.target.closest('input,textarea,button,.modal-card,.panel')) e.preventDefault();
+  lastTap = now;
+}, { passive: false });

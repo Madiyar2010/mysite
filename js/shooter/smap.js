@@ -1,4 +1,5 @@
 // Карты шутера: прямоугольные блоки (коллизия + вид), физика игрока, лучи, сетка для ботов.
+import { castle, graveyard, street } from './levels.js';
 export const PH = { R: 0.35, H: 1.7, EYE: 1.55, STEP: 0.5, G: 24, JUMP: 8.4, SPEED: 6, AIR: 14, ACC: 60 };
 
 // ---------- построение склада ----------
@@ -15,6 +16,7 @@ function warehouse() {
   // перегородка с воротами посередине и проходами у стен
   box(0, 0, -9.5, 0.8, 5, 11, 'divider'); box(0, 0, 9.5, 0.8, 5, 11, 'divider');
   const gate = box(0, 0, 0, 0.6, 5, 8, 'gate', { dyn: 'gate' });
+  const gates = [{ box: gate, period: 30, openFor: 20, lift: 4.6, off: 0 }];
   // северный мостик над проходом, лестницы на него
   box(0, 2.8, -18.4, 49, 0.25, 3, 'catwalk');
   for (let x = -24; x <= 24; x += 8) box(x, 0, -17.2, 0.3, 2.8, 0.3, 'pillar');
@@ -42,35 +44,50 @@ function warehouse() {
   });
   // погрузчики: ездят туда-сюда по своим дорожкам
   const movers = [
-    { id: 0, x: -13, z0: -12, z1: 12, speed: 3.2, w: 2.2, h: 2.4, d: 3.4, model: 'ca/tractor-shovel' },
-    { id: 1, x: 13, z0: 12, z1: -12, speed: 3.2, w: 2.2, h: 2.4, d: 3.4, model: 'ca/tractor-shovel' }
+    { type: 'ping', axis: 'z', c: -13, a: -12, b: 12, speed: 3.2, len: 3.4, wid: 2.2, h: 2.4, model: 'ca/tractor-shovel', dmg: 15 },
+    { type: 'ping', axis: 'z', c: 13, a: 12, b: -12, speed: 3.2, len: 3.4, wid: 2.2, h: 2.4, model: 'ca/tractor-shovel', dmg: 15 }
   ];
-  for (const m of movers) m.box = box(m.x, 0, m.z0, m.w, m.h, m.d, 'mover', { dyn: 'mover', mover: m.id });
+  for (const m of movers) m.box = box(0, 0, 0, 1, m.h, 1, 'mover', { dyn: 'mover' });
   const spawnsTeam = { 0: [], 1: [] };
   for (let i = 0; i < 6; i++) { spawnsTeam[0].push({ x: -29.5 + (i % 2) * 1.6, z: -5 + i * 2, yaw: -Math.PI / 2 }); spawnsTeam[1].push({ x: 29.5 - (i % 2) * 1.6, z: -5 + i * 2, yaw: Math.PI / 2 }); }
   const spawnsFFA = [[-28, -12], [28, 12], [-28, 12], [28, -12], [-12, 0], [12, 0], [2, -16], [-2, 16], [-20, -14], [20, 14], [-8, 10], [8, -10]].map(([x, z]) => ({ x, z, yaw: Math.atan2(x, z) }));
   const flags = [{ team: 0, x: -29, z: 0 }, { team: 1, x: 29, z: 0 }];
   const monsterSpawns = [[-30, -18], [30, -18], [-30, 18], [30, 18], [0, -17.5], [0, 17.5]].map(([x, z]) => ({ x, z }));
-  return { id: 'warehouse', name: 'Склад', W, D, WH, boxes: B, gate, movers, spawnsTeam, spawnsFFA, flags, monsterSpawns, theme: 'indoor' };
+  return { id: 'warehouse', name: 'Склад', W, D, WH, boxes: B, gates, movers, spawnsTeam, spawnsFFA, flags, monsterSpawns, theme: 'warehouse' };
 }
 
-// ---------- динамика: ворота и погрузчики зависят только от времени ----------
+// ---------- динамика: ворота, техника и маятники зависят только от времени ----------
 export function updateDynamics(map, t) {
-  // ворота: 20 c открыты, 10 c закрыты
-  const cyc = t % 30, open = cyc < 20 ? Math.min(1, cyc / 1.2) : Math.max(0, 1 - (cyc - 20) / 1.2);
-  map.gateOpen = cyc < 20 ? Math.min(1, cyc / 1.2) : Math.max(0, 1 - (cyc - 20) / 1.2);
-  const g = map.gate; g.y = map.gateOpen * 4.6; g.solid = map.gateOpen < 0.75;
-  for (const m of map.movers) {
-    const len = Math.abs(m.z1 - m.z0), period = len / m.speed * 2 + 3;
-    let ph = (t % period);
-    let k; const half = len / m.speed + 1.5;
-    if (ph < 1.5) k = 0; else if (ph < half) k = (ph - 1.5) / (half - 1.5); else if (ph < half + 1.5) k = 1; else k = 1 - (ph - half - 1.5) / (period - half - 1.5);
-    const z = m.z0 + (m.z1 - m.z0) * k;
-    m.vz = (z - (m.zPrev ?? z)); m.zPrev = z;
-    m.box.z = z; m.dir = Math.sign((m.z1 - m.z0) * ((ph > 1.5 && ph < half) ? 1 : (ph > half + 1.5 ? -1 : 0)));
-    m.moving = m.dir !== 0;
+  for (const g of map.gates || []) {
+    const cyc = (t + g.off) % g.period, ramp = 1.2;
+    const open = cyc < g.openFor ? Math.min(1, cyc / ramp) : Math.max(0, 1 - (cyc - g.openFor) / ramp);
+    if (g.h0 == null) { g.h0 = g.box.h; g.y0 = g.box.y; }
+    g.open = open; g.box.solid = open < 0.75;
+    if (g.roll) { g.box.y = g.y0 + open * g.lift; g.box.h = g.h0 - open * g.lift; } else g.box.y = g.y0 + open * g.lift;
   }
-  return open;
+  for (const m of map.movers || []) {
+    let x, z, dx = 0, dz = 0, heading;
+    if (m.type === 'ping') {
+      const len = Math.abs(m.b - m.a), travel = len / m.speed, period = travel * 2 + 3;
+      const ph = t % period; let k;
+      if (ph < 1.5) k = 0; else if (ph < 1.5 + travel) { k = (ph - 1.5) / travel; dx = 1; } else if (ph < 3 + travel) k = 1; else { k = 1 - (ph - 3 - travel) / travel; dx = -1; }
+      const v = m.a + (m.b - m.a) * k, sign = Math.sign(m.b - m.a) * dx;
+      if (m.axis === 'z') { x = m.c; z = v; dz = sign; dx = 0; } else { x = v; z = m.c; dx = sign; }
+      if (sign) m.lastSign = sign;
+      heading = m.lastSign || Math.sign(m.b - m.a);
+      m.yaw = m.axis === 'z' ? (heading > 0 ? 0 : Math.PI) : (heading > 0 ? Math.PI / 2 : -Math.PI / 2);
+      const along = m.axis === 'z';
+      m.box.w = along ? m.wid : m.len; m.box.d = along ? m.len : m.wid;
+    } else if (m.type === 'swing') {
+      const s = Math.sin((t + (m.off || 0)) * Math.PI * 2 / m.period);
+      x = m.x + (m.axis === 'x' ? s * m.amp : 0); z = m.z + (m.axis === 'z' ? s * m.amp : 0);
+      const v = Math.cos((t + (m.off || 0)) * Math.PI * 2 / m.period);
+      dx = m.axis === 'x' ? Math.sign(v) : 0; dz = m.axis === 'z' ? Math.sign(v) : 0;
+      m.box.w = m.axis === 'x' ? m.wid : m.len; m.box.d = m.axis === 'x' ? m.len : m.wid;
+      m.swing = s; m.box.y = m.y || 0;
+    }
+    m.box.x = x; m.box.z = z; m.dirX = dx; m.dirZ = dz; m.moving = !!(dx || dz);
+  }
 }
 const solidBox = b => b.vis !== 'floor' && (b.solid !== false);
 
@@ -147,7 +164,7 @@ export function rayWorld(map, o, d, maxT) {
   let best = { t: maxT, b: null };
   for (const b of map.boxes) {
     if (b.vis === 'floor') { if (d.y < 0) { const t = -o.y / d.y; if (t > 0 && t < best.t) best = { t, b, axis: 1 }; } continue; }
-    if (!solidBox(b)) continue;
+    if (!solidBox(b) || b.pass) continue;
     const h = rayBox(o, d, b, best.t);
     if (h && h.t < best.t) best = { t: h.t, b, axis: h.axis };
   }
@@ -183,7 +200,7 @@ export function buildNav(map) {
     const x = -map.W + ix + 0.5, z = -map.D + iz + 0.5;
     let ok = 1;
     for (const b of map.boxes) {
-      if (b.vis === 'floor' || b.dyn) continue;
+      if (b.vis === 'floor' || b.dyn || b.solid === false) continue;
       if (b.y > 1.6 || b.y + b.h < 0.45) continue;
       if (Math.abs(x - b.x) < b.w / 2 + 0.45 && Math.abs(z - b.z) < b.d / 2 + 0.45) { ok = 0; break; }
     }
@@ -226,17 +243,19 @@ export function navPath(map, from, to) {
   return path.reverse();
 }
 
-export const SMAPS = { warehouse: warehouse() };
-buildNav(SMAPS.warehouse);
+export const SMAPS = { warehouse: warehouse(), castle: castle(), graveyard: graveyard(), street: street() };
+for (const m of Object.values(SMAPS)) buildNav(m);
 export const SMAP_LIST = [
   { id: 'warehouse', name: 'Склад', icon: 'station', ready: true },
-  { id: 'castle', name: 'Замок', icon: 'castle', ready: false },
-  { id: 'graveyard', name: 'Ночное кладбище', icon: 'skull', ready: false },
-  { id: 'street', name: 'Городская улица', icon: 'users', ready: false }
+  { id: 'castle', name: 'Замок', icon: 'castle', ready: true },
+  { id: 'graveyard', name: 'Ночное кладбище', icon: 'skull', ready: true },
+  { id: 'street', name: 'Городская улица', icon: 'users', ready: true }
 ];
 export function smapModels(map) {
-  const s = new Set(['fa/conveyor-long', 'fa/box-small', 'ca/cone']);
+  const s = new Set(map.id === 'warehouse' ? ['fa/conveyor-long', 'fa/box-small', 'ca/cone'] : []);
+  if (map.hazard) s.add('grave/character-skeleton');
   for (const b of map.boxes) if (b.model) s.add(b.model);
-  for (const m of map.movers) s.add(m.model);
+  for (const m of map.movers) if (m.model) s.add(m.model);
+  for (const d of map.deco || []) s.add(d.model);
   return [...s];
 }

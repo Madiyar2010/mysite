@@ -10,7 +10,7 @@ export const S_MONSTERS = {
   ghost: { model: 'grave/character-ghost', name: 'Призрак', hp: 60, speed: 3.4, dmg: 14, range: 16, cd: 1.6, scale: 1.1, money: 150, ranged: true },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
-export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'rounds', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
+export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128 };
 const WIDX = Object.keys(WEAPONS);
 
@@ -85,6 +85,7 @@ export class ShooterSim {
     this.projs = [];
     if (this.flags) for (const f of this.flags) Object.assign(f, { x: f.hx, z: f.hz, y: 0, carrier: null, home: true });
     if (this.mode === 'pve') { this.wave++; this.queue = this.waveList(this.wave); this.spawnT = 0; }
+    else { this.mons.clear(); this.hazT = null; }
     this.ev('round', this.round, this.mode === 'pve' ? this.wave : 0);
   }
   endRound(winTeam, winPid, text) {
@@ -313,7 +314,7 @@ export class ShooterSim {
     if (t.mon) {
       this.ev('die', t.id, +t.x.toFixed(2), +t.y.toFixed(2), +t.z.toFixed(2));
       t.removeT = 2.5;
-      if (src && !src.mon) { src.kills++; src.pts += S_MONSTERS[t.type].boss ? 10 : 1; src.money = Math.min(MONEY.max, src.money + S_MONSTERS[t.type].money); }
+      if (src && !src.mon) { if (this.mode === 'pve') { src.kills++; src.pts += S_MONSTERS[t.type].boss ? 10 : 1; } src.money = Math.min(MONEY.max, src.money + S_MONSTERS[t.type].money); }
       if (S_MONSTERS[t.type].boss) this.ev('msg', 'Хранитель склепа повержен!');
       return;
     }
@@ -499,6 +500,21 @@ export class ShooterSim {
     if (enraged && m.volleyT <= 0) { m.volleyT = 6; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this.projs.push({ id: ++this.pid, type: 'bossorb', owner: m.id, x: m.x, y: 2.5, z: m.z, vx: Math.sin(a) * 9, vy: 0, vz: Math.cos(a) * 9, grav: 0, life: 3, dmg: 22 }); } }
   }
 
+  // техника, маятники: толкают и бьют
+  moverTouch(p) {
+    for (const m of this.map.movers) {
+      const b = m.box;
+      if (!m.moving || p.y > b.y + b.h - 0.2 || p.y + PH.H < b.y) continue;
+      if (Math.abs(p.x - b.x) < b.w / 2 + PH.R + 0.1 && Math.abs(p.z - b.z) < b.d / 2 + PH.R + 0.1 && this.t - (p.moverHit || 0) > 1) {
+        p.moverHit = this.t;
+        // толкаем по ходу движения и в сторону от центра
+        const sx = m.dirX ? 0 : Math.sign(p.x - b.x) || 1, sz = m.dirZ ? 0 : Math.sign(p.z - b.z) || 1;
+        const dx = m.dirX * 0.8 + sx * 0.6, dz = m.dirZ * 0.8 + sz * 0.6, L = Math.hypot(dx, dz) || 1;
+        this.damage(p, m.dmg || 15, null, { w: m.blade ? 'blade' : 'mover', dir: { x: dx / L, y: 0.5, z: dz / L }, knock: m.knock || 9 });
+      }
+    }
+  }
+
   // ---------- цикл ----------
   tick() {
     const now = performance.now(), dt = Math.min(0.06, (now - this.last) / 1000); this.last = now;
@@ -524,26 +540,26 @@ export class ShooterSim {
         movePlayer(this.map, p, { mx: mv.mx, mz: mv.mz, speedMul: (this.flags && this.flags.some(f => f.carrier === p.id) ? 0.9 : 1) * slow }, dt);
         p.anim = Math.hypot(p.vx, p.vz) > 0.5 ? 1 : 0;
       }
-      // погрузчики толкают и бьют
-      for (const m of this.map.movers) {
-        const b = m.box;
-        if (!m.moving || p.y > b.y + b.h - 0.2) continue;
-        if (Math.abs(p.x - b.x) < b.w / 2 + PH.R + 0.1 && Math.abs(p.z - b.z) < b.d / 2 + PH.R + 0.1 && this.t - p.moverHit > 1) {
-          p.moverHit = this.t;
-          const side = Math.sign(p.x - b.x) || 1;
-          this.damage(p, 15, null, { w: 'mover', dir: { x: side * 0.7, y: 0.5, z: m.dir * 0.7 }, knock: 9 });
-        }
+      this.moverTouch(p);
+    }
+    // монстры (в режиме «Монстры» — волны, на кладбище — скелеты из могил)
+    if (playing && this.mode !== 'pve' && this.map.hazard) {
+      const hz = this.map.hazard;
+      this.hazT = (this.hazT ?? hz.every * 0.6) - dt;
+      if (this.hazT <= 0) {
+        this.hazT = hz.every;
+        if ([...this.mons.values()].filter(m => m.alive).length < hz.max) { const g = pick(hz.spawns); this.spawnMonster(hz.type, g); this.ev('rise', +g.x.toFixed(1), +g.z.toFixed(1)); }
       }
     }
-    // монстры
-    if (this.mode === 'pve' && playing) {
-      if (this.queue.length) { this.spawnT -= dt; if (this.spawnT <= 0) { this.spawnT = 0.8; this.spawnMonster(this.queue.shift()); } }
+    if (playing && (this.mode === 'pve' || this.mons.size)) {
+      if (this.mode === 'pve' && this.queue.length) { this.spawnT -= dt; if (this.spawnT <= 0) { this.spawnT = 0.8; this.spawnMonster(this.queue.shift()); } }
       for (const m of this.mons.values()) {
         if (!m.alive) { m.removeT -= dt; if (m.removeT <= 0) this.mons.delete(m.id); continue; }
         const M = S_MONSTERS[m.type];
         const mv = this.monsterThink(m, dt);
         const slow = this.t < m.freezeUntil ? 0.3 : this.t < m.slowUntil ? 0.6 : 1;
         movePlayer(this.map, m, { mx: mv.mx, mz: mv.mz, speedMul: M.speed / PH.SPEED * slow }, dt);
+        this.moverTouch(m);
       }
       // монстры не стоят друг в друге
       const ms = [...this.mons.values()].filter(m => m.alive);

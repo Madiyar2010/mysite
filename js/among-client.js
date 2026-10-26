@@ -2,7 +2,7 @@
 import { $, $$, esc, clamp, PHRASES } from './util.js';
 import { icon } from './icons.js';
 import { Avatar } from './render.js';
-import { TASKS, SAB, castRay, lineOfSight, roomAtPos, T } from './amap.js';
+import { TASKS, SAB, castRay, lineOfSight, roomAtPos, T, applyMapText } from './amap.js';
 import { BASE, FLAG, DEFAULT_OPTS } from './among-sim.js';
 import { Input } from './input.js';
 import { Sound } from './sound.js';
@@ -25,6 +25,7 @@ export function amBanner(html, cls = '', ms = 2600) {
 export class AmongClient {
   constructor(ctx) {
     this.ctx = ctx; this.view = ctx.view; this.map = ctx.view.map; this.me = ctx.myPid; this.roster = ctx.roster;
+    applyMapText(this.map); Tasks.setTheme(this.map.theme);
     this.opts = { ...DEFAULT_OPTS, ...(ctx.opts || {}) };
     this.role = 'crew'; this.sub = null; this.mates = []; this.tasks = []; this.alive = true; this.pv = {};
     this.st = null; this.bodyAv = new Map(); this.appearance = new Map(); this.lastAnim = new Map();
@@ -433,7 +434,7 @@ export class AmongClient {
         btns.innerHTML = m.def.doorRooms.map(rid => { const r = m.R[rid]; const cd = cds[rid] || 0; return `<button class="mm-door" data-r="${rid}" style="left:${ox + ((r.x1 + r.x2 + 1) / 2) * k}px;top:${oy + ((r.y1 + r.y2 + 1) / 2) * k}px" ${cd > 0 ? 'disabled' : ''}>${icon('doors')}${cd > 0 ? `<small>${cd}</small>` : ''}</button>`; }).join('');
         btns.querySelectorAll('.mm-door').forEach(b => b.onclick = () => { Sound.play('door_close', { vol: 0.5 }); this.ctx.send({ t: 'sabdoor', room: b.dataset.r }); });
         const row = $('#sab-row'), scd = this.st ? this.st.scd : 0, active = this.st && this.st.sab;
-        row.innerHTML = ['lights', 'comms', 'reactor', 'o2'].map(k2 => `<button class="sab-b ${SAB[k2].critical ? 'crit' : ''}" data-s="${k2}" ${scd > 0 || active ? 'disabled' : ''}>${icon(SAB[k2].icon)}<span>${{ lights: 'Свет', comms: 'Связь', reactor: 'Реактор', o2: 'Кислород' }[k2]}</span>${scd > 0 ? `<small>${Math.ceil(scd)}с</small>` : ''}</button>`).join('');
+        row.innerHTML = ['lights', 'comms', 'reactor', 'o2'].map(k2 => `<button class="sab-b ${SAB[k2].critical ? 'crit' : ''}" data-s="${k2}" ${scd > 0 || active ? 'disabled' : ''}>${icon(SAB[k2].icon)}<span>${SAB[k2].short}</span>${scd > 0 ? `<small>${Math.ceil(scd)}с</small>` : ''}</button>`).join('');
         row.querySelectorAll('.sab-b').forEach(b => b.onclick = () => { this.ctx.send({ t: 'sab', type: b.dataset.s }); this.closeOverlay(); });
       }
     };

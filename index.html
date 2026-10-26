@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#1b1640">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -136,7 +136,7 @@
       <button class="act small" id="sh-cam"><span><i data-ic="eye"></i></span><small>1-е лицо</small></button>
       <button class="act small" id="sh-buyb"><span><i data-ic="shop"></i></span><small>Закупка</small></button>
       <button class="act small" id="sh-med"><span><i data-ic="heart"></i></span><small>Аптечка</small></button>
-      <button class="act small" id="sh-fire2"><span><i data-ic="target"></i></span></button>
+      <button class="act small" id="sh-fire2"><i data-ic="gun"></i></button>
       <button class="act" id="sh-switch"><span></span><small>Оружие</small></button>
       <button class="act" id="sh-nade"><span><i data-ic="bomb"></i></span><small>×0</small></button>
       <button class="act" id="sh-reload"><span><i data-ic="rotate"></i></span><small>Перезар.</small></button>
@@ -146,6 +146,7 @@
     </div>
     <div id="sh-keys">WASD — ходить · Мышь — смотреть · ЛКМ — огонь · ПКМ/F — прицел · R — перезарядка · 1-4/колесо — оружие · G — граната · B — закупка · V — вид · H — аптечка · Tab — счёт</div>
     <div id="sh-dead"></div>
+    <div id="sh-spec"></div>
     <div id="sh-lock"><div><b>Нажми, чтобы играть</b><span>Мышь управляет взглядом. Esc — освободить мышь</span><button class="btn ghost sm" data-act="pause"><i data-ic="pause"></i> Меню</button></div></div>
     <div id="sh-buy"><div class="buy-card">
       <div class="row"><h3 class="grow"><i data-ic="shop"></i> Закупка</h3><div class="coins big" id="sh-buy-money">$0</div><button class="icon-btn" id="sh-buy-x"><i data-ic="close"></i></button></div>
@@ -229,6 +230,9 @@
   <div class="set-row"><span><i data-ic="music"></i> Музыка</span><input type="range" id="set-music" min="0" max="100"></div>
   <div class="set-row"><span>Тихий режим (вечер)</span><div class="seg" id="set-quiet"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
   <div class="set-row"><span><i data-ic="vibrate"></i> Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="target"></i> Чувствительность</span><input type="range" id="set-sens" min="30" max="250"></div>
+  <div class="set-row"><span><i data-ic="target"></i> Помощь в прицеливании</span><div class="seg" id="set-aim"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="gun"></i> Автострельба (телефон)</span><div class="seg" id="set-auto"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
   <div class="set-row"><span><i data-ic="sparkles"></i> Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
   <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро».</p>
 </div></div>

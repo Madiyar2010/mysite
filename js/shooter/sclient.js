@@ -71,14 +71,14 @@ export class ShooterClient {
     on(document, 'mouseup', e => { if (e.button === 0) this.fireHeld = false; if (e.button === 2 && this.scopeHold) this.toggleScope(false); });
     on(scr, 'contextmenu', e => e.preventDefault());
     on(document, 'wheel', e => { if (document.pointerLockElement) this.cycle(e.deltaY > 0 ? 1 : -1); }, { passive: true });
-    // касания
-    on(scr, 'pointerdown', e => this.touchDown(e));
-    on(scr, 'pointermove', e => this.touchMove(e));
-    on(scr, 'pointerup', e => this.touchUp(e)); on(scr, 'pointercancel', e => this.touchUp(e));
-    const btn = (id, fn, holdUp) => { const b = $(id); const d = e => { e.preventDefault(); e.stopPropagation(); fn(true, e); }; const u = e => { if (holdUp) { e.stopPropagation(); holdUp(e); } }; on(b, 'pointerdown', d); if (holdUp) { on(b, 'pointerup', u); on(b, 'pointercancel', u); } };
-    btn('#sh-fire', (v, e) => { this.fireHeld = true; this.firedThisPress = true; this.doFire(); this.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; $('#sh-fire').setPointerCapture(e.pointerId); }, e => { this.fireHeld = false; if (this.look && this.look.id === e.pointerId) this.look = null; });
-    on($('#sh-fire'), 'pointermove', e => this.touchMove(e));
-    btn('#sh-fire2', () => { this.fireHeld = true; this.firedThisPress = true; this.doFire(); }, () => { this.fireHeld = false; });
+    // касания: отслеживаем пальцы по touch-событиям и сверяем с e.touches — ничего не «залипает»
+    on(scr, 'touchstart', e => this.tStart(e), { passive: false });
+    on(scr, 'touchmove', e => this.tMove(e), { passive: false });
+    on(document, 'touchend', e => this.tEnd(e), { passive: false });
+    on(document, 'touchcancel', e => this.tEnd(e), { passive: false });
+    on(window, 'blur', () => this.releaseAll());
+    on(document, 'visibilitychange', () => this.releaseAll());
+    const btn = (id, fn) => { const b = $(id); on(b, 'pointerdown', e => { if (e.pointerType !== 'mouse') return; e.preventDefault(); e.stopPropagation(); fn(); }); b._tap = fn; };
     btn('#sh-jump', () => { this.jumpReq = true; });
     btn('#sh-reload', () => this.reload());
     btn('#sh-aim', () => this.toggleScope());
@@ -112,25 +112,41 @@ export class ShooterClient {
     else if (k === 'Tab') { $('#sh-board').classList.add('show'); this.renderBoard(); }
     else if (k === 'KeyF') this.toggleScope();
   }
-  touchDown(e) {
-    if (e.pointerType === 'mouse') return;
+  tStart(e) {
     window.__touch = true;
-    if (e.target.closest('button,#sh-buy,.sh-modal')) return;
-    if (e.clientX < innerWidth * 0.42 && !this.joy) { this.joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY }; this.drawJoy(); }
-    else if (!this.look) this.look = { id: e.pointerId, x: e.clientX, y: e.clientY };
-  }
-  touchMove(e) {
-    if (this.joy && e.pointerId === this.joy.id) { this.joy.x = e.clientX; this.joy.y = e.clientY; this.drawJoy(); }
-    if (this.look && e.pointerId === this.look.id) {
-      const s = (LS.get('sens', 1)) * 0.0065 / this.view.zoom;
-      this.yaw -= (e.clientX - this.look.x) * s; this.pitch = clamp(this.pitch - (e.clientY - this.look.y) * s, -1.45, 1.45);
-      this.look.x = e.clientX; this.look.y = e.clientY;
+    const ui = e.target.closest && e.target.closest('#sh-buy,.sh-modal,#sh-board');
+    if (!ui) e.preventDefault(); // без этого браузер зумит страницу двойным тапом и щипком
+    for (const t of e.changedTouches) {
+      const el = t.target.closest ? t.target.closest('button,#sh-buy,.sh-modal,#sh-board') : null;
+      if (el && (el.id === 'sh-fire' || el.id === 'sh-fire2')) {
+        this.fireHeld = true; this.firedThisPress = true; this.doFire();
+        if (el.id === 'sh-fire' && !this.look) this.look = { id: t.identifier, x: t.clientX, y: t.clientY, fire: true }; else this.fireId = t.identifier;
+        continue;
+      }
+      if (el) { if (!ui) { if (el._tap) el._tap(); else el.click(); vib(10); } continue; }
+      if (t.clientX < innerWidth * 0.42 && !this.joy) { this.joy = { id: t.identifier, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY }; this.drawJoy(); }
+      else if (!this.look) this.look = { id: t.identifier, x: t.clientX, y: t.clientY };
     }
   }
-  touchUp(e) {
-    if (this.joy && e.pointerId === this.joy.id) { this.joy = null; this.drawJoy(); }
-    if (this.look && e.pointerId === this.look.id) this.look = null;
+  tMove(e) {
+    if (!(e.target.closest && e.target.closest('#sh-buy,.sh-modal,#sh-board'))) e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (this.joy && t.identifier === this.joy.id) { this.joy.x = t.clientX; this.joy.y = t.clientY; this.drawJoy(); }
+      if (this.look && t.identifier === this.look.id) {
+        const s = (LS.get('sens', 1)) * 0.0065 / this.view.zoom;
+        this.yaw -= (t.clientX - this.look.x) * s; this.pitch = clamp(this.pitch - (t.clientY - this.look.y) * s, -1.45, 1.45);
+        this.look.x = t.clientX; this.look.y = t.clientY;
+      }
+    }
   }
+  tEnd(e) {
+    const alive = new Set([...e.touches].map(t => t.identifier));
+    if (this.joy && !alive.has(this.joy.id)) { this.joy = null; this.drawJoy(); }
+    if (this.look && !alive.has(this.look.id)) { if (this.look.fire) this.fireHeld = false; this.look = null; }
+    if (this.fireId != null && !alive.has(this.fireId)) { this.fireId = null; this.fireHeld = false; }
+    if (!e.touches.length) { this.fireHeld = false; this.fireId = null; }
+  }
+  releaseAll() { this.joy = null; this.look = null; this.fireId = null; this.fireHeld = false; this.keys = {}; this.drawJoy(); }
   drawJoy() {
     const el = $('#joy');
     if (!this.joy) { el.style.display = 'none'; return; }
@@ -250,6 +266,7 @@ export class ShooterClient {
       if (frozen) mul = 0;
       if (this.cur === 'knife') mul *= 1.12;
       movePlayer(this.map, this.p, { mx: mv.mx, mz: mv.mz, jump: this.jumpReq && !frozen, speedMul: mul }, dt);
+      this.aimHelp(dt);
       if (this.fireHeld) { const W = WEAPONS[this.cur]; if (W && (W.auto || !this.firedThisPress)) { this.doFire(); this.firedThisPress = true; } }
       // шаги
       if (mv.moving && this.p.ground && !frozen) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = this.scoped ? 0.5 : 0.36; Sound.play('step' + (Math.random() * 5 | 0), { vol: 0.25, vary: true }); } }
@@ -259,9 +276,17 @@ export class ShooterClient {
     let eye;
     if (this.alive) eye = new THREE.Vector3(this.p.x, this.p.y + PH.EYE, this.p.z);
     else {
-      const t = this.spectateTarget();
-      if (t) { eye = new THREE.Vector3(t.x, t.y + PH.EYE, t.z); if (this.view.camMode === 'fps') this.view.camMode = 'tps'; this.yaw += dt * 0.15; }
-      else eye = new THREE.Vector3(this.p.x, this.p.y + 2.5, this.p.z);
+      // первые секунды после гибели — смотрим на того, кто выбил, потом наблюдаем за своими
+      const since = performance.now() / 1000 - (this.diedAt || 0);
+      const killer = this.killerId && this.view.ents.get(this.killerId);
+      const t = since > 3.5 ? this.spectateTarget() : null;
+      this.view.camMode = 'tps';
+      if (t) { eye = new THREE.Vector3(t.x, t.y + PH.EYE, t.z); this.specLabel(t); }
+      else {
+        eye = new THREE.Vector3(this.p.x, this.p.y + PH.EYE, this.p.z);
+        if (killer && killer !== this.view.ents.get(this.me)) { const want = Math.atan2(-(killer.x - this.p.x), -(killer.z - this.p.z)); let d = want - this.yaw; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; this.yaw += d * Math.min(1, dt * 3); this.pitch *= 0.95; }
+        this.specLabel(null);
+      }
     }
     if (this.alive) this.view.camMode = this.camMode;
     this.view.eye.copy(eye); this.view.yaw = this.yaw; this.view.pitch = this.pitch;
@@ -285,6 +310,38 @@ export class ShooterClient {
     }
     this.hudFrame();
   }
+  specLabel(t) {
+    const el = $('#sh-spec'); if (!el) return;
+    const txt = t ? `${icon('eye')} Смотришь за: <b>${esc(t.meta.name || '')}</b>` : '';
+    if (el.dataset.t !== txt) { el.dataset.t = txt; el.innerHTML = txt; el.className = txt ? 'show' : ''; }
+    $('#sh-dead').classList.toggle('mini', !!t);
+  }
+  // помощь в прицеливании на телефоне: прицел слегка «липнет» к врагу, автоогонь
+  aimHelp(dt) {
+    if (!window.__touch || this.ph !== 'play' || this.buyOpen || LS.get('aimhelp', true) === false) return;
+    const W = WEAPONS[this.cur]; if (!W || W.throw) return;
+    const eye = { x: this.p.x, y: this.p.y + PH.EYE, z: this.p.z };
+    const cp = Math.cos(this.pitch), fwd = { x: -Math.sin(this.yaw) * cp, y: Math.sin(this.pitch), z: -Math.cos(this.yaw) * cp };
+    const range = W.melee ? 2.4 : Math.min(W.range || 45, 60);
+    let best = null;
+    for (const [id, a] of this.view.ents) {
+      if (a.dead || !a.root.visible || !this.isEnemyId(id)) continue;
+      const sc = (a.meta && a.meta.scale) || 1;
+      const tx = a.x - eye.x, ty = a.y + 1.05 * sc - eye.y, tz = a.z - eye.z, L = Math.hypot(tx, ty, tz);
+      if (L > range || L < 0.3) continue;
+      const ang = Math.acos(clamp((tx * fwd.x + ty * fwd.y + tz * fwd.z) / L, -1, 1));
+      const lim = Math.min(0.4, 0.1 + 0.9 / L);
+      if (ang > lim || (best && ang > best.ang)) continue;
+      const dir = { x: tx / L, y: ty / L, z: tz / L };
+      if (rayWorld(this.map, eye, dir, L).t < L - 0.4) continue;
+      best = { ang, L, yaw: Math.atan2(-tx, -tz), pitch: Math.atan2(ty, Math.hypot(tx, tz)) };
+    }
+    if (!best) return;
+    const k = Math.min(1, dt * 2.2);
+    let d = best.yaw - this.yaw; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+    this.yaw += d * k; this.pitch += (best.pitch - this.pitch) * k;
+    if (LS.get('autofire', true) !== false && best.ang < Math.max(0.06, 0.55 / best.L)) this.doFire();
+  }
   spectateTarget() {
     let best = null;
     for (const [id, a] of this.view.ents) { if (id === this.me || a.dead || String(id).startsWith('m') || (this.team && this.isEnemyId(id))) continue; best = a; if (id === this.spec) break; }
@@ -297,7 +354,7 @@ export class ShooterClient {
     switch (m.t) {
       case 's2': this.snapshot(m); break;
       case 'me2': this.privateState(m); break;
-      case 'spawn': Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.toggleScope(false); this.reloadUntil = 0; break;
+      case 'spawn': Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.specLabel(null); this.releaseAll(); this.toggleScope(false); this.reloadUntil = 0; break;
       case 'kb': this.p.vx += m.vx; this.p.vz += m.vz; this.p.vy = Math.max(this.p.vy, m.vy); this.p.ground = false; break;
       case 'bought': Sound.play('drop'); vib(15); if (WEAPONS[m.item] && WEAPONS[m.item].slot === 1) { setTimeout(() => this.switchTo(m.item), 120); } break;
     }
@@ -405,11 +462,11 @@ export class ShooterClient {
         const [, kid, vid, w, head] = f;
         const kn = this.name(kid), vn = this.name(vid);
         const kc = this.team && kid ? TEAM_COLORS[this.info(kid).team] : '#ffd166', vc = this.team ? TEAM_COLORS[this.info(vid).team] : '#fff';
-        const wi = WEAPONS[w] ? icon(WEAPONS[w].icon) : w === 'mover' ? icon('engine') : icon('skull');
+        const wi = WEAPONS[w] ? icon(WEAPONS[w].icon) : w === 'mover' ? icon(this.map.theme === 'street' ? 'steering' : 'engine') : w === 'blade' ? icon('swords') : icon('skull');
         this.killfeed(`${kid ? `<b style="color:${kc}">${esc(kn)}</b> ` : ''}${wi}${head ? ' ' + icon('target') : ''} <b style="color:${vc}">${esc(vn)}</b>`);
         if (kid === this.me && vid !== this.me) { shBanner(`${icon('swords')} Ты выбил ${esc(vn)}${head ? ' — в голову!' : ''}`, 'small', 1400); Sound.play('confirm', { vol: 0.8 }); vib([20, 30, 40]); }
         if (vid === this.me) {
-          this.alive = false; this.toggleScope(false);
+          this.alive = false; this.diedAt = performance.now() / 1000; this.killerId = kid; this.spec = null; this.toggleScope(false);
           $('#sh-dead').innerHTML = `<div class="dead-card">${kid && kid !== this.me ? `<img src="${thumb(this.info(kid).model || 'character-a')}"><b>Тебя выбил ${esc(kn)}</b>` : '<b>Тебя выбили</b>'}<span id="sh-resp"></span></div>`;
           $('#sh-dead').className = 'show'; Sound.play('kill', { vol: 0.8 }); vib([80, 50, 120]);
         }
@@ -419,6 +476,7 @@ export class ShooterClient {
       case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
       case 'puff': { const [, x, y, z, tp] = f; v.burst(x, y, z, tp === 'orb' ? '#b36bff' : '#ffffff', 6, 2, 0.08, 0.4); break; }
       case 'bounce': this.snd('thud', f[1], f[2], 0.4, 20); break;
+      case 'rise': { const [, x, z] = f; v.burst(x, 0.2, z, '#4a3b2c', 22, 3, 0.13, 1); v.burst(x, 0.3, z, '#9fe8a0', 8, 1.5, 0.08, 1.2); this.snd('glitch', x, z, 0.8, 30); if (!this.riseShown) { this.riseShown = true; shBanner(`${icon('skull')} Из могил встают скелеты!`, 'small', 2500); } break; }
       case 'tele': v.ring(f[1], f[2], f[3], f[4]); break;
       case 'heal': if (f[1] === this.me) { Sound.play('taskdone', { vol: 0.6 }); shBanner(`${icon('heart')} +60 здоровья`, 'small', 1200); } break;
       case 'round': { const [, n, wave] = f; shBanner(wave ? `Волна ${wave} из 6` : `Раунд ${n}`, 'big', 2200); Sound.play('j_meeting', { vol: 0.5 }); break; }
