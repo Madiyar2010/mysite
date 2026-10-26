@@ -759,3 +759,11 @@ body.touch #sh-keys{display:none}
 #sh-spec{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);display:none;z-index:5;pointer-events:none;background:rgba(10,8,25,.75);padding:6px 16px;border-radius:999px;font-weight:700;font-size:15px;white-space:nowrap}
 #sh-spec.show{display:flex;align-items:center;gap:6px}
 #sh-spec svg{width:18px;height:18px}
+
+.pl{position:relative}
+.pl .kick{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;background:rgba(230,57,70,.85);display:flex;align-items:center;justify-content:center}
+.pl .kick svg{width:14px;height:14px}
+#pause-players{display:flex;flex-direction:column;gap:6px;max-height:38vh;overflow-y:auto;touch-action:pan-y}
+.pp-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:12px;padding:5px 8px}
+.pp-row img{width:30px;height:30px;object-fit:contain}
+.pp-row b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -68,7 +68,7 @@ document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   if (a) {
     const k = a.dataset.act;
-    if (k === 'shop') openShop(); if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(true); if (k === 'pause') openModal('#m-pause');
+    if (k === 'shop') openShop(); if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(true); if (k === 'pause') { renderPausePlayers(); openModal('#m-pause'); }
   }
 });
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
@@ -224,6 +224,7 @@ const AM_SET = {
 const AM_BOOL = ['confirm', 'anon', 'visualTasks'];
 
 function hostStart(code) {
+  H.banned = new Set();
   H.players.clear(); H.inGame = false; H.sim = null;
   H.players.set(me.pid, { ...profile(), team: 0, online: true, pts: 0 });
   loading(false); keepAwake();
@@ -242,6 +243,7 @@ function cleanProfile(m) {
 Net.onHostMessage = (pid, m) => {
   switch (m.t) {
     case 'hello': case 'prof': {
+      if (H.banned && H.banned.has(pid)) { Net.sendTo(pid, { t: 'kicked' }); Net.drop(pid); return; }
       let p = H.players.get(pid);
       const prof = cleanProfile(m);
       if (!p && m.t === 'hello' && H.mode === 'traitor' && [...H.players.values()].filter(x => x.online).length >= H.opts.maxPlayers) { Net.sendTo(pid, { t: 'full' }); return; }
@@ -281,6 +283,17 @@ Net.onHostMessage = (pid, m) => {
       break;
     }
     case 'start': if (pid === me.pid) hostStartGame(); break;
+    case 'kick': {
+      // хост выгоняет игрока: больше в эту комнату он не зайдёт
+      if (pid !== me.pid || m.pid === me.pid || !H.players.has(m.pid)) return;
+      H.banned.add(m.pid);
+      Net.sendTo(m.pid, { t: 'kicked' }); Net.drop(m.pid);
+      if (H.sim) H.sim.onLeave(m.pid);
+      H.players.delete(m.pid);
+      if (H.pending) { const need = [...H.players.values()].filter(x => x.online).every(x => H.pending.ready.has(x.pid)); if (need) launchSim(); }
+      hostLobby(false);
+      break;
+    }
     case 'ready': if (H.pending) { H.pending.ready.add(pid); const need = [...H.players.values()].filter(p => p.online).every(p => H.pending.ready.has(p.pid)); if (need) launchSim(); } break;
     case 'lobby': if (pid === me.pid && !H.sim) { H.inGame = false; hostLobby(true); } break;
     default: if (H.sim) H.sim.onMsg(pid, m);
@@ -344,15 +357,23 @@ Net.onMessage = m => {
     case 'end': showResults(m.res); break;
     case 'wait': toast('Сейчас идёт игра — подожди конца раунда', 4000); break;
     case 'full': toast('Комната заполнена', 4000); leaveRoom(); break;
+    case 'kicked': S.kicked = true; leaveRoom(); toast('Хост убрал тебя из комнаты', 4500); break;
     default: if (S.game) S.game.ctrl.onMsg(m);
   }
 };
 Net.onHostLost = () => {
+  if (S.kicked) { S.kicked = false; return; }
   const code = Net.code;
   leaveRoom();
   $('#in-code').value = code;
   toast('Связь с комнатой потеряна. Нажми «Войти», чтобы вернуться.', 4500);
 };
+function renderPausePlayers() {
+  const el = $('#pause-players'); if (!el) return;
+  const list = Net.isHost && S.lobby ? S.lobby.players.filter(p => p.online && p.pid !== me.pid) : [];
+  el.innerHTML = list.length ? `<div class="muted small">Игроки</div>` + list.map(p => `<div class="pp-row"><img src="${thumb(p.model)}" alt=""><b>${esc(p.name)}</b><button class="btn red sm" data-kick="${p.pid}">${icon('close')} Убрать</button></div>`).join('') : '';
+}
+$('#m-pause').addEventListener('click', e => { const k = e.target.closest('[data-kick]'); if (k) askKick(k.dataset.kick); });
 function leaveRoom() {
   stopGame();
   if (H.sim) H.sim.stop();
@@ -430,6 +451,7 @@ function renderLobby() {
       <img src="${thumb(p.model)}" alt="">
       <div style="min-width:0"><div class="pn">${esc(p.name)}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
       <div class="ps">${icon(CLASSES[p.cls].icon)} ${CLASSES[p.cls].name} · ${icon('star')} ${p.pts}</div></div>
+      ${isHost && p.pid !== me.pid ? `<span class="kick" data-kick="${p.pid}" title="Убрать из комнаты">${icon('close')}</span>` : ''}
     </button>`).join('') + (teams ? `<div class="muted small" style="grid-column:1/-1">Нажми на себя, чтобы сменить команду${isHost ? ' (хост может менять любого)' : ''}</div>` : '');
   $('#lb-mode-title').textContent = isHost ? 'Выбери режим' : 'Режим';
   $('#lb-modes').innerHTML = Object.entries(MODES).map(([id, m]) => `
@@ -459,7 +481,12 @@ $('#lb-opts').addEventListener('click', e => {
   const v = AM_BOOL.includes(k) ? raw === '1' : isNaN(+raw) ? raw : +raw;
   Net.toHost({ t: 'opt', k, v });
 });
+function askKick(pid) {
+  const p = S.lobby && S.lobby.players.find(x => x.pid === pid); if (!p) return;
+  if (confirm(`Убрать «${p.name}» из комнаты? Вернуться он не сможет.`)) Net.toHost({ t: 'kick', pid });
+}
 $('#lb-players').addEventListener('click', e => {
+  const k = e.target.closest('[data-kick]'); if (k) { e.stopPropagation(); askKick(k.dataset.kick); return; }
   const b = e.target.closest('.pl'); if (!b || !S.lobby) return;
   const teams = S.lobby.mode === 'tdm' || S.lobby.mode === 'ctf';
   if (!teams) return;

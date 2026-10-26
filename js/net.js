@@ -25,6 +25,7 @@ export const Net = {
     else if (this.hostConn && this.hostConn.open) try { this.hostConn.send(msg); } catch (e) { }
   },
   connectedPids() { return [...this.conns.keys()]; },
+  drop(pid) { const c = this.conns.get(pid); this.conns.delete(pid); if (c) setTimeout(() => { try { c.close(); } catch (e) { } }, 300); },
 
   reset() {
     try { this.peer && this.peer.destroy(); } catch (e) { }
