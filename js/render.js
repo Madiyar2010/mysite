@@ -858,8 +858,8 @@ export class AmongView {
     if (this.built.scanner) { this.built.scanner.ring.position.y = 0.14 + (this.scanning ? (Math.sin(t * 4) + 1) * 0.9 : 0); this.built.scanner.beam.visible = !!this.scanning; }
     const me = this.ents.get(this.myId);
     if (me) this.focus.lerp(new THREE.Vector3(me.x, 0, me.z), Math.min(1, dt * 7));
-    const zoom = this.portrait ? 1.6 : 1;
-    const target = this.focus.clone().add(new THREE.Vector3(0, 10.5 * zoom, 8.8 * zoom));
+    const zoom = this.portrait ? 1.6 : this.h < 500 ? 1.2 : 1; // на телефоне горизонтально — чуть дальше, чтобы видеть больше
+    const target = this.focus.clone().add(new THREE.Vector3(0, 13 * zoom, 4.2 * zoom));
     this.camPos.lerp(target, Math.min(1, dt * 6));
     this.camera.position.copy(this.camPos);
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += rnd(-1, 1) * this.shake * 0.3; }
