@@ -1,6 +1,6 @@
 // Карты шутера: прямоугольные блоки (коллизия + вид), физика игрока, лучи, сетка для ботов.
 import { castle, graveyard, street } from './levels.js';
-export const PH = { R: 0.35, H: 1.7, EYE: 1.55, STEP: 0.5, G: 24, JUMP: 8.4, SPEED: 6, AIR: 14, ACC: 60 };
+export const PH = { R: 0.35, H: 1.7, EYE: 1.55, CEYE: 1.0, STEP: 0.5, G: 24, JUMP: 8.4, SPEED: 6, AIR: 14, ACC: 60 };
 
 // ---------- построение склада ----------
 function warehouse() {
@@ -178,9 +178,10 @@ export function raySphere(o, d, c, r, maxT) {
   return t > 0 && t < maxT ? t : null;
 }
 // попадание в персонажа: голова — шар, тело — коробка
-export function rayPlayer(o, d, p, maxT, scale = 1) {
-  const head = raySphere(o, d, { x: p.x, y: p.y + 1.5 * scale, z: p.z }, 0.27 * scale, maxT);
-  const body = rayBox(o, d, { x: p.x, y: p.y, z: p.z, w: 0.75 * scale, h: 1.28 * scale, d: 0.75 * scale }, maxT);
+export function rayPlayer(o, d, p, maxT, scale = 1, crouch = p.crouch) {
+  const hy = crouch ? 1.02 : 1.5, bh = crouch ? 0.82 : 1.28;
+  const head = raySphere(o, d, { x: p.x, y: p.y + hy * scale, z: p.z }, 0.27 * scale, maxT);
+  const body = rayBox(o, d, { x: p.x, y: p.y, z: p.z, w: 0.75 * scale, h: bh * scale, d: 0.75 * scale }, maxT);
   if (head != null && (!body || head < body.t)) return { t: head, head: true };
   if (body) return { t: body.t, head: false };
   return null;

@@ -5,6 +5,7 @@ import { icon } from '../icons.js';
 import { Sound } from '../sound.js';
 import { WEAPONS, GEAR, BUY_GROUPS, STYLE_NAMES } from './weapons.js';
 import { PH, movePlayer, updateDynamics, rayWorld, rayPlayer } from './smap.js';
+const jit = (d, s) => { if (!s) return d; const x = d.x + rnd(-s, s), y = d.y + rnd(-s, s), z = d.z + rnd(-s, s), L = Math.hypot(x, y, z); return { x: x / L, y: y / L, z: z / L }; };
 import { S_MONSTERS } from './ssim.js';
 
 const WIDX = Object.keys(WEAPONS);
@@ -59,7 +60,7 @@ export class ShooterClient {
     const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); L.push([el, ev, fn, o]); };
     const scr = $('#s-shoot');
     on(document, 'keydown', e => this.keyDown(e));
-    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
+    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'KeyC' || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
     on(document, 'mousemove', e => { if (document.pointerLockElement) { const s = (LS.get('sens', 1)) * 0.0022 / this.view.zoom; this.yaw -= e.movementX * s; this.pitch = clamp(this.pitch - e.movementY * s, -1.45, 1.45); } });
     on(document, 'pointerlockchange', () => { this.locked = !!document.pointerLockElement; this.updateLock(); });
     on(scr, 'mousedown', e => {
@@ -79,7 +80,8 @@ export class ShooterClient {
     on(window, 'blur', () => this.releaseAll());
     on(document, 'visibilitychange', () => this.releaseAll());
     const btn = (id, fn) => { const b = $(id); on(b, 'pointerdown', e => { if (e.pointerType !== 'mouse') return; e.preventDefault(); e.stopPropagation(); fn(); }); b._tap = fn; };
-    btn('#sh-jump', () => { this.jumpReq = true; });
+    btn('#sh-jump', () => { this.jumpReq = true; if (this.crouch) this.setCrouch(false); });
+    btn('#sh-crouch', () => this.setCrouch());
     btn('#sh-reload', () => this.reload());
     btn('#sh-aim', () => this.toggleScope());
     btn('#sh-nade', () => this.throwNade());
@@ -111,6 +113,7 @@ export class ShooterClient {
     else if (k === 'KeyX') this.ctx.send({ t: 'emo' });
     else if (k === 'Tab') { $('#sh-board').classList.add('show'); this.renderBoard(); }
     else if (k === 'KeyF') this.toggleScope();
+    else if (k === 'KeyC' || k === 'ControlLeft') this.setCrouch(true);
   }
   tStart(e) {
     window.__touch = true;
@@ -216,7 +219,7 @@ export class ShooterClient {
     let best = rayWorld(this.map, o, d, 120).t;
     for (const [id, a] of this.view.ents) {
       if (id === this.me || !a.root.visible || a.dead) continue;
-      const h = rayPlayer(o, d, { x: a.x, y: a.y, z: a.z }, best, a.meta.scale || 1); if (h) best = h.t;
+      const h = rayPlayer(o, d, { x: a.x, y: a.y, z: a.z }, best, a.meta.scale || 1, !!(a.fl & 256)); if (h) best = h.t;
     }
     return o.addScaledVector(d, best);
   }
@@ -228,10 +231,29 @@ export class ShooterClient {
     if (W.mag) { const a = this.ammo[this.cur]; if (!a || a[0] <= 0) { if (!this.clicked) { Sound.play('click', { vol: 0.5 }); this.clicked = true; } this.reload(); return; } a[0]--; }
     this.clicked = false;
     this.lastFire = now;
-    const eye = new THREE.Vector3(this.p.x, this.p.y + PH.EYE, this.p.z);
+    const eye = new THREE.Vector3(this.p.x, this.p.y + this.eyeH(), this.p.z);
     const aim = this.aimPoint();
     const d = aim.clone().sub(eye).normalize();
-    this.ctx.send({ t: 'fire', w: this.cur, o: { x: +eye.x.toFixed(3), y: +eye.y.toFixed(3), z: +eye.z.toFixed(3) }, d: { x: +d.x.toFixed(4), y: +d.y.toFixed(4), z: +d.z.toFixed(4) }, sc: this.scoped ? 1 : 0 });
+    const msg = { t: 'fire', w: this.cur, o: { x: +eye.x.toFixed(3), y: +eye.y.toFixed(3), z: +eye.z.toFixed(3) }, d: { x: +d.x.toFixed(4), y: +d.y.toFixed(4), z: +d.z.toFixed(4) }, sc: this.scoped ? 1 : 0 };
+    let shots = null;
+    if (!W.melee && !W.throw && !W.proj) {
+      // попадание считаем по тому, что видно на экране, хост только проверяет
+      const moving = Math.hypot(this.p.vx, this.p.vz) > 1.5 || !this.p.ground;
+      const spread = (this.scoped && W.scopeSpread != null ? W.scopeSpread : W.spread) + (moving ? W.moveSpread || 0 : 0) * (this.crouch ? 0.6 : 1);
+      const n = W.pellets || 1; msg.ds = []; msg.hs = []; shots = [];
+      for (let i = 0; i < n; i++) {
+        const dd = jit(d, spread * (this.crouch ? 0.7 : 1));
+        let end = rayWorld(this.map, eye, dd, W.range || 80).t, hit = 0;
+        for (const [id, a] of this.view.ents) {
+          if (id === this.me || a.dead || !a.root.visible || !this.isEnemyId(id)) continue;
+          const h = rayPlayer(eye, dd, { x: a.x, y: a.y, z: a.z }, end, (a.meta.scale || 1) * 1.08, !!(a.fl & 256));
+          if (h) { end = h.t; hit = [id, h.head ? 1 : 0, +h.t.toFixed(2)]; }
+        }
+        msg.ds.push({ x: +dd.x.toFixed(4), y: +dd.y.toFixed(4), z: +dd.z.toFixed(4) }); msg.hs.push(hit);
+        shots.push(eye.clone().addScaledVector(new THREE.Vector3(dd.x, dd.y, dd.z), end));
+      }
+    }
+    this.ctx.send(msg);
     // отдача и эффекты у себя
     this.view.kick(this.cur === 'shotgun' || this.cur === 'sniper' ? 1.4 : 0.7);
     this.pitch = clamp(this.pitch + (RECOIL[this.cur] || 0.01) * (this.scoped ? 0.5 : 1), -1.45, 1.45);
@@ -239,14 +261,15 @@ export class ShooterClient {
     Sound.play(W.sound || (W.throw ? 'drop' : 'thud'), { vol: 0.7, vary: true });
     if (!W.melee && !W.throw && !W.proj) {
       const muzzle = this.muzzle();
-      const n = W.pellets ? 4 : 1;
-      for (let i = 0; i < n; i++) { const e = n > 1 ? aim.clone().add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).multiplyScalar(aim.distanceTo(eye) * W.spread)) : aim; this.view.tracer(muzzle, e, W.tracer || '#ffe08a', W.beam); }
+      (shots || [aim]).slice(0, 4).forEach(e => this.view.tracer(muzzle, e, W.tracer || '#ffe08a', W.beam));
     }
     if (this.cur === 'grenade') { this.updateWeaponHUD(); }
     vib(W.pellets || this.cur === 'sniper' ? 25 : 8);
     if (W.mag && this.ammo[this.cur][0] <= 0) setTimeout(() => this.reload(), 200);
     this.updateWeaponHUD();
   }
+  eyeH() { return this.eyeY ?? PH.EYE; }
+  setCrouch(v) { this.crouch = v == null ? !this.crouch : v; const b = $('#sh-crouch'); if (b) b.classList.toggle('on', this.crouch); }
   muzzle() {
     const cam = this.view.camera, d = new THREE.Vector3(); cam.getWorldDirection(d);
     const r = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
@@ -267,6 +290,7 @@ export class ShooterClient {
       if (this.pv.freeze) mul *= 0.3; else if (this.pv.slow) mul *= 0.6;
       if (frozen) mul = 0;
       if (this.cur === 'knife') mul *= 1.12;
+      if (this.crouch) mul *= 0.5;
       movePlayer(this.map, this.p, { mx: mv.mx, mz: mv.mz, jump: this.jumpReq && !frozen, speedMul: mul }, dt);
       this.aimHelp(dt);
       if (this.fireHeld) { const W = WEAPONS[this.cur]; if (W && (W.auto || !this.firedThisPress)) { this.doFire(); this.firedThisPress = true; } }
@@ -274,9 +298,10 @@ export class ShooterClient {
       if (mv.moving && this.p.ground && !frozen) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = this.scoped ? 0.5 : 0.36; Sound.play('step' + (Math.random() * 5 | 0), { vol: 0.25, vary: true }); } }
     }
     this.jumpReq = false;
+    { const want = this.crouch && this.alive ? PH.CEYE : PH.EYE; this.eyeY = (this.eyeY ?? PH.EYE) + (want - (this.eyeY ?? PH.EYE)) * Math.min(1, dt * 12); }
     // камера
     let eye;
-    if (this.alive) eye = new THREE.Vector3(this.p.x, this.p.y + PH.EYE, this.p.z);
+    if (this.alive) eye = new THREE.Vector3(this.p.x, this.p.y + this.eyeH(), this.p.z);
     else {
       // первые секунды после гибели — смотрим на того, кто выбил, потом наблюдаем за своими
       const since = performance.now() / 1000 - (this.diedAt || 0);
@@ -292,6 +317,10 @@ export class ShooterClient {
     }
     if (this.alive) this.view.camMode = this.camMode;
     this.view.eye.copy(eye); this.view.yaw = this.yaw; this.view.pitch = this.pitch;
+    // присед у других игроков
+    for (const [id, a] of this.view.ents) {
+      const cr = !!(a.fl & 256) && !a.dead; a.root.scale.y += ((cr ? 0.72 : 1) - a.root.scale.y) * Math.min(1, dt * 12);
+    }
     this.view.alive = this.alive; this.view.moving = mv.moving && this.alive;
     this.view.reloading = this.reloadUntil && now < this.reloadUntil;
     // своя фигура
@@ -308,7 +337,7 @@ export class ShooterClient {
     this.sendT -= dt;
     if (this.sendT <= 0 && this.alive) {
       this.sendT = 0.05;
-      this.ctx.send({ t: 'pos', x: +this.p.x.toFixed(2), y: +this.p.y.toFixed(2), z: +this.p.z.toFixed(2), yaw: +this.yaw.toFixed(3), pitch: +this.pitch.toFixed(3), vx: +this.p.vx.toFixed(1), vz: +this.p.vz.toFixed(1), anim: mv.moving ? 1 : 0, sc: this.scoped ? 1 : 0 });
+      this.ctx.send({ t: 'pos', x: +this.p.x.toFixed(2), y: +this.p.y.toFixed(2), z: +this.p.z.toFixed(2), yaw: +this.yaw.toFixed(3), pitch: +this.pitch.toFixed(3), vx: +this.p.vx.toFixed(1), vz: +this.p.vz.toFixed(1), anim: mv.moving ? 1 : 0, sc: this.scoped ? 1 : 0, cr: this.crouch ? 1 : 0 });
     }
     this.hudFrame();
   }
@@ -322,7 +351,7 @@ export class ShooterClient {
   aimHelp(dt) {
     if (!window.__touch || this.ph !== 'play' || this.buyOpen || LS.get('aimhelp', true) === false) return;
     const W = WEAPONS[this.cur]; if (!W || W.throw) return;
-    const eye = { x: this.p.x, y: this.p.y + PH.EYE, z: this.p.z };
+    const eye = { x: this.p.x, y: this.p.y + this.eyeH(), z: this.p.z };
     const cp = Math.cos(this.pitch), fwd = { x: -Math.sin(this.yaw) * cp, y: Math.sin(this.pitch), z: -Math.cos(this.yaw) * cp };
     const range = W.melee ? 2.4 : Math.min(W.range || 45, 60);
     let best = null;
@@ -356,7 +385,7 @@ export class ShooterClient {
     switch (m.t) {
       case 's2': this.snapshot(m); break;
       case 'me2': this.privateState(m); break;
-      case 'spawn': Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.specLabel(null); this.releaseAll(); this.toggleScope(false); this.reloadUntil = 0; break;
+      case 'spawn': this.setCrouch(false); Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.specLabel(null); this.releaseAll(); this.toggleScope(false); this.reloadUntil = 0; break;
       case 'kb': this.p.vx += m.vx; this.p.vz += m.vz; this.p.vy = Math.max(this.p.vy, m.vy); this.p.ground = false; break;
       case 'bought': Sound.play('drop'); vib(15); if (WEAPONS[m.item] && WEAPONS[m.item].slot === 1) { setTimeout(() => this.switchTo(m.item), 120); } break;
     }

@@ -506,7 +506,7 @@ $('#btn-hero').onclick = () => { renderPickers(); openModal('#m-hero'); };
 function metaShoot(k) {
   if (String(k).startsWith('m:')) {
     const mt = S_MONSTERS[k.slice(2)]; if (!mt) return null;
-    return { model: mt.model, name: mt.boss ? '' : mt.name, scale: mt.scale, hpBar: !mt.boss, nameColor: '#ffb3bd', label: !mt.boss };
+    return { model: mt.model, name: mt.boss ? '' : mt.name, scale: mt.scale, hpBar: false, nameColor: '#ffb3bd', label: false };
   }
   const r = S.roster.get(k); if (!r) return null;
   const teams = S.game.mode === 'tdm' || S.game.mode === 'ctf';
@@ -514,7 +514,7 @@ function metaShoot(k) {
   const myTeam = (S.roster.get(me.pid) || {}).team;
   const ally = S.game.mode === 'pve' || (teams && r.team === myTeam);
   return { model: r.model, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
-    ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: !mine };
+    ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: ally && !mine };
 }
 async function startGame(m) {
   loading('Готовим игру…');
