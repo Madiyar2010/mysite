@@ -46,6 +46,8 @@ export const Input = {
     zone.addEventListener('pointermove', e => { if (this.joy && e.pointerId === this.joy.id) { this.joy.x = e.clientX; this.joy.y = e.clientY; this.drawJoy(); } });
     const up = e => { if (this.joy && e.pointerId === this.joy.id) { this.joy = null; this.drawJoy(); } };
     zone.addEventListener('pointerup', up); zone.addEventListener('pointercancel', up);
+    const clear = e => { if (this.joy && (!e.touches || !e.touches.length)) { this.joy = null; this.drawJoy(); } };
+    document.addEventListener('touchend', clear); document.addEventListener('touchcancel', clear); addEventListener('blur', () => { this.joy = null; this.drawJoy(); });
   },
   fire(a) { if (this.seq[a] != null) this.seq[a]++; if (this.onKey) this.onKey(a); },
   drawJoy() {

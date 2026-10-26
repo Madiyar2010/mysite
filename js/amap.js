@@ -50,7 +50,7 @@ function stationDef() {
   // dx, dy — в клетках от левого верхнего угла комнаты
   const P = Math.PI, H = P / 2;
   const props = {
-    U: [['sp/rocket_fuelA', 2.2, 4, H, 3.4, [2.4, 2.4], 'fuel_u'], ['st/computer', 5.5, 0.7, 0, 2, [0.6, 0.6], 'align_u'], ['st/pipe', 6.4, 3, 0, 2, 0], ['st/pipe', 6.4, 5, 0, 2, 0]],
+    U: [['sp/rocket_fuelA', 2.2, 4, H, 3.4, [1.6, 1.6], 'fuel_u'], ['st/computer', 5.5, 0.7, 0, 2, [0.6, 0.6], 'align_u'], ['st/pipe', 6.4, 3, 0, 2, 0], ['st/pipe', 6.4, 5, 0, 2, 0]],
     M: [['st/bed-single', 1.0, 1.4, H, 2, [1.2, 1.6]], ['st/bed-single', 1.0, 3.8, H, 2, [1.2, 1.6]], ['scanner', 4.6, 5.2, 0, 1, 0, 'scan'], ['st/table-display', 5.6, 0.8, 0, 2, [1, 0.6], 'sample'], ['st/computer', 6.4, 3.5, -H, 2, [0.6, 0.6]]],
     C: [['st/table-large', 2.3, 2, 0, 2, [2, 1.2]], ['st/table-large', 8.7, 2, 0, 2, [2, 1.2]], ['st/table-large', 2.3, 6.2, 0, 2, [2, 1.2]], ['st/table-large', 8.7, 6.2, 0, 2, [2, 1.2]],
       ['button', 5.5, 4.2, 0, 1, [1.4, 1.4], 'button'], ['st/skip', 10.0, 7.2, P, 2, [1.4, 0.8], 'garbageC'], ['st/wall-switch', 0.5, 4.2, H, 2, 0, 'wiresC'], ['st/computer', 10.4, 0.7, 0, 2, [0.6, 0.6], 'download_c'],
@@ -62,7 +62,7 @@ function stationDef() {
     A: [['st/table-display-planet', 3.5, 3, 0, 2.6, [2.6, 1.6], 'admin'], ['st/computer', 6.3, 0.7, 0, 2, [0.6, 0.6], 'swipe'], ['st/computer-screen', 0.7, 0.7, 0, 2, [0.6, 0.6], 'upload'], ['st/display-wall', 0.5, 5.2, H, 2.2, [0.5, 0.6], 'fix_o2_2']],
     O: [['st/container-tall', 0.9, 0.9, 0, 2, [1, 1], 'filter'], ['st/display-wall', 4.4, 0.6, 0, 2.2, [0.6, 0.5], 'fix_o2_1'], ['st/pipe', 0.5, 4, 0, 2, 0], ['st/pipe', 4.5, 4, 0, 2, 0]],
     N: [['st/computer-system', 5.6, 4, -H, 2, [0.8, 1.6], 'steering'], ['st/computer-wide', 3.5, 0.7, 0, 2, [1.6, 0.6], 'chart'], ['st/computer', 6.3, 7.3, P, 2, [0.6, 0.6], 'download_n'], ['st/chair', 4.4, 4, H, 2, 0], ['st/display-wall-wide', 3.5, 7.6, P, 2, 0]],
-    L: [['sp/rocket_fuelA', 2.2, 4, H, 3.4, [2.4, 2.4], 'fuel_l'], ['st/computer', 5.5, 7.3, P, 2, [0.6, 0.6], 'align_l'], ['st/pipe', 6.4, 3, 0, 2, 0]],
+    L: [['sp/rocket_fuelA', 2.2, 4, H, 3.4, [1.6, 1.6], 'fuel_l'], ['st/computer', 5.5, 7.3, P, 2, [0.6, 0.6], 'align_l'], ['st/pipe', 6.4, 3, 0, 2, 0]],
     E: [['st/structure-panel', 1.0, 0.6, 0, 2, [1.2, 0.5], 'fix_lights'], ['st/wall-switch', 6.5, 1.5, -H, 2, 0, 'wiresE'], ['st/computer', 3.5, 7.3, P, 2, [0.6, 0.6], 'distributor'], ['sp/machine_generator', 5.2, 5, 0, 2.6, [1.6, 0.8], 'divert'], ['st/pipe-ring', 0.6, 5, 0, 2, 0]],
     T: [['st/container-tall', 9.6, 1.4, 0, 2.2, [1, 1], 'fuelT'], ['st/skip', 1.8, 7.2, 0, 2, [1.4, 0.8], 'garbageT'], ['st/container-wide', 3, 2.6, 0, 2.2, [1.6, 1]], ['st/container', 6.4, 5, 0.3, 2.4, [1, 1]],
       ['st/container-flat', 8, 6.6, 0, 2.2, [1.4, 1]], ['st/container', 4.6, 5.6, 0, 2.2, [1, 1]], ['st/container-wide', 1.4, 4.2, H, 2.2, [1, 1.6]]],
@@ -77,6 +77,91 @@ function stationDef() {
   ];
   const cams = [{ name: 'Верхний коридор', link: ['U', 'M'] }, { name: 'Коридор у Админа', link: ['A', 'O'] }, { name: 'Навигация', link: ['O', 'N'] }, { name: 'Нижний коридор', link: ['E', 'T'] }];
   return { id: 'station', name: 'Космическая станция', GW: 53, GH: 32, rooms, links, doorRooms, props, vents, cams, spawnRoom: 'C', theme: 'space' };
+}
+
+// ---------- замок с призраками ----------
+// своя планировка; задания те же по смыслу, но со своими названиями
+function hauntedDef() {
+  const C = [[1, 7], [11, 18], [22, 32], [36, 42], [46, 52]];
+  const Rw = [[1, 8], [12, 19], [23, 31]];
+  const room = (id, name, c, r, adj = {}) => ({ id, name, x1: C[c][0] + (adj.x1 || 0), x2: C[c][1] + (adj.x2 || 0), y1: Rw[r][0] + (adj.y1 || 0), y2: Rw[r][1] + (adj.y2 || 0), floor: adj.floor || 'stone' });
+  const rooms = [
+    room('U', 'Северная башня', 0, 0, { floor: 'planks' }), room('M', 'Часовня', 1, 0, { floor: 'carpet' }), room('C', 'Тронный зал', 2, 0, { y2: 2, floor: 'royal' }), room('W', 'Оружейная', 3, 0, { floor: 'planks' }), room('N', 'Обсерватория', 4, 0, { y2: 3, floor: 'stone2' }),
+    room('R', 'Лаборатория алхимика', 0, 1, { y1: -1, y2: 1, floor: 'stone2' }), room('S', 'Караульная', 1, 1, { y1: 1, y2: -1, floor: 'planks' }), room('A', 'Библиотека', 2, 1, { x1: 1, x2: -1, y1: 2, floor: 'wood' }), room('O', 'Сад', 3, 1, { x2: 3, floor: 'grass' }),
+    room('L', 'Южная башня', 0, 2, { floor: 'planks' }), room('E', 'Темница', 1, 2, { floor: 'dirt' }), room('T', 'Кухня', 2, 2, { floor: 'tile' }), room('K', 'Колокольня', 3, 2, { floor: 'stone' }), room('H', 'Сокровищница', 4, 2, { floor: 'royal' })
+  ];
+  const links = [['U', 'M'], ['M', 'C'], ['C', 'W'], ['W', 'N'], ['U', 'R'], ['R', 'L'], ['R', 'S'], ['S', 'E'], ['M', 'S'], ['C', 'A'], ['A', 'T'], ['A', 'O'], ['W', 'O'], ['O', 'K'], ['N', 'H'], ['L', 'E'], ['E', 'T'], ['T', 'K'], ['K', 'H']];
+  const doorRooms = ['C', 'M', 'S', 'E', 'T', 'U', 'L', 'A'];
+  // отрицательный масштаб = высота модели в метрах
+  const P = Math.PI, H = P / 2;
+  const props = {
+    U: [['grave/lightpost-single', 1.4, 1.4, 0, -2.8, [0.6, 0.6], 'fuel_u'], ['arena/banner', 5.6, 0.6, 0, -2.6, [0.8, 0.4], 'align_u'], ['furn/bedSingle', 1.2, 6.2, H, -0.9, [1.2, 1.8]], ['grave/candle-multiple', 6.2, 7.3, 0, -0.7, 0]],
+    M: [['scanner', 4, 5.4, 0, 1, 0, 'scan'], ['grave/altar-stone', 4, 1.0, 0, -1.0, [1.4, 0.7], 'sample'], ['grave/bench', 1.6, 3.4, 0, -0.7, [1.4, 0.5]], ['grave/bench', 6.4, 3.4, 0, -0.7, [1.4, 0.5]], ['grave/candle-multiple', 1.0, 0.8, 0, -0.8, 0], ['grave/candle-multiple', 7.0, 0.8, 0, -0.8, 0]],
+    C: [['button', 5.5, 5.2, 0, 1, [1.4, 1.4], 'button'], ['arena/statue', 5.5, 0.9, 0, -2.8, [1, 0.8]], ['grave/urn-round', 10.2, 9.3, 0, -1.0, [0.6, 0.6], 'garbageC'], ['grave/candle-multiple', 0.8, 5.2, 0, -0.9, [0.4, 0.4], 'wiresC'],
+      ['furn/desk', 9.8, 0.9, 0, -0.85, [1.2, 0.6], 'download_c'], ['arena/banner', 2.5, 0.5, 0, -3, 0], ['arena/banner', 8.5, 0.5, 0, -3, 0], ['furn/tableCloth', 2.5, 7.6, 0, -0.85, [1.6, 1]], ['furn/tableCloth', 8.5, 7.6, 0, -0.85, [1.6, 1]], ['furn/chair', 1.6, 7.6, H, -1, 0], ['furn/chair', 3.4, 7.6, -H, -1, 0], ['furn/chair', 7.6, 7.6, H, -1, 0], ['furn/chair', 9.4, 7.6, -H, -1, 0]],
+    W: [['arena/weapon-rack', 3.5, 0.7, 0, -1.8, [2, 0.6], 'asteroids'], ['furn/desk', 6.2, 7.2, P, -0.85, [1.2, 0.6], 'download_w'], ['arena/weapon-sword', 1.0, 4, 0, -1.4, 0], ['arena/weapon-spear', 6.2, 3, 0, -2.2, 0]],
+    N: [['arena/column', 3.5, 5, 0, -2.2, [1, 1], 'steering'], ['furn/table', 3.5, 0.9, 0, -0.85, [1.6, 0.8], 'chart'], ['furn/desk', 6.2, 10.2, P, -0.85, [1.2, 0.6], 'download_n'], ['furn/bookcaseOpen', 0.6, 8, H, -2, [0.5, 1.4]]],
+    R: [['furn/kitchenStove', 3.5, 4.8, 0, -1.1, [1.4, 1.4], 'manifold'], ['grave/altar-stone', 0.8, 1.2, H, -1.0, [0.6, 1.2], 'fix_reactor1'], ['grave/altar-stone', 0.8, 8.8, H, -1.0, [0.6, 1.2], 'fix_reactor2'], ['furn/bookcaseOpen', 6.4, 1.2, -H, -2, [0.5, 1.4], 'simon'], ['grave/urn-round', 6.2, 8.6, 0, -0.9, [0.6, 0.6]]],
+    S: [['furn/televisionVintage', 4, 0.8, 0, -1.1, [1.2, 0.6], 'cams'], ['furn/chair', 4, 2.0, P, -1, 0], ['grave/candle-multiple', 7.4, 3, 0, -0.9, [0.4, 0.4], 'wiresS'], ['arena/weapon-rack', 0.6, 3, H, -1.6, [0.5, 1.6]]],
+    A: [['furn/tableRound', 4.5, 3, 0, -0.9, [1.8, 1.8], 'admin'], ['furn/bookcaseClosedWide', 8.3, 1.0, -H, -2, [0.6, 1.6], 'swipe'], ['furn/desk', 1.0, 0.8, 0, -0.85, [1.2, 0.6], 'upload'], ['furn/bookcaseOpen', 0.6, 4.6, H, -2, [0.6, 1.4], 'fix_o2_2'], ['furn/bookcaseClosedWide', 4.5, 5.6, P, -2, [1.8, 0.5]]],
+    O: [['arena/statue', 5, 1.2, 0, -2.4, [1, 1], 'fix_o2_1'], ['grave/hay-bale', 1.2, 1.2, 0, -0.9, [1, 0.8], 'filter'], ['arena/tree', 2, 6, 0, -3.6, [0.8, 0.8]], ['arena/tree', 8.6, 5.6, 0, -3.2, [0.8, 0.8]], ['grave/pumpkin-carved', 7, 2, 0, -0.6, 0], ['grave/pumpkin-carved', 3.6, 3.4, 1, -0.5, 0], ['grave/rocks', 5.4, 6.8, 0, -0.6, 0], ['grave/gravestone-cross', 9, 1, 0, -1.1, [0.6, 0.3]]],
+    L: [['grave/lightpost-single', 1.4, 7.6, 0, -2.8, [0.6, 0.6], 'fuel_l'], ['arena/banner', 5.6, 8.5, P, -2.6, [0.8, 0.4], 'align_l'], ['furn/bedSingle', 1.2, 2.2, H, -0.9, [1.2, 1.8]]],
+    E: [['grave/altar-stone', 1.4, 0.8, 0, -1.0, [1.4, 0.6], 'fix_lights'], ['grave/candle-multiple', 7.4, 1.5, 0, -0.9, [0.4, 0.4], 'wiresE'], ['arena/trophy', 4, 8.2, 0, -1.0, [0.6, 0.6], 'distributor'], ['arena/column', 5.6, 4.6, 0, -2, [0.8, 0.8], 'divert'],
+      ['grave/coffin', 1.6, 5.6, 0, -0.7, [1, 1.8]], ['grave/iron-fence', 3, 3, 0, -1.4, 0]],
+    T: [['grave/urn-round', 9.8, 1.4, 0, -1.2, [0.7, 0.7], 'fuelT'], ['grave/urn-round', 1.6, 8.2, 0, -1.0, [0.6, 0.6], 'garbageT'], ['furn/kitchenStove', 3, 0.8, 0, -1, [1, 0.6]], ['furn/kitchenSink', 4.2, 0.8, 0, -1, [1, 0.6]], ['furn/kitchenCabinet', 5.4, 0.8, 0, -1, [1, 0.6]],
+      ['furn/table', 5.5, 5, 0, -0.85, [2, 1]], ['furn/chair', 4.2, 5, H, -1, 0], ['furn/chair', 6.8, 5, -H, -1, 0], ['grave/hay-bale', 9.6, 7.6, 0, -0.9, [1, 0.8]]],
+    K: [['grave/lightpost-double', 3.5, 4, 0, -2.8, [0.8, 0.8], 'fix_comms'], ['furn/desk', 6.2, 8.2, P, -0.85, [1.2, 0.6], 'download_k'], ['grave/candle-multiple', 0.8, 0.8, 0, -0.8, 0]],
+    H: [['arena/trophy', 3.5, 0.9, 0, -1.2, [0.8, 0.6], 'shields'], ['grave/coffin', 1.2, 6, 0, -0.7, [1, 1.8]], ['arena/trophy', 6, 7, 0, -0.8, 0], ['grave/candle-multiple', 6.2, 1, 0, -0.8, 0]]
+  };
+  const vents = [
+    { id: 'vU', room: 'U', dx: 5.6, dy: 6.6, to: ['vR', 'vL'] }, { id: 'vR', room: 'R', dx: 5.6, dy: 5, to: ['vU', 'vL'] }, { id: 'vL', room: 'L', dx: 5.6, dy: 1.6, to: ['vU', 'vR'] },
+    { id: 'vM', room: 'M', dx: 1.2, dy: 6.8, to: ['vS', 'vE'] }, { id: 'vS', room: 'S', dx: 1.2, dy: 5.2, to: ['vM', 'vE'] }, { id: 'vE', room: 'E', dx: 6.6, dy: 8, to: ['vM', 'vS'] },
+    { id: 'vC', room: 'C', dx: 1.0, dy: 9.3, to: ['vA', 'vT'] }, { id: 'vA', room: 'A', dx: 7.6, dy: 5.2, to: ['vC'] }, { id: 'vT', room: 'T', dx: 10.2, dy: 4.2, to: ['vC', 'vK'] },
+    { id: 'vW', room: 'W', dx: 1.0, dy: 7.2, to: ['vN', 'vO'] }, { id: 'vN', room: 'N', dx: 1.2, dy: 10.2, to: ['vW', 'vH'] }, { id: 'vH', room: 'H', dx: 6.2, dy: 4.2, to: ['vN', 'vK'] }, { id: 'vO', room: 'O', dx: 9.2, dy: 7.3, to: ['vW'] }, { id: 'vK', room: 'K', dx: 1.0, dy: 8.2, to: ['vH', 'vT'] }
+  ];
+  const cams = [{ name: 'Коридор у часовни', link: ['U', 'M'] }, { name: 'Вход в библиотеку', link: ['C', 'A'] }, { name: 'Галерея у сада', link: ['W', 'O'] }, { name: 'Подземный ход', link: ['E', 'T'] }];
+  const tasks = {
+    asteroids: ['Прогнать летучих мышей', 'ghost'], divert: ['Направить магию в кристалл', 'sparkles'], distributor: ['Настроить волшебный кубок', 'sparkles'], steering: ['Навести телескоп', 'eye'],
+    shields: ['Зарядить защитные руны', 'shields'], manifold: ['Открыть котлы по порядку', 'flask'], filter: ['Прополоть грядку', 'leaf'], chart: ['Нарисовать карту звёзд', 'map'],
+    align_u: ['Поправить флаг на северной башне', 'flag'], align_l: ['Поправить флаг на южной башне', 'flag'], swipe: ['Приложить королевскую печать', 'card'], wires: ['Соединить волшебные нити', 'wire'],
+    garbage: ['Вынести паутину', 'trash'], simon: ['Повторить заклинание', 'mage'], scan: ['Встать в круг света', 'scan'], sample: ['Сварить зелье', 'flask'], fuel: ['Наполнить лампы маслом', 'fuel'], data: ['Переписать свиток', 'download']
+  };
+  const sabs = { lights: ['Свечи погасли', 'lights', 'Свечи'], comms: ['Колокол сломан', 'comms', 'Колокол'], reactor: ['Котёл вот-вот взорвётся', 'reactor', 'Котёл'], o2: ['Ядовитый туман', 'oxygen', 'Туман'] };
+  return { id: 'haunted', name: 'Замок с призраками', GW: 54, GH: 33, rooms, links, doorRooms, props, vents, cams, spawnRoom: 'C', theme: 'haunted', tasks, sabs };
+}
+
+// ---------- подводная база: зеркальная планировка станции, свои переходы и вид ----------
+function underwaterDef() {
+  const d = stationDef(), GW = d.GW;
+  const names = { U: 'Шлюз', M: 'Медотсек', C: 'Столовая', W: 'Торпедный отсек', R: 'Реактор', S: 'Пост охраны', A: 'Центр управления', O: 'Кислородная станция', N: 'Сонар', L: 'Док батискафов', E: 'Насосная', T: 'Трюм', K: 'Антенна', H: 'Купол' };
+  const fl = { U: 'grate', M: 'white', C: 'cafe', R: 'grate', A: 'cafe', O: 'green', L: 'grate', E: 'grate' };
+  const rooms = d.rooms.map(r => ({ ...r, name: names[r.id], x1: GW - 1 - r.x2, x2: GW - 1 - r.x1, floor: fl[r.id] || 'metal' }));
+  const w = id => { const r = d.rooms.find(q => q.id === id); return r.x2 - r.x1 + 1; };
+  const props = {};
+  for (const [id, list] of Object.entries(d.props)) props[id] = list.map(([m, dx, dy, rot, sc, col, st]) => [m, w(id) - dx, dy, -rot, sc, col, st]);
+  // в столовой кнопка тревоги остаётся по центру; добавим аквариумы
+  props.C.push(['sp/rock_crystals', 1.0, 4.2, 0, 2.4, [0.8, 0.8]]);
+  props.H.push(['sp/rock_crystals', 5, 6.6, 1, 3, [1, 1]]);
+  const vents = d.vents.map(v => ({ ...v, dx: w(v.room) - v.dx }));
+  const links = d.links.filter(([a, b]) => !(a === 'A' && b === 'O') && !(a === 'R' && b === 'S')).concat([['M', 'S'], ['S', 'A']]);
+  const doorRooms = ['C', 'A', 'O', 'E', 'T', 'R', 'N'];
+  const cams = [{ name: 'Коридор у шлюза', link: ['U', 'M'] }, { name: 'Переход к посту', link: ['S', 'A'] }, { name: 'Сонар', link: ['O', 'N'] }, { name: 'Нижний коридор', link: ['E', 'T'] }];
+  const tasks = {
+    asteroids: ['Отогнать медуз', 'water'], steering: ['Выровнять базу', 'steering'], filter: ['Почистить фильтр от водорослей', 'leaf'], chart: ['Проложить путь батискафа', 'compass'],
+    align_u: ['Настроить левый винт', 'engine'], align_l: ['Настроить правый винт', 'engine'], fuel: ['Заправить батискаф', 'fuel'], shields: ['Укрепить купол', 'shields'], garbage: ['Выбросить мусор за борт', 'trash'], scan: ['Пройти проверку давления', 'scan']
+  };
+  const sabs = { lights: ['Свет выключен', 'lights', 'Свет'], comms: ['Антенна сломана', 'comms', 'Антенна'], reactor: ['Перегрев реактора', 'reactor', 'Реактор'], o2: ['Затопление!', 'water', 'Вода'] };
+  return { ...d, id: 'underwater', name: 'Подводная база', rooms, props, vents, links, doorRooms, cams, theme: 'underwater', tasks, sabs };
+}
+
+// названия заданий и саботажей под выбранную карту (одна игра за раз)
+const BASE_T = Object.fromEntries(Object.entries(TASKS).map(([k, v]) => [k, [v.name, v.icon]]));
+const BASE_S = Object.fromEntries(Object.entries(SAB).map(([k, v]) => [k, [v.name, v.icon]]));
+const SAB_SHORT = { lights: 'Свет', comms: 'Связь', reactor: 'Реактор', o2: 'Кислород' };
+export function applyMapText(map) {
+  const t = (map && map.def.tasks) || {}, s = (map && map.def.sabs) || {};
+  for (const k in TASKS) { const v = t[k] || BASE_T[k]; TASKS[k].name = v[0]; TASKS[k].icon = v[1]; }
+  for (const k in SAB) { const v = s[k] || BASE_S[k]; SAB[k].name = v[0]; SAB[k].icon = v[1]; SAB[k].short = v[2] || SAB_SHORT[k]; }
 }
 
 // ---------- построение карты ----------
@@ -132,8 +217,8 @@ export function buildAmap(def) {
     r.wx1 = W(r.x1) - T / 2; r.wx2 = W(r.x2) + T / 2; r.wz1 = Z(r.y1) - T / 2; r.wz2 = Z(r.y2) + T / 2;
     for (const [model, dx, dy, rot, s0, col, st] of (def.props[r.id] || [])) {
       const x = W(r.x1) - T / 2 + dx * T, z = Z(r.y1) - T / 2 + dy * T;
-      const k = model.includes('/') ? PROP_SCALE : 1, s = s0 * k;
-      props.push({ model, x, z, rot, s, st });
+      const k = model.includes('/') && s0 > 0 ? PROP_SCALE : 1, s = s0 * k;
+      props.push({ model, x, z, rot, s: s0 > 0 ? s : 1, h: s0 < 0 ? -s0 : 0, st });
       if (col) solids.push({ x, z, hw: col[0] * T / 2 * 0.9 * k, hd: col[1] * T / 2 * 0.9 * k, rot });
       if (st) stations[st] = { id: st, x, z, room: r.id, roomName: r.name };
     }
@@ -210,15 +295,16 @@ export function lineOfSight(map, ax, az, bx, bz, closed) {
   return castRay(map, ax, az, Math.atan2(bz - az, bx - ax), d, closed) >= d - 0.05;
 }
 
-export const AMAPS = { station: buildAmap(stationDef()) };
+export const AMAPS = { station: buildAmap(stationDef()), haunted: buildAmap(hauntedDef()), underwater: buildAmap(underwaterDef()) };
 export const AMAP_LIST = [
   { id: 'station', name: 'Космическая станция', icon: 'station', ready: true },
-  { id: 'haunted', name: 'Замок с призраками', icon: 'castle', ready: false },
-  { id: 'underwater', name: 'Подводная база', icon: 'submarine', ready: false }
+  { id: 'haunted', name: 'Замок с призраками', icon: 'castle', ready: true },
+  { id: 'underwater', name: 'Подводная база', icon: 'submarine', ready: true }
 ];
 
 export function amapModels(map) {
-  const s = new Set(['st/floor', 'st/floor-panel', 'st/floor-detail', 'st/wall', 'st/wall-window', 'st/wall-pillar', 'st/wall-banner', 'st/wall-detail', 'st/door-double']);
+  const s = new Set(map.theme === 'haunted' ? [] : ['st/floor', 'st/floor-panel', 'st/floor-detail', 'st/wall', 'st/wall-window', 'st/wall-pillar', 'st/wall-banner', 'st/wall-detail', 'st/door-double']);
+  if (map.theme === 'underwater') s.add('st/rocks');
   map.props.forEach(p => { if (p.model.includes('/')) s.add(p.model); });
   return [...s];
 }

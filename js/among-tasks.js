@@ -2,6 +2,8 @@
 import { shuffle, rnd } from './util.js';
 import { icon } from './icons.js';
 import { Sound } from './sound.js';
+let curTheme = '';
+export function setTheme(t) { curTheme = t; }
 
 let cur = null;
 export function isOpen() { return !!cur; }
@@ -86,15 +88,16 @@ const GAMES = {
   // сбить астероиды
   tap(body, hint, done) {
     const N = 12; let left = N;
-    hint.textContent = `Сбей астероиды: осталось ${left}`;
+    const TH = { haunted: ['ghost', 'Прогони летучих мышей'], underwater: ['water', 'Отгони медуз'] }[curTheme] || ['asteroid', 'Сбей астероиды'];
+    hint.textContent = `${TH[1]}: осталось ${left}`;
     body.innerHTML = `<div class="tg-field space"><div class="tg-cross"></div></div>`;
     const f = body.querySelector('.tg-field');
     const spawn = () => {
-      const b = document.createElement('button'); b.className = 'tg-target'; b.innerHTML = icon('asteroid');
+      const b = document.createElement('button'); b.className = 'tg-target'; b.innerHTML = icon(TH[0]);
       const y = rnd(10, 75); b.style.top = y + '%'; b.style.left = '100%';
       const dur = rnd(2.2, 3.4); b.style.transition = `left ${dur}s linear, top ${dur}s linear`;
       f.appendChild(b); requestAnimationFrame(() => { b.style.left = '-15%'; b.style.top = (y + rnd(-15, 15)) + '%'; });
-      b.onpointerdown = e => { e.preventDefault(); if (b.classList.contains('hit')) return; b.classList.add('hit'); Sound.play('laser', { vol: 0.5, vary: true }); setTimeout(() => b.remove(), 250); left--; hint.textContent = `Сбей астероиды: осталось ${Math.max(0, left)}`; vib(15); if (left <= 0) done(); };
+      b.onpointerdown = e => { e.preventDefault(); if (b.classList.contains('hit')) return; b.classList.add('hit'); Sound.play('laser', { vol: 0.5, vary: true }); setTimeout(() => b.remove(), 250); left--; hint.textContent = `${TH[1]}: осталось ${Math.max(0, left)}`; vib(15); if (left <= 0) done(); };
       setTimeout(() => b.remove(), dur * 1000 + 100);
     };
     const iv = setInterval(spawn, 550); spawn();

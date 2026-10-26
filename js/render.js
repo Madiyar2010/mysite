@@ -1,5 +1,7 @@
 // 3D-отрисовка: сцена, герои, эффекты, камера.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { texMat, boxGeo } from './tex.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import * as A from './assets.js';
 import { CLASSES, AURAS, TEAM_COLORS, clamp, rnd, esc } from './util.js';
@@ -635,10 +637,46 @@ export class ShowroomView {
 
 // ======================= КАРТЫ «НАЙДИ ПРЕДАТЕЛЯ» =======================
 const FLOOR_TINT = { metal: '#ffffff', grate: '#c9cbe0', cafe: '#ffe9c7', white: '#e9f6ff', green: '#d8ffe0', corridor: '#b9bdd6' };
+const HAUNT_FLOOR = { stone: 'stone', stone2: 'stone2', planks: 'planks', wood: 'wood', royal: 'royal', carpet: 'carpet', grass: 'grass', dirt: 'dirt', tile: 'tile', corridor: 'stone' };
+// замок: пол из процедурных текстур, стены — склеенные коробки
+function buildHaunted3D(root, map) {
+  const T = 2, { GW, GH, grid, W, Z } = map;
+  const isFloor = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH && grid[y * GW + x] > 0;
+  // пол: по прямоугольнику на комнату + плитки коридоров
+  for (const r of map.rooms) { const ft = HAUNT_FLOOR[r.floor] || 'stone'; const m = floorMesh(ft, r.wx2 - r.wx1, r.wz2 - r.wz1, ft === 'royal' || ft === 'carpet' ? 2 : ft === 'tile' ? 3 : 4); m.position.set((r.wx1 + r.wx2) / 2, 0, (r.wz1 + r.wz2) / 2); root.add(m); }
+  const cor = [];
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (grid[y * GW + x] === 2) cor.push([x, y]);
+  if (cor.length) {
+    const geos = cor.map(([x, y]) => { const g = new THREE.PlaneGeometry(T, T); g.rotateX(-Math.PI / 2); g.translate(W(x), 0.001, Z(y)); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.5 + (x % 2) * 0.5, uv.getY(i) * 0.5 + (y % 2) * 0.5); return g; });
+    const m = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ map: floorTexture('stone2'), roughness: 0.95, color: '#b9b0c8' })); m.receiveShadow = true; root.add(m);
+  }
+  const wallG = [], topG = [], H = 2.6, t = 0.5;
+  const add = (cx, cz, w, d) => { const g = boxGeo({ x: cx, y: 0, z: cz, w, h: H, d }, 2.6); g.translate(cx, H / 2, cz); wallG.push(g); const tg = new THREE.BoxGeometry(w + 0.04, 0.12, d + 0.04); tg.translate(cx, H + 0.06, cz); topG.push(tg); };
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    if (!isFloor(x, y)) continue;
+    const cx = W(x), cz = Z(y);
+    if (!isFloor(x, y - 1)) add(cx, cz - T / 2 - t / 2, T + t * 2, t);
+    if (!isFloor(x, y + 1)) add(cx, cz + T / 2 + t / 2, T + t * 2, t);
+    if (!isFloor(x - 1, y)) add(cx - T / 2 - t / 2, cz, t, T);
+    if (!isFloor(x + 1, y)) add(cx + T / 2 + t / 2, cz, t, T);
+  }
+  const wm = new THREE.Mesh(mergeGeometries(wallG), texMat('stone', '#d8cfe6')); wm.castShadow = true; wm.receiveShadow = true; root.add(wm);
+  root.add(new THREE.Mesh(mergeGeometries(topG), new THREE.MeshStandardMaterial({ color: '#2a2030', roughness: 0.9 })));
+}
+// модель по высоте в метрах, по центру
+function propByHeight(p) {
+  const g = A.info(p.model); if (!g) return null;
+  const s = p.h / g.size.y, c = g.box.getCenter(new THREE.Vector3());
+  const o = A.makeProp(p.model, { s }); o.children[0].position.set(-c.x * s, -g.box.min.y * s, -c.z * s);
+  o.position.set(p.x, 0, p.z); o.rotation.y = p.rot || 0;
+  return o;
+}
 export function buildAmap3D(scene, map) {
   const T = 2, root = new THREE.Group(); scene.add(root);
   const { GW, GH, grid, W, Z } = map;
   const isFloor = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH && grid[y * GW + x] > 0;
+  const theme = map.theme || 'space';
+  if (theme === 'haunted') buildHaunted3D(root, map); else {
   // пол
   const floors = { 'st/floor': [], 'st/floor-panel': [], 'st/floor-detail': [] };
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
@@ -646,7 +684,7 @@ export function buildAmap3D(scene, map) {
     const r = map.roomOf[y * GW + x];
     const type = g === 2 ? 'corridor' : map.rooms[r].floor;
     const model = g === 2 ? 'st/floor-panel' : type === 'grate' ? 'st/floor-detail' : 'st/floor';
-    floors[model].push({ x: W(x), y: -0.6, z: Z(y), s: 2, color: FLOOR_TINT[type] || '#fff' });
+    floors[model].push({ x: W(x), y: -0.6, z: Z(y), s: 2, color: theme === 'underwater' ? new THREE.Color(FLOOR_TINT[type] || '#fff').lerp(new THREE.Color('#7fd0ff'), 0.35).getStyle() : (FLOOR_TINT[type] || '#fff') });
   }
   for (const [m, list] of Object.entries(floors)) if (list.length) {
     const g = A.makeInstanced(m, list, { shadow: false });
@@ -660,21 +698,23 @@ export function buildAmap3D(scene, map) {
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     if (!isFloor(x, y)) continue;
     const cx = W(x), cz = Z(y);
-    const pushW = (px, pz, r, vx1, vy1, vx2, vy2, dir) => { n++; (n % 7 === 3 ? deco : walls).push({ x: px, z: pz, r, s: 2 }); addV(vx1, vy1, dir); addV(vx2, vy2, dir); };
+    const pushW = (px, pz, r, vx1, vy1, vx2, vy2, dir) => { n++; (n % (theme === 'underwater' ? 3 : 7) === 1 ? deco : walls).push({ x: px, z: pz, r, s: 2 }); addV(vx1, vy1, dir); addV(vx2, vy2, dir); };
     if (!isFloor(x, y - 1)) pushW(cx, cz - T / 2, 0, x, y, x + 1, y, 'h');
     if (!isFloor(x, y + 1)) pushW(cx, cz + T / 2, Math.PI, x, y + 1, x + 1, y + 1, 'h');
     if (!isFloor(x - 1, y)) pushW(cx - T / 2, cz, Math.PI / 2, x, y, x, y + 1, 'v');
     if (!isFloor(x + 1, y)) pushW(cx + T / 2, cz, -Math.PI / 2, x + 1, y, x + 1, y + 1, 'v');
   }
   root.add(A.makeInstanced('st/wall', walls));
-  root.add(A.makeInstanced('st/wall-detail', deco));
+  root.add(A.makeInstanced(theme === 'underwater' ? 'st/wall-window' : 'st/wall-detail', deco));
   const pillars = [];
   for (const [k, s] of verts) if (s.size > 1) { const [vx, vy] = k.split(',').map(Number); pillars.push({ x: W(vx) - T / 2, z: Z(vy) - T / 2, s: 2 }); }
   root.add(A.makeInstanced('st/wall-pillar', pillars));
+  }
   // предметы
   const groups = {}, special = [];
   for (const p of map.props) {
     if (!p.model.includes('/')) { special.push(p); continue; }
+    if (p.h) { if (A.has(p.model)) { const o = propByHeight(p); if (o) root.add(o); } continue; }
     (groups[p.model] = groups[p.model] || []).push({ x: p.x, z: p.z, r: p.rot, s: p.s });
   }
   for (const [m, list] of Object.entries(groups)) root.add(A.makeInstanced(m, list));
@@ -685,7 +725,7 @@ export function buildAmap3D(scene, map) {
       const table = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.35, 0.85, 28), std('#9aa3c7')); table.position.y = 0.42; g.add(table);
       const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.08, 28), std('#d7dcf0')); top.position.y = 0.88; g.add(top);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.18, 20), std('#555b75')); base.position.y = 1.0; g.add(base);
-      const btn = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ff2e44', emissive: '#a00010', emissiveIntensity: 0.8 })); btn.position.y = 1.08; g.add(btn);
+      const btn = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), theme === 'haunted' ? new THREE.MeshStandardMaterial({ color: '#b46bff', emissive: '#6a1fd0', emissiveIntensity: 0.8 }) : new THREE.MeshStandardMaterial({ color: '#ff2e44', emissive: '#a00010', emissiveIntensity: 0.8 })); btn.position.y = 1.08; g.add(btn);
       const glass = new THREE.Mesh(new THREE.SphereGeometry(0.46, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.35, roughness: 0.1 })); glass.position.y = 1.08; g.add(glass);
       g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       g.position.set(p.x, 0, p.z); root.add(g); out.button = btn;
@@ -714,8 +754,8 @@ export function buildAmap3D(scene, map) {
     const halves = [];
     for (const s of [-1, 1]) {
       const h = new THREE.Group(); g.add(h);
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2, 1.95, 0.22), std('#8e97c4', { metalness: 0.3 })); panel.position.set(s * d.len / 4, 0.98, 0); panel.castShadow = true; h.add(panel);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2 * 0.9, 0.12, 0.24), new THREE.MeshStandardMaterial({ color: '#ffb02e', emissive: '#ff8a00', emissiveIntensity: 0.6 })); stripe.position.set(s * d.len / 4, 1.2, 0); h.add(stripe);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2, 1.95, 0.22), theme === 'haunted' ? new THREE.MeshStandardMaterial({ map: floorTexture('planks'), color: '#a07850', roughness: 0.8 }) : std(theme === 'underwater' ? '#6f9fc0' : '#8e97c4', { metalness: 0.3 })); panel.position.set(s * d.len / 4, 0.98, 0); panel.castShadow = true; h.add(panel);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(d.len / 2 * 0.9, 0.12, 0.24), theme === 'haunted' ? std('#2b2b30', { metalness: 0.7 }) : new THREE.MeshStandardMaterial({ color: '#ffb02e', emissive: '#ff8a00', emissiveIntensity: 0.6 })); stripe.position.set(s * d.len / 4, 1.2, 0); h.add(stripe);
       h.userData.s = s; halves.push(h);
     }
     g.visible = false;
@@ -728,18 +768,34 @@ export class AmongView {
   constructor(opts) {
     this.opts = opts; this.map = opts.map; this.myId = opts.myPid;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#05061a');
+    const th = this.theme = this.map.theme || 'space';
+    const TH = { space: ['#05061a', '#e2e6ff', '#2a2f55', 1.15, '#fff4e0', 1.6], haunted: ['#0b0614', '#d6caff', '#4a3550', 1.35, '#ffe6c8', 1.5], underwater: ['#03304d', '#c4ecff', '#0d3550', 1.1, '#d8f4ff', 1.4] }[th];
+    this.scene.background = new THREE.Color(TH[0]);
+    if (th !== 'space') this.scene.fog = new THREE.Fog(TH[0], 19, 44);
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
-    this.scene.add(new THREE.HemisphereLight('#e2e6ff', '#2a2f55', 1.15));
-    const sun = new THREE.DirectionalLight('#fff4e0', 1.6);
+    this.scene.add(new THREE.HemisphereLight(TH[1], TH[2], TH[3]));
+    const sun = new THREE.DirectionalLight(TH[4], TH[5]);
     sun.position.set(-6, 24, 10); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 60;
     sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.03;
     this.scene.add(sun); this.scene.add(sun.target); this.sun = sun;
     // звёзды под станцией
-    const pts = []; for (let i = 0; i < 1600; i++) pts.push(rnd(-150, 150), rnd(-40, -12), rnd(-110, 110));
-    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    this.scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#cfd6ff', size: 0.35, sizeAttenuation: true })));
+    if (th === 'space') {
+      const pts = []; for (let i = 0; i < 1600; i++) pts.push(rnd(-150, 150), rnd(-40, -12), rnd(-110, 110));
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      this.scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#cfd6ff', size: 0.35, sizeAttenuation: true })));
+    } else {
+      // подводная база — песчаное дно и пузыри; замок — плавающие огоньки
+      if (th === 'underwater') {
+        const sand = floorMesh('dirt', 260, 200, 6); sand.material.color.set('#e8d29a'); sand.position.y = -7; this.scene.add(sand);
+        if (A.has('st/rocks')) { const rk = []; for (let i = 0; i < 70; i++) rk.push({ x: rnd(-90, 90), y: -7, z: rnd(-70, 70), r: rnd(0, 6), s: rnd(3, 8) }); this.scene.add(A.makeInstanced('st/rocks', rk, { shadow: false })); }
+      }
+      const n = th === 'underwater' ? 260 : 90, pts = [];
+      for (let i = 0; i < n; i++) pts.push(rnd(-this.map.width / 2, this.map.width / 2), rnd(-6, 4), rnd(-this.map.depth / 2, this.map.depth / 2));
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      this.motes = new THREE.Points(g, new THREE.PointsMaterial(th === 'underwater' ? { color: '#d8f6ff', size: 0.22, transparent: true, opacity: 0.6, depthWrite: false } : { color: '#b98bff', size: 0.3, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+      this.scene.add(this.motes);
+    }
     this.built = buildAmap3D(this.scene, this.map);
     this.fx = new FX(this.scene);
     this.ents = new Map();
@@ -766,6 +822,15 @@ export class AmongView {
       for (const h of d.halves) h.position.x = h.userData.s * d.open * d.len / 2;
     }
     for (const v of this.built.vents.values()) { v.open = Math.max(0, v.open - dt * 1.5); v.lid.rotation.x = -Math.sin(Math.min(1, v.open) * Math.PI) * 1.2; }
+    if (this.motes) {
+      const pa = this.motes.geometry.attributes.position, up = this.theme === 'underwater';
+      for (let i = 0; i < pa.count; i++) {
+        let y = pa.getY(i) + dt * (up ? 1.2 + (i % 5) * 0.25 : 0.25 * Math.sin(t + i));
+        if (y > 5) y = -6;
+        pa.setY(i, y); if (!up) pa.setX(i, pa.getX(i) + Math.sin(t * 0.5 + i) * dt * 0.3);
+      }
+      pa.needsUpdate = true;
+    }
     if (this.built.button) this.built.button.material.emissiveIntensity = 0.6 + Math.sin(t * 4) * 0.3;
     if (this.built.scanner) { this.built.scanner.ring.position.y = 0.14 + (this.scanning ? (Math.sin(t * 4) + 1) * 0.9 : 0); this.built.scanner.beam.visible = !!this.scanning; }
     const me = this.ents.get(this.myId);

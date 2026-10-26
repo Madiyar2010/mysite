@@ -1,6 +1,6 @@
 // Логика «Найди предателя» в стиле Among Us (работает только у хоста).
 import { shuffle, clamp, pick } from './util.js';
-import { AMAPS, TASKS, SAB, collide, lineOfSight, roomAtPos } from './amap.js';
+import { AMAPS, TASKS, SAB, collide, lineOfSight, roomAtPos, applyMapText } from './amap.js';
 
 export const DEFAULT_OPTS = {
   map: 'station', maxPlayers: 10, impostors: 1, confirm: true, meetings: 1, meetCd: 15, discuss: 30, vote: 60, anon: false,
@@ -17,6 +17,7 @@ export class AmongSim {
     this.io = io;
     this.opts = { ...DEFAULT_OPTS, ...opts };
     this.map = AMAPS[this.opts.map] || AMAPS.station;
+    applyMapText(this.map);
     const o = this.opts, n = roster.length;
     const ids = shuffle(roster.map(r => r.pid));
     const nImp = clamp(o.impostors, 1, Math.max(1, Math.floor((n - 1) / 2)));

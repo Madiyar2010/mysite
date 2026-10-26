@@ -10,7 +10,7 @@ export const S_MONSTERS = {
   ghost: { model: 'grave/character-ghost', name: 'Призрак', hp: 60, speed: 3.4, dmg: 14, range: 16, cd: 1.6, scale: 1.1, money: 150, ranged: true },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
-export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'rounds', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
+export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128 };
 const WIDX = Object.keys(WEAPONS);
 
