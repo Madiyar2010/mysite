@@ -54,21 +54,29 @@ export class ShooterSim {
     if (this.team) return a.team !== b.team;
     return true;
   }
+  // точка появления: подальше от врагов и там, где враг её не видит
   spawnPoint(p) {
     const m = this.map;
-    let list = this.team ? m.spawnsTeam[p.team] : this.mode === 'pve' ? m.spawnsTeam[0].concat(m.spawnsTeam[1]) : m.spawnsFFA;
-    let best = list[0], bd = -1;
-    for (const s of shuffle(list)) {
-      let dmin = 99;
-      for (const o of this.ps.values()) if (o !== p && o.alive && this.enemies(p, o)) dmin = Math.min(dmin, Math.hypot(o.x - s.x, o.z - s.z));
+    const own = this.team ? m.spawnsTeam[p.team] : this.mode === 'pve' ? m.spawnsTeam[0].concat(m.spawnsTeam[1]) : m.spawnsFFA;
+    const foes = [...this.ps.values()].filter(o => o !== p && o.alive && !o.left && this.enemies(p, o)).concat([...this.mons.values()].filter(o => o.alive));
+    const score = s => {
+      let dmin = 99, seen = false;
+      for (const o of foes) {
+        const d = Math.hypot(o.x - s.x, o.z - s.z); dmin = Math.min(dmin, d);
+        if (!seen && d < 45 && los(m, { x: o.x, y: o.y + 1.5, z: o.z }, { x: s.x, y: 1.4, z: s.z })) seen = true;
+      }
       for (const o of this.ps.values()) if (o !== p && o.alive && Math.hypot(o.x - s.x, o.z - s.z) < 1) dmin -= 5;
-      if (dmin > bd) { bd = dmin; best = s; }
-    }
+      return Math.min(dmin, 40) - (seen ? 30 : 0) + Math.random();
+    };
+    let best = own[0], bs = -1e9;
+    for (const s of own) { const v = score(s); if (v > bs) { bs = v; best = s; } }
+    // в командах: если вся своя база под прицелом — появляемся в безопасном месте карты
+    if (this.team && bs < 8 && m.spawnsFFA) for (const s of m.spawnsFFA) { const v = score(s) - 4; if (v > bs) { bs = v; best = s; } }
     return best;
   }
   spawn(p) {
     const s = this.spawnPoint(p);
-    Object.assign(p, { x: s.x, y: 0, z: s.z, yaw: s.yaw, pitch: 0, vx: 0, vy: 0, vz: 0, alive: true, hp: 100, protUntil: this.t + 2, slowUntil: 0, freezeUntil: 0, reloadUntil: 0, buyWindow: this.t + 10 });
+    Object.assign(p, { x: s.x, y: 0, z: s.z, yaw: s.yaw, pitch: 0, vx: 0, vy: 0, vz: 0, alive: true, hp: 100, protUntil: this.t + 3, slowUntil: 0, freezeUntil: 0, reloadUntil: 0, buyWindow: this.t + 10 });
     for (const w of [p.slot1, p.slot2]) if (w) this.giveAmmo(p, w);
     p.cur = p.slot1 || p.slot2;
     if (!p.bot) this.io.sendTo(p.id, { t: 'spawn', x: s.x, y: 0, z: s.z, yaw: s.yaw });
