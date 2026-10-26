@@ -778,3 +778,7 @@ body.touch #sh-keys{display:none}
 .team-col .pl{min-width:0}
 .tc-join{background:var(--tc)!important;color:#fff!important;border:0}
 .team-col .team-dot{display:none}
+
+/* свой по команде: метка над головой видна сквозь стены */
+.plate.ally::before{content:"";display:block;width:0;height:0;margin:0 auto 1px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:11px solid var(--tc);filter:drop-shadow(0 0 3px rgba(0,0,0,.8))}
+.plate.ally .pn{font-size:13px}

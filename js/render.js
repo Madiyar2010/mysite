@@ -223,6 +223,9 @@ export class Avatar {
     }
     this.mats = [];
     this.root.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); this.mats.push(...(Array.isArray(o.material) ? o.material : [o.material])); } });
+    // цвет команды: лёгкое свечение всего героя, чтобы сразу было видно, свой или чужой
+    if (opts.tint) for (const m of this.mats) if (m.emissive) { m.emissive = new THREE.Color(opts.tint); m.emissiveIntensity = 0.32; }
+    if (opts.ally && this.plateEl) { this.plateEl.classList.add('ally'); this.plateEl.style.setProperty('--tc', opts.nameColor || '#fff'); }
     this.play(ANIM.idle);
   }
   auraColor() { const a = AURAS.find(x => x.id === this.opts.aura); return a && a.color; }

@@ -520,7 +520,7 @@ function metaShoot(k) {
   const myTeam = (S.roster.get(me.pid) || {}).team;
   const ally = S.game.mode === 'pve' || (teams && r.team === myTeam);
   return { model: r.model, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
-    ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: ally && !mine };
+    ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: ally && !mine, tint: teams && !mine ? TEAM_COLORS[r.team] : null, ally: teams && ally && !mine };
 }
 async function startGame(m) {
   loading('Готовим игру…');
