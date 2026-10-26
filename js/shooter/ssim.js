@@ -11,7 +11,7 @@ export const S_MONSTERS = {
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
 export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
-const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128 };
+const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128, crouch: 256 };
 const WIDX = Object.keys(WEAPONS);
 
 export class ShooterSim {
@@ -170,7 +170,7 @@ export class ShooterSim {
         p.x = clamp(nx, -this.map.W, this.map.W); p.y = clamp(ny, 0, 12); p.z = clamp(nz, -this.map.D, this.map.D);
         p.yaw = +m.yaw || 0; p.pitch = clamp(+m.pitch || 0, -1.5, 1.5); p.vx = +m.vx || 0; p.vz = +m.vz || 0; p.lastPos = this.t;
         if (m.anim != null) p.anim = m.anim | 0;
-        p.scoped = !!m.sc;
+        p.scoped = !!m.sc; p.crouch = !!m.cr;
         break;
       }
       case 'switch': if ([p.slot1, p.slot2, 'knife', p.nades > 0 ? 'grenade' : null].includes(m.w)) { p.cur = m.w; p.reloadUntil = 0; } break;
@@ -220,7 +220,7 @@ export class ShooterSim {
     p.lastFire = this.t; p.cur = w; p.animN = (p.animN + 1) & 7; p.fired = this.t;
     p.protUntil = 0;
     const o = { x: +m.o.x, y: +m.o.y, z: +m.o.z };
-    if (Math.hypot(o.x - p.x, o.z - p.z) > 3 || Math.abs(o.y - (p.y + PH.EYE)) > 3) { o.x = p.x; o.y = p.y + PH.EYE; o.z = p.z; }
+    if (Math.hypot(o.x - p.x, o.z - p.z) > 3 || Math.abs(o.y - (p.y + (p.crouch ? PH.CEYE : PH.EYE))) > 3) { o.x = p.x; o.y = p.y + PH.EYE; o.z = p.z; }
     let d = { x: +m.d.x, y: +m.d.y, z: +m.d.z }; const L = Math.hypot(d.x, d.y, d.z) || 1; d.x /= L; d.y /= L; d.z /= L;
     const moving = Math.hypot(p.vx, p.vz) > 1.5 || !p.ground;
     let spread = (m.sc && W.scopeSpread != null ? W.scopeSpread : W.spread) + (moving ? W.moveSpread || 0 : 0);
@@ -233,15 +233,39 @@ export class ShooterSim {
       return;
     }
     const n = W.pellets || 1;
+    // стрелок присылает свои лучи и в кого попал на своём экране — проверяем и засчитываем
+    if (Array.isArray(m.ds) && m.ds.length === n) {
+      for (let i = 0; i < n; i++) {
+        const r = m.ds[i] || {}, L2 = Math.hypot(+r.x || 0, +r.y || 0, +r.z || 0) || 1;
+        const dd = { x: (+r.x || 0) / L2, y: (+r.y || 0) / L2, z: (+r.z || 0) / L2 };
+        if (dd.x * d.x + dd.y * d.y + dd.z * d.z < 0.9) continue; // разброс не может быть таким большим
+        this.hitscan(p, o, dd, W, w, i === 0, Array.isArray(m.hs) ? m.hs[i] : null);
+      }
+      return;
+    }
     for (let i = 0; i < n; i++) this.hitscan(p, o, jitter(d, spread), W, w, i === 0);
   }
   targets() { return [...this.ps.values()].filter(x => x.alive && !x.left).concat([...this.mons.values()].filter(x => x.alive)); }
-  hitscan(p, o, d, W, w, showTracer) {
+  // проверка попадания, которое увидел стрелок (компенсация задержки сети)
+  claimOk(p, o, d, W, c) {
+    if (!Array.isArray(c)) return null;
+    const t = this.ps.get(c[0]) || this.mons.get(c[0]), dist = +c[2];
+    if (!t || !t.alive || t.left || !this.enemies(p, t) || !(dist > 0)) return null;
+    const range = W.range || 80, sc = t.scale || 1;
+    if (dist > range + 2 || Math.hypot(t.x - o.x, t.z - o.z) > range + 4) return null;
+    const P = { x: o.x + d.x * dist, y: o.y + d.y * dist, z: o.z + d.z * dist };
+    if (Math.hypot(P.x - t.x, P.z - t.z) > 2.6 * sc || P.y < t.y - 0.6 || P.y > t.y + 2.3 * sc) return null;
+    if (rayWorld(this.map, o, d, dist).t < dist - 0.35) return null; // стена на пути
+    return { t, h: { t: dist, head: !!c[1] } };
+  }
+  hitscan(p, o, d, W, w, showTracer, claim) {
     const wh = rayWorld(this.map, o, d, W.range || 80);
     let end = wh.t;
     const hits = [];
+    const ok = this.claimOk(p, o, d, W, claim);
+    if (ok) { hits.push(ok); if (!W.pierce) end = ok.h.t; }
     for (const t of this.targets()) {
-      if (!this.enemies(p, t)) continue;
+      if (!this.enemies(p, t) || (ok && ok.t === t)) continue;
       const h = rayPlayer(o, d, t, end, t.scale || 1);
       if (h) hits.push({ t, h });
     }
@@ -261,9 +285,9 @@ export class ShooterSim {
     for (const t of this.targets()) {
       if (!this.enemies(p, t)) continue;
       const dx = t.x - p.x, dz = t.z - p.z, dist = Math.hypot(dx, dz);
-      if (dist > W.range + (t.scale > 2 ? 1.5 : 0) || Math.abs(t.y - p.y) > 1.6) continue;
+      if (dist > W.range + 0.5 + (t.scale > 2 ? 1.5 : 0) || Math.abs(t.y - p.y) > 1.6) continue;
       const dot = (dx * d.x + dz * d.z) / (dist || 1) / (Math.hypot(d.x, d.z) || 1);
-      if (dot < 0.5) continue;
+      if (dot < 0.4) continue;
       if (dist < bd) { bd = dist; best = t; }
     }
     this.ev('shot', p.id, 'knife');
@@ -609,7 +633,7 @@ export class ShooterSim {
     for (const p of this.ps.values()) {
       if (p.left) continue;
       let fl = 0; if (!p.alive) fl |= FL.dead; if (p.protUntil > this.t) fl |= FL.prot; if (p.markUntil > this.t) fl |= FL.mark; if (p.armor > 0) fl |= FL.armor;
-      if (p.slowUntil > this.t || p.freezeUntil > this.t) fl |= FL.slow; if (this.flags && this.flags.some(f => f.carrier === p.id)) fl |= FL.carry; if (p.reloadUntil > this.t) fl |= FL.reload; if (p.scoped) fl |= FL.scoped;
+      if (p.slowUntil > this.t || p.freezeUntil > this.t) fl |= FL.slow; if (this.flags && this.flags.some(f => f.carrier === p.id)) fl |= FL.carry; if (p.reloadUntil > this.t) fl |= FL.reload; if (p.scoped) fl |= FL.scoped; if (p.crouch && p.alive) fl |= FL.crouch;
       e.push([p.id, p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(2), +p.pitch.toFixed(2), (p.anim & 15) | (p.animN << 4), Math.max(0, p.hp), fl, WIDX.indexOf(p.cur)]);
     }
     for (const m of this.mons.values()) e.push([m.id, 'm:' + m.type, +m.x.toFixed(2), +m.y.toFixed(2), +m.z.toFixed(2), +m.yaw.toFixed(2), 0, (Math.hypot(m.vx, m.vz) > 0.5 ? 1 : 0) | (m.animN << 4), Math.max(0, Math.round(m.hp)), (m.alive ? 0 : FL.dead) | (m.markUntil > this.t ? FL.mark : 0), m.maxhp]);

@@ -693,6 +693,8 @@ body.touch #sh-feed .kf{font-size:12px;padding:4px 8px}
 #sh-jump{right:calc(max(26px,env(safe-area-inset-right)) + 104px);bottom:max(18px,env(safe-area-inset-bottom))}
 #sh-aim{right:calc(max(26px,env(safe-area-inset-right)) + 14px);bottom:calc(max(30px,env(safe-area-inset-bottom)) + 108px)}
 #sh-reload{right:calc(max(26px,env(safe-area-inset-right)) + 100px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 80px)}
+#sh-crouch{right:calc(max(26px,env(safe-area-inset-right)) + 258px);bottom:max(18px,env(safe-area-inset-bottom))}
+#sh-crouch.on{background:rgba(255,201,77,.85);border-color:#fff}
 #sh-nade{right:calc(max(26px,env(safe-area-inset-right)) + 180px);bottom:max(18px,env(safe-area-inset-bottom))}
 #sh-switch{right:calc(max(26px,env(safe-area-inset-right)) + 178px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 80px)}
 #sh-fire2{left:max(18px,env(safe-area-inset-left));top:30%;width:58px;height:58px;background:rgba(230,57,70,.6);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center}
