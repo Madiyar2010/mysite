@@ -97,7 +97,7 @@ export class ShooterClient {
     btn('#sh-buyb', () => this.toggleBuy());
     on($('#sh-lock'), 'click', e => { if (e.target.closest('[data-act]')) return; lockMouse($('#s-shoot')); });
     on($('#sh-buy'), 'pointerdown', e => e.stopPropagation());
-    on($('#sh-buy'), 'click', e => { const b = e.target.closest('[data-item]'); if (b) this.buy(b.dataset.item); if (e.target.closest('#sh-buy-x')) this.toggleBuy(false); });
+    on($('#sh-buy'), 'click', e => { const b = e.target.closest('[data-item]'); if (b) this.buy(b.dataset.item); if (e.target.closest('#sh-buy-x')) this.toggleBuy(false); if (e.target.closest('#sh-buy-ready')) { this.buyReady(); this.toggleBuy(false); } });
   }
   unbind() { for (const [el, ev, fn, o] of this.listeners) el.removeEventListener(ev, fn, o); }
   keyDown(e) {
@@ -213,6 +213,7 @@ export class ShooterClient {
   }
   toggleBuy(v) {
     const want = v == null ? !this.buyOpen : v;
+    if (!want && this.buyOpen && this.ph === 'buy') this.buyReady();
     if (want && !this.pv.buy) { shBanner('Сейчас закупка недоступна', 'small', 1200); return; }
     this.buyOpen = want;
     $('#sh-buy').className = want ? 'show' : '';
@@ -457,6 +458,7 @@ export class ShooterClient {
   }
   phaseChange(from, to) {
     if (to === 'buy') this.wantBuy = true;
+    if (to === 'buy') this.isReady = false;
     if (to === 'play') { if (this.buyOpen) this.toggleBuy(false); shBanner(`${icon('swords')} В бой!`, 'big', 1300); Sound.play('j_start', { vol: 0.6 }); }
   }
   pos3(x, y, z) { return { dx: x - this.p.x, dz: z - this.p.z }; }
@@ -579,6 +581,9 @@ export class ShooterClient {
     // верх
     let ph = '';
     if (s.ph === 'buy') ph = `Закупка ${Math.ceil(s.tl)}`;
+    // крупный таймер закупки и сколько игроков готовы
+    const bt = s.ph === 'buy' ? `<b>${Math.ceil(s.tl)}</b><span>${this.isReady ? 'Ты готов' : 'Закупка'}${s.br ? ` · готовы ${s.br[0]} из ${s.br[1]}` : ''}</span>` : '';
+    if (bt !== this.lastBt) { this.lastBt = bt; $('#sh-buyt').innerHTML = bt; $('#sh-buyt').className = bt ? 'show' : ''; const r = $('#sh-buy-rd'); if (r) r.textContent = s.br ? `Готовы ${s.br[0]} из ${s.br[1]} · ${Math.ceil(s.tl)} сек` : ''; }
     else if (s.ph === 'roundEnd') ph = 'Конец раунда';
     else if (s.ph === 'play' && s.tl < 1e6) ph = fmtTime(s.tl);
     $('#sh-time').textContent = ph; $('#sh-time').style.display = ph ? '' : 'none'; $('#sh-time').classList.toggle('low', s.ph === 'play' && s.tl < 15);
@@ -593,6 +598,7 @@ export class ShooterClient {
     if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; } else bb.classList.remove('show');
     if (!this.alive) { const r = $('#sh-resp'); if (r) r.textContent = this.opts.match === 'rounds' && this.mode !== 'pve' ? 'Ждём следующий раунд…' : pv.resp > 0 ? `Возрождение через ${Math.ceil(pv.resp)}` : ''; }
   }
+  buyReady() { if (this.ph !== 'buy' || this.isReady) return; this.isReady = true; this.ctx.send({ t: 'bready' }); Sound.play('confirm', { vol: 0.5 }); }
   renderBuy() {
     const pv = this.pv;
     const key = [pv.money, pv.slot1, pv.slot2, pv.armor, pv.nades, pv.medkit].join('|');

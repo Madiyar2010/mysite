@@ -86,7 +86,7 @@ export class ShooterSim {
   // ---------- раунды ----------
   startRound(first) {
     this.round++;
-    this.phase = 'buy'; this.phaseT = first ? 12 : 10;
+    this.phase = 'buy'; this.phaseT = 20; this.buyReady = new Set();
     this.roundKills = new Map();
     if (this.rounds || first) for (const p of this.ps.values()) if (!p.left) this.spawn(p);
     for (const p of this.ps.values()) if (p.bot) this.botBuy(p);
@@ -185,6 +185,7 @@ export class ShooterSim {
       case 'fire': this.fire(p, m); break;
       case 'reload': this.reload(p); break;
       case 'buy': this.buy(p, m.item); break;
+      case 'bready': if (this.phase === 'buy') this.buyReady.add(p.id); break;
       case 'medkit': if (p.alive && p.medkit > 0 && p.hp < 100) { p.medkit--; p.hp = Math.min(100, p.hp + 60); this.ev('heal', p.id); } break;
       case 'emo': p.animN = (p.animN + 1) & 7; p.emo = this.t; break;
     }
@@ -553,6 +554,8 @@ export class ShooterSim {
     if (this.over) return;
     this.t += dt; this.phaseT -= dt;
     updateDynamics(this.map, this.t);
+    // закупка кончается, когда все живые люди нажали «Готов»
+    if (this.phase === 'buy' && this.phaseT > 1.5) { const hum = [...this.ps.values()].filter(p => !p.bot && !p.left && p.alive); if (hum.length && hum.every(p => this.buyReady.has(p.id))) this.phaseT = 1.5; }
     if (this.phase === 'buy' && this.phaseT <= 0) { this.phase = 'play'; this.phaseT = this.rounds ? this.opts.roundTime : (this.mode === 'pve' ? 1e9 : (this.round === 1 ? this.opts.timeLimit : this.phaseT)); this.ev('go'); }
     else if (this.phase === 'roundEnd' && this.phaseT <= 0) { if (!(this.rounds && this.matchWinner())) this.startRound(false); }
     const playing = this.phase === 'play';
@@ -645,7 +648,7 @@ export class ShooterSim {
       e.push([p.id, p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(2), +p.pitch.toFixed(2), (p.anim & 15) | (p.animN << 4), Math.max(0, p.hp), fl, WIDX.indexOf(p.cur)]);
     }
     for (const m of this.mons.values()) e.push([m.id, 'm:' + m.type, +m.x.toFixed(2), +m.y.toFixed(2), +m.z.toFixed(2), +m.yaw.toFixed(2), 0, (Math.hypot(m.vx, m.vz) > 0.5 ? 1 : 0) | (m.animN << 4), Math.max(0, Math.round(m.hp)), (m.alive ? 0 : FL.dead) | (m.markUntil > this.t ? FL.mark : 0), m.maxhp]);
-    const s = { t: 's2', tm: +this.t.toFixed(2), ph: this.phase, tl: Math.max(0, +this.phaseT.toFixed(1)), rd: this.round, e,
+    const s = { t: 's2', tm: +this.t.toFixed(2), ph: this.phase, tl: Math.max(0, +this.phaseT.toFixed(1)), rd: this.round, e, br: this.phase === 'buy' ? [this.buyReady.size, [...this.ps.values()].filter(p => !p.bot && !p.left && p.alive).length] : 0,
       p: this.projs.map(p => [p.id, p.type, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.vx.toFixed(1), +p.vy.toFixed(1), +p.vz.toFixed(1), p.grav || 0]), fx: this.fx };
     if (this.team) s.ts = this.teamScore;
     if (!this.team && this.rounds) s.rs = [...this.score];

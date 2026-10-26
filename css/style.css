@@ -782,3 +782,11 @@ body.touch #sh-keys{display:none}
 /* свой по команде: метка над головой видна сквозь стены */
 .plate.ally::before{content:"";display:block;width:0;height:0;margin:0 auto 1px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:11px solid var(--tc);filter:drop-shadow(0 0 3px rgba(0,0,0,.8))}
 .plate.ally .pn{font-size:13px}
+
+.buy-foot{display:flex;align-items:center;justify-content:flex-end;gap:12px;position:sticky;bottom:-12px;background:#1f1850;padding:8px 0 4px}
+.buy-foot span{color:var(--muted);font-weight:700}
+#sh-buyt{position:absolute;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);display:none;flex-direction:column;align-items:center;z-index:6;pointer-events:none;text-shadow:0 2px 6px #000}
+#sh-buyt.show{display:flex}
+#sh-buyt b{font-size:46px;line-height:1;color:#ffd166}
+#sh-buyt span{font-weight:800;font-size:14px;background:rgba(10,8,25,.7);padding:2px 10px;border-radius:999px}
+.buy-foot .btn{width:auto;min-width:180px;flex:none}
