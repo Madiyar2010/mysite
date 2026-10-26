@@ -302,7 +302,7 @@ export const AMAP_LIST = [
 ];
 
 export function amapModels(map) {
-  const s = new Set(map.theme === 'haunted' ? [] : ['st/floor', 'st/floor-panel', 'st/floor-detail', 'st/wall', 'st/wall-window', 'st/wall-pillar', 'st/wall-banner', 'st/wall-detail', 'st/door-double']);
+  const s = new Set(map.theme === 'haunted' ? [] : ['st/wall', 'st/wall-window', 'st/wall-pillar', 'st/wall-banner', 'st/wall-detail', 'st/door-double']);
   if (map.theme === 'underwater') s.add('st/rocks');
   map.props.forEach(p => { if (p.model.includes('/')) s.add(p.model); });
   return [...s];

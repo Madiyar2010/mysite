@@ -1,7 +1,7 @@
 // 3D-отрисовка: сцена, герои, эффекты, камера.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { texMat, boxGeo } from './tex.js';
+import { texMat, boxGeo, canvasTex } from './tex.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import * as A from './assets.js';
 import { CLASSES, AURAS, TEAM_COLORS, clamp, rnd, esc } from './util.js';
@@ -691,19 +691,25 @@ export function buildAmap3D(scene, map) {
   const isFloor = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH && grid[y * GW + x] > 0;
   const theme = map.theme || 'space';
   if (theme === 'haunted') buildHaunted3D(root, map); else {
-  // пол
-  const floors = { 'st/floor': [], 'st/floor-panel': [], 'st/floor-detail': [] };
-  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-    const g = grid[y * GW + x]; if (!g) continue;
-    const r = map.roomOf[y * GW + x];
-    const type = g === 2 ? 'corridor' : map.rooms[r].floor;
-    const model = g === 2 ? 'st/floor-panel' : type === 'grate' ? 'st/floor-detail' : 'st/floor';
-    floors[model].push({ x: W(x), y: -0.6, z: Z(y), s: 2, color: theme === 'underwater' ? new THREE.Color(FLOOR_TINT[type] || '#fff').lerp(new THREE.Color('#7fd0ff'), 0.35).getStyle() : (FLOOR_TINT[type] || '#fff') });
+  // пол: рисованная текстура на каждую комнату и на коридоры (видно на любом устройстве)
+  const FT = { metal: 'panel', grate: 'grate2', white: 'medtile', cafe: 'cafetile', green: 'greentile' };
+  const tint = theme === 'underwater' ? '#c8e8ff' : '#ffffff';
+  for (const r of map.rooms) {
+    const t = canvasTex(FT[r.floor] || 'panel'), w = r.wx2 - r.wx1, d = r.wz2 - r.wz1; t.repeat.set(w / 4, d / 4);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: t, color: tint, roughness: 0.8, metalness: 0.1 }));
+    m.rotation.x = -Math.PI / 2; m.position.set((r.wx1 + r.wx2) / 2, 0, (r.wz1 + r.wz2) / 2); m.receiveShadow = true; root.add(m);
   }
-  for (const [m, list] of Object.entries(floors)) if (list.length) {
-    const g = A.makeInstanced(m, list, { shadow: false });
-    g.children.forEach(inst => { list.forEach((p, i) => inst.setColorAt(i, new THREE.Color(p.color))); if (inst.instanceColor) inst.instanceColor.needsUpdate = true; });
-    root.add(g);
+  {
+    const geos = [];
+    for (const c of map.corridors) {
+      const x1 = W(c.x1) - T / 2, x2 = W(c.x2) + T / 2, z1 = Z(c.y1) - T / 2, z2 = Z(c.y2) + T / 2, w = x2 - x1, d = z2 - z1;
+      if (w <= 0 || d <= 0) continue;
+      const g = new THREE.PlaneGeometry(w, d); g.rotateX(-Math.PI / 2);
+      if (c.h) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, v, u * w / 4); } }
+      else { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i), uv.getY(i) * d / 4); }
+      g.translate((x1 + x2) / 2, -0.002, (z1 + z2) / 2); geos.push(g);
+    }
+    if (geos.length) { const m = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ map: canvasTex('corridor'), color: tint, roughness: 0.8 })); m.receiveShadow = true; root.add(m); }
   }
   // стены по краям пола + колонны в углах
   const walls = [], deco = [], verts = new Map();
