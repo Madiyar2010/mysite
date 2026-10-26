@@ -81,3 +81,18 @@ export const Wallet = {
     this.add(-item.price); this.own(item.id); return true;
   }
 };
+
+// награды конца матча: каждому человеку по одной награде (+10 монет), чтобы никто не остался без приятного
+export const AWARD_COINS = 10;
+export function giveAwards(rows, defs) {
+  const people = rows.filter(r => !r.bot);
+  for (const d of defs) {
+    const cand = people.filter(r => !r.award && d.ok(r));
+    if (!cand.length) continue;
+    cand.sort((a, b) => d.score(b) - d.score(a));
+    const best = cand[0]; best.award = { name: d.name, icon: d.icon };
+  }
+  for (const r of people) if (!r.award) r.award = { name: 'Отважный игрок', icon: 'shield' };
+  for (const r of people) { r.coins = (r.coins || 0) + AWARD_COINS; }
+  return rows;
+}

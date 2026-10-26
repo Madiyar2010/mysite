@@ -1,7 +1,7 @@
 // Логика шутера (только у хоста).
 import { WEAPONS, GEAR, MONEY } from './weapons.js';
 import { SMAPS, PH, movePlayer, updateDynamics, rayWorld, rayPlayer, los, navPath } from './smap.js';
-import { TEAM_NAMES, shuffle, pick, rnd, clamp } from '../util.js';
+import { TEAM_NAMES, shuffle, pick, rnd, clamp, giveAwards } from '../util.js';
 
 export const S_MONSTERS = {
   skeleton: { model: 'grave/character-skeleton', name: 'Скелет', hp: 70, speed: 4.2, dmg: 12, range: 1.5, cd: 0.9, scale: 1.1, money: 100 },
@@ -164,6 +164,14 @@ export class ShooterSim {
       if (this.mode === 'pve') coins = 10 + Math.round(p.kills / 2) + (win ? 25 : 0) + this.wave * 2;
       return { pid: p.id, name: p.name, bot: p.bot, team: p.team, kills: p.kills, deaths: p.deaths, pts: p.pts, caps: p.caps, win, coins: p.bot ? 0 : coins, rounds: this.score.get(p.id) || 0 };
     }).sort((a, b) => (b.win - a.win) || (b.kills - a.kills));
+    giveAwards(rows, this.mode === 'pve' ? [
+      { name: 'Охотник на монстров', icon: 'skull', ok: r => r.kills > 0, score: r => r.kills },
+      { name: 'Самый живучий', icon: 'heart', ok: () => true, score: r => -r.deaths }
+    ] : [
+      { name: 'Лучший стрелок', icon: 'target', ok: r => r.kills > 0, score: r => r.kills },
+      { name: 'Больше всех помог', icon: 'flag', ok: r => r.caps > 0 || r.win, score: r => r.caps * 3 + (r.win ? 1 : 0) + r.kills * 0.1 },
+      { name: 'Самый живучий', icon: 'heart', ok: () => true, score: r => -r.deaths + r.kills * 0.01 }
+    ]);
     setTimeout(() => this.io.end({ mode: this.mode, winText: text, rows, teamScore: this.teamScore, wave: this.wave }), 1800);
   }
 

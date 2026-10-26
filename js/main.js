@@ -585,7 +585,7 @@ function showResults(res) {
     else if (res.mode === 'pve') stat = `${icon('skull')} ${r.kills} монстров · выбит ${r.deaths} раз`;
     else stat = `${r.rounds ? icon('trophy') + ' ' + r.rounds + ' · ' : ''}${icon('swords')} ${r.kills} · ${icon('skull')} ${r.deaths}${r.caps ? ' · ' + icon('flag') + ' ' + r.caps : ''}`;
     const teamCol = (res.mode === 'tdm' || res.mode === 'ctf') ? TEAM_COLORS[r.team] : '#fff';
-    return `<div class="rr ${r.win ? 'win' : ''} ${r.pid === me.pid ? 'me' : ''}"><span class="rk">${r.win ? icon('trophy') : i + 1}</span><img src="${thumb(info.model || 'character-a')}"><div class="rn" style="color:${teamCol}">${esc(r.name)}${r.bot ? ' (бот)' : ''}<div class="rs">${stat}</div></div><div class="rc">${r.bot ? '' : '+' + r.coins + ' ' + icon('coin')}</div></div>`;
+    return `<div class="rr ${r.win ? 'win' : ''} ${r.pid === me.pid ? 'me' : ''}"><span class="rk">${r.win ? icon('trophy') : i + 1}</span><img src="${thumb(info.model || 'character-a')}"><div class="rn" style="color:${teamCol}">${esc(r.name)}${r.bot ? ' (бот)' : ''}<div class="rs">${stat}</div>${r.award ? `<div class="raw">${icon(r.award.icon)} ${esc(r.award.name)}</div>` : ''}</div><div class="rc">${r.bot ? '' : '+' + r.coins + ' ' + icon('coin')}</div></div>`;
   }).join('');
   if (Net.isHost) {
     $('#res-action').innerHTML = `<div class="row"><button class="btn gold grow" id="btn-again">${icon('rotate')} Ещё раз</button><button class="btn ghost grow" id="btn-tolobby">${icon('castle')} В лобби</button></div>`;

@@ -1,5 +1,5 @@
 // Логика «Найди предателя» в стиле Among Us (работает только у хоста).
-import { shuffle, clamp, pick } from './util.js';
+import { shuffle, clamp, pick, giveAwards } from './util.js';
 import { AMAPS, TASKS, SAB, collide, lineOfSight, roomAtPos, applyMapText } from './amap.js';
 
 export const DEFAULT_OPTS = {
@@ -284,6 +284,12 @@ export class AmongSim {
       const coins = p.role === 'crew' ? 10 + p.done * 2 + (w ? 20 : 0) : 10 + p.kills * 4 + (w ? 30 : 0);
       return { pid: p.id, name: p.name, role: p.role, sub: p.sub, win: w, tasks: p.done, kills: p.kills, alive: p.alive, coins, pts: coins };
     }).sort((a, b) => (b.win - a.win) || (b.coins - a.coins));
+    giveAwards(rows, [
+      { name: 'Трудяга', icon: 'task', ok: r => r.role === 'crew' && r.tasks > 0, score: r => r.tasks },
+      { name: 'Хитрый предатель', icon: 'impostor', ok: r => r.role === 'impostor', score: r => r.kills + (r.win ? 5 : 0) },
+      { name: 'Выживший', icon: 'heart', ok: r => r.alive, score: r => r.tasks }
+    ]);
+    for (const r of rows) r.pts = r.coins;
     setTimeout(() => this.io.end({ mode: 'traitor', winText: text, win, rows }), 1200);
   }
 
