@@ -69,7 +69,8 @@ export function load(name) {
 
 export function loadAll(names, onProgress) {
   let done = 0;
-  return Promise.all(names.map(n => load(n).then(r => { done++; onProgress && onProgress(done / names.length); return r; })));
+  // ждём все модели; если какая-то не загрузилась — пробуем ещё раз, а игра идёт без неё
+  return Promise.all(names.map(n => load(n).catch(() => { cache.delete(n); return load(n); }).catch(() => { cache.delete(n); return null; }).then(r => { done++; onProgress && onProgress(done / names.length); return r; })));
 }
 
 export const preload = loadAll;
@@ -77,7 +78,7 @@ export const has = name => vals.has(name);
 
 // Персонаж: копия модели, высота height, свой AnimationMixer
 export function makeCharacter(name, height = 1.7) {
-  const g = vals.get(name);
+  const g = vals.get(name) || vals.get('character-a') || [...vals.entries()].find(([k]) => k.startsWith('character-'))[1];
   const root = new THREE.Group();
   const model = skClone(g.scene);
   const s = height / g.size.y;
@@ -95,6 +96,7 @@ export function makeCharacter(name, height = 1.7) {
 // Статичный объект с нормализацией: fit = {h} | {w} | {s}
 export function makeProp(name, opts = {}) {
   const g = vals.get(name);
+  if (!g) return new THREE.Group();
   const m = g.scene.clone(true);
   let s = opts.s || 1;
   if (opts.h) s = opts.h / g.size.y;
@@ -113,6 +115,7 @@ export function makeProp(name, opts = {}) {
 export function makeInstanced(name, placements, opts = {}) {
   const g = vals.get(name);
   const group = new THREE.Group();
+  if (!g || !placements.length) return group;
   const s0 = opts.s || 1;
   g.scene.updateMatrixWorld(true);
   const meshes = [];

@@ -20,9 +20,23 @@ export const R = {
     this.labels = new CSS2DRenderer({ element: labelsEl });
     addEventListener('resize', () => this.resize());
     this.resize();
+    // если игра тормозит — сами снижаем качество (сначала тени и чёткость, потом разрешение)
+    let fpsT = 0, fpsN = 0, slow = 0;
+    this.scale = 1;
+    const watchFps = raw => {
+      if (!this.view || !this.view.ents) { fpsT = fpsN = 0; return; }
+      fpsT += raw; fpsN++;
+      if (fpsT < 4) return;
+      const fps = fpsN / fpsT; fpsT = fpsN = 0;
+      if (fps >= 26) { slow = 0; return; }
+      if (++slow < 2) return; slow = 0;
+      if (this.quality === 'high') { this.setQuality('low'); this.onAuto && this.onAuto('Игра тормозила — включили режим «Быстро»'); }
+      else if (this.scale > 0.6) { this.scale = Math.max(0.6, this.scale - 0.2); this.applyQuality(); }
+    };
     const loop = () => {
       requestAnimationFrame(loop);
-      const dt = Math.min(0.05, this.clock.getDelta());
+      const raw = this.clock.getDelta(), dt = Math.min(0.05, raw);
+      if (raw < 1) watchFps(raw);
       if (this.view) {
         this.view.update(dt);
         if (this.view.render) this.view.render(this.renderer); else this.renderer.render(this.view.scene, this.view.camera);
@@ -35,7 +49,7 @@ export const R = {
   },
   applyQuality() {
     const hi = this.quality === 'high';
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, hi ? 2 : 1.25));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, hi ? 1.5 : 1) * (this.scale || 1));
     this.renderer.shadowMap.enabled = hi;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   },
@@ -775,7 +789,7 @@ export class AmongView {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
     this.scene.add(new THREE.HemisphereLight(TH[1], TH[2], TH[3]));
     const sun = new THREE.DirectionalLight(TH[4], TH[5]);
-    sun.position.set(-6, 24, 10); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    sun.position.set(-6, 24, 10); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
     const sc = sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 60;
     sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.03;
     this.scene.add(sun); this.scene.add(sun.target); this.sun = sun;
@@ -836,7 +850,7 @@ export class AmongView {
     const me = this.ents.get(this.myId);
     if (me) this.focus.lerp(new THREE.Vector3(me.x, 0, me.z), Math.min(1, dt * 7));
     const zoom = this.portrait ? 1.6 : 1;
-    const target = this.focus.clone().add(new THREE.Vector3(0, 12.5 * zoom, 4.6 * zoom));
+    const target = this.focus.clone().add(new THREE.Vector3(0, 10.5 * zoom, 8.8 * zoom));
     this.camPos.lerp(target, Math.min(1, dt * 6));
     this.camera.position.copy(this.camPos);
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += rnd(-1, 1) * this.shake * 0.3; }
