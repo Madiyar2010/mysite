@@ -252,6 +252,23 @@ export class ShooterView {
     this.vmState.raise = 1;
     this.flash.position.set(0, 0.03, -(g.userData.len || 0.5) * 0.55 - 0.05);
   }
+  // дуга полёта гранаты и место падения
+  setArc(pts) {
+    if (!this.arc) {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(80 * 3), 3));
+      this.arc = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#ffe08a', dashSize: 0.25, gapSize: 0.15, transparent: true, opacity: 0.95, depthTest: false }));
+      this.arc.renderOrder = 10; this.arc.frustumCulled = false; this.scene.add(this.arc);
+      this.arcEnd = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.55, 28), new THREE.MeshBasicMaterial({ color: '#ff8a3d', transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }));
+      this.arcEnd.renderOrder = 10; this.scene.add(this.arcEnd);
+    }
+    const on = !!(pts && pts.length > 1);
+    this.arc.visible = this.arcEnd.visible = on; if (!on) return;
+    const a = this.arc.geometry.attributes.position, n = Math.min(80, pts.length);
+    for (let i = 0; i < n; i++) a.setXYZ(i, pts[i].x, pts[i].y, pts[i].z);
+    a.needsUpdate = true; this.arc.geometry.setDrawRange(0, n); this.arc.computeLineDistances();
+    const e = pts[n - 1]; this.arcEnd.position.set(e.x, e.y + 0.04, e.z); this.arcEnd.rotation.x = -Math.PI / 2;
+    const k = 1 + Math.sin(performance.now() / 150) * 0.12; this.arcEnd.scale.setScalar(k);
+  }
   kick(amount = 1) { this.vmState.kick = Math.min(1.5, this.vmState.kick + amount); this.flash.material.opacity = 1; this.flash.scale.setScalar(0.8 + Math.random() * 0.6); }
 
   // ---------- эффекты ----------

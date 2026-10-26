@@ -66,7 +66,7 @@ export class ShooterClient {
     const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); L.push([el, ev, fn, o]); };
     const scr = $('#s-shoot');
     on(document, 'keydown', e => this.keyDown(e));
-    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'KeyC' || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
+    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'KeyG' && this.nadeAim) { this.nadeAim = false; this.throwNade(); } if (e.code === 'KeyC' || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
     on(document, 'mousemove', e => { if (document.pointerLockElement) { const mx = e.movementX, my = e.movementY; if (Math.abs(mx) > 400 || Math.abs(my) > 400) return; /* баг браузера: случайный скачок */ const s = (LS.get('sens', 1)) * 0.0022 / this.view.zoom; this.yaw -= mx * s; this.pitch = clamp(this.pitch - my * s, -1.45, 1.45); } });
     on(document, 'pointerlockchange', () => { this.locked = !!document.pointerLockElement; this.updateLock(); });
     on(scr, 'mousedown', e => {
@@ -90,7 +90,7 @@ export class ShooterClient {
     btn('#sh-crouch', () => this.setCrouch());
     btn('#sh-reload', () => this.reload());
     btn('#sh-aim', () => this.toggleScope());
-    btn('#sh-nade', () => this.throwNade());
+    btn('#sh-nade', () => this.throwNade()); $('#sh-nade')._tap = null; // на телефоне: держать — прицел, отпустить — бросок
     btn('#sh-switch', () => this.cycle(1));
     btn('#sh-med', () => this.ctx.send({ t: 'medkit' }));
     btn('#sh-cam', () => this.toggleCam());
@@ -111,7 +111,8 @@ export class ShooterClient {
     else if (k === 'Digit1') this.switchTo(this.pv.slot1);
     else if (k === 'Digit2') this.switchTo(this.pv.slot2);
     else if (k === 'Digit3') this.switchTo('knife');
-    else if (k === 'Digit4' || k === 'KeyG') this.throwNade();
+    else if (k === 'Digit4') this.switchTo('grenade');
+    else if (k === 'KeyG') { if (this.alive && this.pv.nades > 0 && this.ph === 'play') this.nadeAim = true; }
     else if (k === 'KeyQ') this.switchTo(this.prevWeapon);
     else if (k === 'KeyV') this.toggleCam();
     else if (k === 'KeyB') this.toggleBuy();
@@ -125,10 +126,11 @@ export class ShooterClient {
     window.__touch = true;
     const ui = e.target.closest && e.target.closest('#sh-buy,.sh-modal,#sh-board');
     // обычные кнопки (пауза и т.п.) получают настоящий клик — иначе браузер не даст, например, включить полный экран
-    const plainBtn = [...e.changedTouches].some(t => { const b = t.target.closest && t.target.closest('button'); return b && !b._tap && b.id !== 'sh-fire' && b.id !== 'sh-fire2'; });
+    const plainBtn = [...e.changedTouches].some(t => { const b = t.target.closest && t.target.closest('button'); return b && !b._tap && !['sh-fire', 'sh-fire2', 'sh-nade'].includes(b.id); });
     if (!ui && !plainBtn) e.preventDefault(); // без этого браузер зумит страницу двойным тапом и щипком
     for (const t of e.changedTouches) {
       const el = t.target.closest ? t.target.closest('button,#sh-buy,.sh-modal,#sh-board') : null;
+      if (el && el.id === 'sh-nade') { if (this.alive && this.pv.nades > 0 && this.ph === 'play') { this.nadeAim = true; this.nadeId = t.identifier; } continue; }
       if (el && (el.id === 'sh-fire' || el.id === 'sh-fire2')) {
         this.fireHeld = true; this.firedThisPress = true; this.doFire();
         if (el.id === 'sh-fire' && !this.look) this.look = { id: t.identifier, x: t.clientX, y: t.clientY, fire: true }; else this.fireId = t.identifier;
@@ -155,9 +157,10 @@ export class ShooterClient {
     if (this.joy && !alive.has(this.joy.id)) { this.joy = null; this.drawJoy(); }
     if (this.look && !alive.has(this.look.id)) { if (this.look.fire) this.fireHeld = false; this.look = null; }
     if (this.fireId != null && !alive.has(this.fireId)) { this.fireId = null; this.fireHeld = false; }
+    if (this.nadeId != null && !alive.has(this.nadeId)) { this.nadeId = null; if (this.nadeAim) { this.nadeAim = false; this.throwNade(); } }
     if (!e.touches.length) { this.fireHeld = false; this.fireId = null; }
   }
-  releaseAll() { this.joy = null; this.look = null; this.fireId = null; this.fireHeld = false; this.keys = {}; this.drawJoy(); }
+  releaseAll() { this.nadeAim = false; this.nadeId = null; this.joy = null; this.look = null; this.fireId = null; this.fireHeld = false; this.keys = {}; this.drawJoy(); }
   drawJoy() {
     const el = $('#joy');
     if (!this.joy) { el.style.display = 'none'; return; }
@@ -275,6 +278,23 @@ export class ShooterClient {
     if (W.mag && this.ammo[this.cur][0] <= 0) setTimeout(() => this.reload(), 200);
     this.updateWeaponHUD();
   }
+  updateArc() {
+    const show = this.alive && this.ph === 'play' && this.pv.nades > 0 && (this.nadeAim || this.cur === 'grenade') && !this.buyOpen;
+    if (!show) { this.view.setArc(null); return; }
+    const eye = new THREE.Vector3(this.p.x, this.p.y + this.eyeH(), this.p.z), d = this.aimPoint().sub(eye).normalize();
+    // тот же полёт, что считает хост: скорость 17, вверх 3, тяжесть 22
+    let p = { x: eye.x + d.x * 0.5, y: eye.y + d.y * 0.5, z: eye.z + d.z * 0.5 }, v = { x: d.x * 17, y: d.y * 17 + 3, z: d.z * 17 };
+    const pts = [p], dt = 1 / 30;
+    for (let i = 0; i < 70; i++) {
+      v.y -= 22 * dt;
+      const n = { x: p.x + v.x * dt, y: p.y + v.y * dt, z: p.z + v.z * dt };
+      const seg = { x: n.x - p.x, y: n.y - p.y, z: n.z - p.z }, L = Math.hypot(seg.x, seg.y, seg.z) || 1e-6;
+      const h = rayWorld(this.map, p, { x: seg.x / L, y: seg.y / L, z: seg.z / L }, L);
+      if (h.b) { pts.push({ x: p.x + seg.x / L * h.t, y: p.y + seg.y / L * h.t, z: p.z + seg.z / L * h.t }); break; }
+      pts.push(n); p = n;
+    }
+    this.view.setArc(pts);
+  }
   eyeH() { return this.eyeY ?? PH.EYE; }
   setCrouch(v) { this.crouch = v == null ? !this.crouch : v; const b = $('#sh-crouch'); if (b) b.classList.toggle('on', this.crouch); }
   muzzle() {
@@ -305,6 +325,7 @@ export class ShooterClient {
       if (mv.moving && this.p.ground && !frozen) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = this.scoped ? 0.5 : 0.36; Sound.play('step' + (Math.random() * 5 | 0), { vol: 0.25, vary: true }); } }
     }
     this.jumpReq = false;
+    this.updateArc();
     { const want = this.crouch && this.alive ? PH.CEYE : PH.EYE; this.eyeY = (this.eyeY ?? PH.EYE) + (want - (this.eyeY ?? PH.EYE)) * Math.min(1, dt * 12); }
     // камера
     let eye;
