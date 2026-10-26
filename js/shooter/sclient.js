@@ -9,6 +9,12 @@ const jit = (d, s) => { if (!s) return d; const x = d.x + rnd(-s, s), y = d.y + 
 import { S_MONSTERS } from './ssim.js';
 
 const WIDX = Object.keys(WEAPONS);
+// захват мыши: «сырое» движение без ускорения Windows — прицел точнее и без задержки
+function lockMouse(el) {
+  if (!el.requestPointerLock) return;
+  try { const r = el.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { const r2 = el.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => { }); } catch (e) { } }); }
+  catch (e) { try { el.requestPointerLock(); } catch (e2) { } }
+}
 const vib = p => { if (window.__prefs && !window.__prefs.vibe) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
 const thumb = m => `assets/thumbs/${m}.png`;
 const RECOIL = { pistol: 0.018, laser: 0.012, water: 0.003, smg: 0.012, rifle: 0.016, shotgun: 0.06, sniper: 0.07, plasma: 0.03, railgun: 0.06, paint: 0.01, snow: 0.025, knife: 0, grenade: 0 };
@@ -61,11 +67,11 @@ export class ShooterClient {
     const scr = $('#s-shoot');
     on(document, 'keydown', e => this.keyDown(e));
     on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'KeyC' || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
-    on(document, 'mousemove', e => { if (document.pointerLockElement) { const s = (LS.get('sens', 1)) * 0.0022 / this.view.zoom; this.yaw -= e.movementX * s; this.pitch = clamp(this.pitch - e.movementY * s, -1.45, 1.45); } });
+    on(document, 'mousemove', e => { if (document.pointerLockElement) { const mx = e.movementX, my = e.movementY; if (Math.abs(mx) > 400 || Math.abs(my) > 400) return; /* баг браузера: случайный скачок */ const s = (LS.get('sens', 1)) * 0.0022 / this.view.zoom; this.yaw -= mx * s; this.pitch = clamp(this.pitch - my * s, -1.45, 1.45); } });
     on(document, 'pointerlockchange', () => { this.locked = !!document.pointerLockElement; this.updateLock(); });
     on(scr, 'mousedown', e => {
       if (window.__touch) return;
-      if (!document.pointerLockElement) { if (!e.target.closest('button,.sh-modal,#sh-buy')) scr.requestPointerLock && scr.requestPointerLock(); return; }
+      if (!document.pointerLockElement) { if (!e.target.closest('button,.sh-modal,#sh-buy')) lockMouse(scr); return; }
       if (e.button === 0) { this.fireHeld = true; this.firedThisPress = true; this.doFire(); }
       if (e.button === 2) this.toggleScope(true);
     });
@@ -89,7 +95,7 @@ export class ShooterClient {
     btn('#sh-med', () => this.ctx.send({ t: 'medkit' }));
     btn('#sh-cam', () => this.toggleCam());
     btn('#sh-buyb', () => this.toggleBuy());
-    on($('#sh-lock'), 'click', e => { if (e.target.closest('[data-act]')) return; const s = $('#s-shoot'); s.requestPointerLock && s.requestPointerLock(); });
+    on($('#sh-lock'), 'click', e => { if (e.target.closest('[data-act]')) return; lockMouse($('#s-shoot')); });
     on($('#sh-buy'), 'pointerdown', e => e.stopPropagation());
     on($('#sh-buy'), 'click', e => { const b = e.target.closest('[data-item]'); if (b) this.buy(b.dataset.item); if (e.target.closest('#sh-buy-x')) this.toggleBuy(false); });
   }
@@ -211,7 +217,7 @@ export class ShooterClient {
     this.buyOpen = want;
     $('#sh-buy').className = want ? 'show' : '';
     if (want) { this.buyKey = null; this.renderBuy(); if (document.pointerLockElement) document.exitPointerLock(); Sound.play('open', { vol: 0.5 }); }
-    else if (!window.__touch && this.alive) { const s = $('#s-shoot'); try { const r = s.requestPointerLock && s.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
+    else if (!window.__touch && this.alive) lockMouse($('#s-shoot'));
   }
   aimPoint() {
     // точка, куда смотрит камера (для вида от 3-го лица)

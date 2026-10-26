@@ -451,7 +451,7 @@ export class ShooterSim {
   followPath(p, goal) {
     const ai = p.ai;
     if (!ai.path || ai.pathT <= 0 || !ai.goal || Math.hypot(ai.goal.x - goal.x, ai.goal.z - goal.z) > 3) {
-      ai.path = navPath(this.map, p, goal) || []; ai.pathT = 1.2; ai.goal = { x: goal.x, z: goal.z };
+      ai.path = navPath(this.map, p, goal) || []; ai.pathT = 1.0 + Math.random() * 0.8; ai.goal = { x: goal.x, z: goal.z };
     }
     while (ai.path.length && Math.hypot(ai.path[0].x - p.x, ai.path[0].z - p.z) < 0.8) ai.path.shift();
     const n = ai.path[0] || goal;

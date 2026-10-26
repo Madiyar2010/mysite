@@ -359,8 +359,10 @@ export class ShooterView {
       // камера не залезает в стены
       const d = want.clone().sub(pivot), L = d.length(); d.normalize();
       const hit = rayWorld(this.map, pivot, d, L + 0.3);
-      const dist = Math.max(0.4, Math.min(L, hit.t - 0.3));
-      cam.position.copy(pivot).addScaledVector(d, dist);
+      const want2 = Math.max(0.4, Math.min(L, hit.t - 0.3));
+      // к стене приближаемся сразу, отъезжаем плавно — без дёрганья
+      this.camDist = this.camDist == null || want2 < this.camDist ? want2 : this.camDist + (want2 - this.camDist) * Math.min(1, dt * 6);
+      cam.position.copy(pivot).addScaledVector(d, this.camDist);
     }
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 3); cam.position.x += rnd(-1, 1) * this.shake * 0.08; cam.position.y += rnd(-1, 1) * this.shake * 0.08; }
     cam.lookAt(cam.position.clone().add(fwd));
@@ -378,8 +380,11 @@ export class ShooterView {
     this.vm.visible = (this.camMode === 'fps' && !this.scoped && this.alive);
   }
   render(renderer) {
+    // тени пересчитываем через кадр: вдвое меньше работы для видеокарты
+    this.frameN = (this.frameN || 0) + 1;
+    renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = this.frameN % 2 === 1;
     renderer.render(this.scene, this.camera);
     if (this.vm.visible && this.vmGun) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(this.vmScene, this.vmCam); renderer.autoClear = true; }
   }
-  dispose() { for (const a of this.ents.values()) a.dispose(); this.scene.traverse(o => { if (o.element) o.element.remove(); }); }
+  dispose() { if (R.renderer) R.renderer.shadowMap.autoUpdate = true; for (const a of this.ents.values()) a.dispose(); this.scene.traverse(o => { if (o.element) o.element.remove(); }); }
 }
