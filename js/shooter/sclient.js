@@ -453,6 +453,9 @@ export class ShooterClient {
       a.dead = !!(fl & 1); a.hp = hp; a.fl = fl;
       if (id === this.me) continue;
       a.setTarget(x, z, yaw + Math.PI, y); if (a.fresh) { a.fresh = false; a.snap(); }
+      // шаги других слышно с нужной стороны (присевших не слышно)
+      if (id !== this.me && !(fl & 1) && !(fl & 256)) { const mvd = Math.hypot(x - (a.lx ?? x), z - (a.lz ?? z)); a.stepT = (a.stepT || 0) - 0.05; if (mvd > 0.12 && a.stepT <= 0) { a.stepT = 0.38; this.snd('step' + (Math.random() * 5 | 0), x, z, 0.4, 16); } }
+      a.lx = x; a.lz = z;
       const mon = String(k).startsWith('m:');
       if (mon) a.setHP(hp, w); else { a.setHP(hp, 100); if (w >= 0) a.setGun(WIDX[w], WEAPONS[WIDX[w]]); }
       const n = anim >> 4, code = anim & 15;
@@ -483,7 +486,7 @@ export class ShooterClient {
     if (to === 'play') { if (this.buyOpen) this.toggleBuy(false); shBanner(`${icon('swords')} В бой!`, 'big', 1300); Sound.play('j_start', { vol: 0.6 }); }
   }
   pos3(x, y, z) { return { dx: x - this.p.x, dz: z - this.p.z }; }
-  snd(name, x, z, vol = 1, maxD = 30) { Sound.at(name, x - this.p.x, z - this.p.z, maxD, { vol, vary: true }); }
+  snd(name, x, z, vol = 1, maxD = 30) { Sound.at(name, x - this.p.x, z - this.p.z, maxD, { vol, vary: true, right: { x: Math.cos(this.yaw), z: -Math.sin(this.yaw) } }); }
   fx(f) {
     const v = this.view, type = f[0];
     switch (type) {

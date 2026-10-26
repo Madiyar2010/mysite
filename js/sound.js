@@ -39,15 +39,20 @@ export const Sound = {
     s.playbackRate.value = opts.rate || (opts.vary ? 0.9 + Math.random() * 0.2 : 1);
     const g = this.ctx.createGain(); g.gain.value = opts.vol ?? 1;
     let node = g;
-    if (opts.pan != null && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, opts.pan)); g.connect(p); node = p; }
+    if (opts.muffle) { const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.muffle; node.connect(f); node = f; }
+    if (opts.pan != null && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, opts.pan)); node.connect(p); node = p; }
     s.connect(g); node.connect(this.sfxGain);
     s.start();
     return s;
   },
   // звук в мире: громкость зависит от расстояния до слушателя
+  // сторона: right — куда смотрит правое ухо слушателя (по умолчанию вправо по экрану), сзади звук глуше
   at(name, dx, dz, maxD = 16, opts = {}) {
     const d = Math.hypot(dx, dz); if (d > maxD) return;
-    this.play(name, { ...opts, vol: (opts.vol ?? 1) * (1 - d / maxD) ** 1.5, pan: dx / maxD * 1.5 });
+    const r = opts.right || { x: 1, z: 0 }, k = d > 0.5 ? 1 : d / 0.5;
+    const side = d > 0.01 ? (dx * r.x + dz * r.z) / d : 0;
+    const front = opts.right && d > 0.01 ? (dx * r.z - dz * r.x) / d : 1; // направление взгляда получается из «правого уха»
+    this.play(name, { ...opts, vol: (opts.vol ?? 1) * (1 - d / maxD) ** 1.3 * (front < -0.3 ? 0.8 : 1), pan: side * 0.95 * k, muffle: front < -0.3 ? 1600 : 0 });
   },
   loop(name, vol = 1) {
     if (!this.ctx) return;
