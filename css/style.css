@@ -419,6 +419,8 @@ i[data-ic]{display:inline-flex;font-style:normal}
 #am-tasks li.part{color:#ffd23f}
 #am-tasks li.warn{color:#ff6b78;font-weight:800}
 #am-tasks li.fake{color:#ff6b78;font-size:12px}
+.ai-can{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center;font-size:14px;font-weight:600;margin:8px 0}.ai-can svg{width:18px;height:18px;vertical-align:-3px}
+#am-mini{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 56px);right:max(10px,env(safe-area-inset-right));width:min(170px,22vw);z-index:4;background:rgba(10,8,30,.7);border:1px solid var(--line);border-radius:10px;padding:0;cursor:pointer;touch-action:manipulation}
 #am-topr{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));display:flex;gap:6px;z-index:4}
 #am-room{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:50%;transform:translateX(-50%);z-index:3;pointer-events:none;font-size:14px;padding:5px 12px;opacity:.9}
 #am-sab{position:absolute;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:8px;padding:8px 16px;border-radius:14px;background:rgba(120,10,25,.85);border:2px solid #ff3b4f;font-weight:900;font-size:16px;pointer-events:none;white-space:nowrap}

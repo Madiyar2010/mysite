@@ -54,6 +54,7 @@ export class AmongClient {
     on('#am-shift', () => this.pv.shift ? this.ctx.send({ t: 'shift' }) : this.pick('Превратиться в…', true, id => this.ctx.send({ t: 'shift', target: id })));
     on('#am-protect', () => this.pick('Кого защитить?', false, id => this.ctx.send({ t: 'protect', target: id })));
     on('#am-emo', () => this.ctx.send({ t: 'emo', v: Math.random() < 0.5 ? 1 : 0 }));
+    on('#am-mini', () => this.overlay === 'map' ? this.closeOverlay() : this.openMap(false));
     on('#am-map', () => this.overlay === 'map' ? this.closeOverlay() : this.openMap(false));
     on('#am-vitals', () => this.overlay === 'vitals' ? this.closeOverlay() : this.openVitals());
     on('#am-tasks-tg', () => $('#am-tasks').classList.toggle('open'));
@@ -207,6 +208,27 @@ export class AmongClient {
       if ((mv.x || mv.z) && !Tasks.isOpen() && !this.overlay) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = 0.32; Sound.play('step' + (Math.random() * 5 | 0), { vol: 0.25, vary: true }); } }
     }
     this.arrows(me);
+    this.miniMap(me);
+  }
+  // маленькая карта в углу: комнаты, ты и задания
+  miniMap(me) {
+    const cv = $('#am-mini'), m = this.map; if (!cv || !m) return;
+    const now = performance.now(); if (now - (this.mmT || 0) < 150) return; this.mmT = now;
+    const W = cv.clientWidth; if (!W) return;
+    const k = W / m.GW, H = Math.round(m.GH * k);
+    if (!this.mmBase || this.mmBase.W !== W || this.mmBase.m !== m) {
+      cv.style.height = H + 'px'; cv.width = W * 2; cv.height = H * 2;
+      const b = document.createElement('canvas'); b.width = W * 2; b.height = H * 2; const g = b.getContext('2d'); g.scale(2, 2);
+      for (let y = 0; y < m.GH; y++) for (let x = 0; x < m.GW; x++) { const v = m.grid[y * m.GW + x]; if (!v) continue; g.fillStyle = v === 2 ? '#3d4370' : '#5a6198'; g.fillRect(x * k, y * k, k + 0.5, k + 0.5); }
+      this.mmBase = { W, m, c: b };
+    }
+    const g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(this.mmBase.c, 0, 0); g.scale(2, 2);
+    const tx = x => (x / T + m.GW / 2) * k, tz = z => (z / T + m.GH / 2) * k, r = Math.max(2.5, k * 0.7);
+    for (const d of this.closed) { for (let i = 0; i < m.doorAt.length; i++) if (m.doorAt[i] === d) { g.fillStyle = '#ff4d5e'; g.fillRect((i % m.GW) * k, Math.floor(i / m.GW) * k, k + 0.5, k + 0.5); } }
+    const comms = this.st && this.st.sab && this.st.sab.type === 'comms';
+    if (!comms && this.tasks) for (const t of this.tasks) if (t.step < t.steps.length) { const s = m.stations[t.steps[t.step]]; g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(tx(s.x), tz(s.z), r * 0.8, 0, 7); g.fill(); }
+    if (this.st && this.st.sab) for (const f of SAB[this.st.sab.type].fix) { if (this.st.sab.done.includes(f)) continue; const s = m.stations[f]; if (Math.floor(now / 300) % 2) { g.fillStyle = '#ff4d5e'; g.beginPath(); g.arc(tx(s.x), tz(s.z), r, 0, 7); g.fill(); } }
+    if (me) { g.fillStyle = '#3ee0c0'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(tx(me.x), tz(me.z), r * 1.1, 0, 7); g.fill(); g.stroke(); }
   }
   arrows(me) {
     const box = $('#am-arrows');
@@ -458,6 +480,7 @@ export class AmongClient {
       <div class="ai-sub">${imp ? `Выбивай экипаж, ломай станцию и не попадись. ${this.mates.length ? 'Твои напарники подсвечены красным.' : ''}` : `Среди нас ${this.opts.impostors} ${this.opts.impostors > 1 ? 'предателя' : 'предатель'}. Выполняй задания и найди его!`}</div>
       <div class="ai-team">${team.map(id => { const r = this.info(id); return `<div class="${id === this.me ? 'me' : ''}"><img src="${thumb(r.model)}"><span>${esc(r.name)}</span></div>`; }).join('')}</div>
       ${sub ? `<div class="ai-role">${icon(sub.icon)}<div><b>Твоя роль: ${sub.name}</b><p>${sub.desc}</p></div></div>` : ''}
+      <div class="ai-can">${imp ? `${icon('kill')} <b>Выбить</b> рядом стоящего · ${icon('vent')} <b>Люк</b> — прятаться · ${icon('sabotage')} <b>Саботаж</b> — ломать` : `${icon('use')} <b>Действие</b> — делать задания · ${icon('report')} <b>Сообщить</b> о теле · ${icon('map')} карта в углу`}</div>
       <small>Никому не показывай свой экран!</small></div>`;
     el.className = 'show';
     Sound.play(imp ? 'j_impostor' : 'j_crew'); vib(imp ? [60, 60, 60] : 40);
@@ -480,7 +503,7 @@ export class AmongClient {
     $('#amm-chat-log').innerHTML = '';
     const rooms = this.map.rooms.map(r => r.name);
     const others = [...this.roster.values()].filter(r => r.pid !== this.me && this.aliveMap.get(r.pid));
-    const chips = [...PHRASES.filter(p => !/[\u{1F300}-\u{1FAFF}]/u.test(p)).slice(0, 6), ...others.map(o => `Подозреваю ${o.name}`), ...others.map(o => `${o.name} со мной был`), ...rooms.map(r => `Я был: ${r}`)];
+    const chips = [...PHRASES.filter(p => !/[\u{1F300}-\u{1FAFF}]/u.test(p)).slice(0, 6), 'Пропускаю', ...others.map(o => `Это ${o.name}!`), ...others.map(o => `Видел, как ${o.name} шёл один`), ...others.map(o => `${o.name} со мной был`), ...rooms.map(r => `Я был: ${r}`)];
     $('#amm-quick').innerHTML = chips.map(c => `<button>${esc(c)}</button>`).join('');
     $('#amm-quick').querySelectorAll('button').forEach(b => b.onclick = () => this.say(b.textContent));
     $('#amm-form').onsubmit = e => { e.preventDefault(); const i = $('#amm-in'); this.say(i.value); i.value = ''; };
