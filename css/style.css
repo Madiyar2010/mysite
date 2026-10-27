@@ -813,3 +813,21 @@ body.touch #sh-keys{display:none}
 .tut-dots{display:flex;justify-content:center;gap:6px;margin:4px 0 12px}
 .tut-dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.25)}
 .tut-dots i.on{background:#ffd166;width:22px;border-radius:5px}
+
+/* настройки клавиш */
+body.touch .keys-only{display:none}
+body:not(.touch) .touch-only{display:none}
+.keys-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;max-height:52vh;overflow-y:auto;touch-action:pan-y}
+.key-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.07);border:2px solid transparent;text-align:left;font-weight:700;font-size:14px}
+.key-row b{background:#2b2366;border-radius:8px;padding:3px 10px;min-width:44px;text-align:center}
+.key-row.wait{border-color:#ffd166}.key-row.wait b{color:#ffd166}
+/* редактор раскладки кнопок */
+#lay-bar{display:none}
+body.lay-edit #lay-bar{display:flex;position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:70;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;background:rgba(20,15,50,.94);border:2px solid rgba(255,255,255,.2);border-radius:16px;padding:8px 12px;max-width:calc(100vw - 24px)}
+#lay-bar label{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+#lay-bar input[type=range]{width:110px}
+body.lay-edit #s-shoot{background:radial-gradient(circle at 50% 60%,#2b2366,#120e2e)}
+body.lay-edit #s-shoot > *:not(#sh-touch){visibility:hidden}
+body.lay-edit #sh-touch{display:block!important}
+body.lay-edit #sh-touch .act{outline:2px dashed rgba(255,255,255,.35);outline-offset:3px;touch-action:none}
+body.lay-edit #sh-touch .act.lay-sel{outline:3px solid #ffd166}

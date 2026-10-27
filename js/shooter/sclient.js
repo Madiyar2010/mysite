@@ -15,6 +15,14 @@ function lockMouse(el) {
   try { const r = el.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { const r2 = el.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => { }); } catch (e) { } }); }
   catch (e) { try { el.requestPointerLock(); } catch (e2) { } }
 }
+// свои клавиши на компьютере (настройки → «Клавиши»)
+export const KEY_DEF = { fwd: ['KeyW', 'Вперёд'], back: ['KeyS', 'Назад'], left: ['KeyA', 'Влево'], right: ['KeyD', 'Вправо'], jump: ['Space', 'Прыжок'], crouch: ['KeyC', 'Присесть'], reload: ['KeyR', 'Перезарядка'], nade: ['KeyG', 'Граната (держать)'], scope: ['KeyF', 'Прицел'], cam: ['KeyV', 'Вид от 1-го / 3-го лица'], buy: ['KeyB', 'Закупка'], med: ['KeyH', 'Аптечка'], prev: ['KeyQ', 'Прошлое оружие'] };
+export function keymap() { const s = LS.get('keys', {}) || {}, m = {}; for (const k in KEY_DEF) m[k] = s[k] || KEY_DEF[k][0]; return m; }
+export function keyName(code) {
+  if (!code) return '—';
+  const N = { Space: 'Пробел', ShiftLeft: 'Shift', ShiftRight: 'Shift', ControlLeft: 'Ctrl', ControlRight: 'Ctrl', AltLeft: 'Alt', AltRight: 'Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Tab: 'Tab', Enter: 'Enter', CapsLock: 'Caps', Backquote: '`' };
+  return N[code] || code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ');
+}
 const vib = p => { if (window.__prefs && !window.__prefs.vibe) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
 const thumb = m => `assets/thumbs/${m}.png`;
 const RECOIL = { pistol: 0.018, laser: 0.012, water: 0.003, smg: 0.012, rifle: 0.016, shotgun: 0.06, sniper: 0.07, plasma: 0.03, railgun: 0.06, paint: 0.01, snow: 0.025, knife: 0, grenade: 0 };
@@ -34,6 +42,8 @@ export class ShooterClient {
     this.p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, ground: true };
     this.yaw = 0; this.pitch = 0; this.alive = false; this.pv = { ammo: {}, money: 0, hp: 100, armor: 0 };
     this.ammo = {}; this.cur = 'pistol'; this.lastFire = 0; this.fireHeld = false; this.firedThisPress = false;
+    this.km = keymap();
+    { const K = this.km, n = keyName; $('#sh-keys').textContent = `${n(K.fwd)}${n(K.left)}${n(K.back)}${n(K.right)} — ходить · Мышь — смотреть · ЛКМ — огонь · ПКМ/${n(K.scope)} — прицел · ${n(K.reload)} — перезарядка · 1-4/колесо — оружие · ${n(K.nade)} (держать) — граната · ${n(K.buy)} — закупка · ${n(K.crouch)} — присед · ${n(K.cam)} — вид · ${n(K.med)} — аптечка · Tab — счёт`; }
     this.keys = {}; this.joy = null; this.look = null; this.scoped = false; this.buyOpen = false;
     this.camMode = LS.get('cam', 'fps'); this.view.camMode = this.camMode;
     this.offset = null; this.sendT = 0; this.stepT = 0; this.spec = null; this.lastAnim = new Map();
@@ -66,7 +76,7 @@ export class ShooterClient {
     const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); L.push([el, ev, fn, o]); };
     const scr = $('#s-shoot');
     on(document, 'keydown', e => this.keyDown(e));
-    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === 'KeyG' && this.nadeAim) { this.nadeAim = false; this.throwNade(); } if (e.code === 'KeyC' || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
+    on(document, 'keyup', e => { this.keys[e.code] = false; if (e.code === this.km.nade && this.nadeAim) { this.nadeAim = false; this.throwNade(); } if (e.code === this.km.crouch || e.code === 'ControlLeft') this.setCrouch(false); if (e.code === 'Tab') $('#sh-board').classList.remove('show'); });
     on(document, 'mousemove', e => { if (document.pointerLockElement) { const mx = e.movementX, my = e.movementY; if (Math.abs(mx) > 400 || Math.abs(my) > 400) return; /* баг браузера: случайный скачок */ const s = (LS.get('sens', 1)) * 0.0022 / this.view.zoom; this.yaw -= mx * s; this.pitch = clamp(this.pitch - my * s, -1.45, 1.45); } });
     on(document, 'pointerlockchange', () => { this.locked = !!document.pointerLockElement; this.updateLock(); });
     on(scr, 'mousedown', e => {
@@ -103,24 +113,24 @@ export class ShooterClient {
   keyDown(e) {
     if (e.target.tagName === 'INPUT') return;
     this.keys[e.code] = true;
-    const k = e.code;
-    if (['Space', 'Tab', 'KeyB'].includes(k)) e.preventDefault();
+    const k = e.code, K = this.km;
+    if ([K.jump, 'Tab', K.buy].includes(k)) e.preventDefault();
     if (e.repeat) return;
-    if (k === 'Space') this.jumpReq = true;
-    else if (k === 'KeyR') this.reload();
+    if (k === K.jump) this.jumpReq = true;
+    else if (k === K.reload) this.reload();
     else if (k === 'Digit1') this.switchTo(this.pv.slot1);
     else if (k === 'Digit2') this.switchTo(this.pv.slot2);
     else if (k === 'Digit3') this.switchTo('knife');
     else if (k === 'Digit4') this.switchTo('grenade');
-    else if (k === 'KeyG') { if (this.alive && this.pv.nades > 0 && this.ph === 'play') this.nadeAim = true; }
-    else if (k === 'KeyQ') this.switchTo(this.prevWeapon);
-    else if (k === 'KeyV') this.toggleCam();
-    else if (k === 'KeyB') this.toggleBuy();
-    else if (k === 'KeyH') this.ctx.send({ t: 'medkit' });
+    else if (k === K.nade) { if (this.alive && this.pv.nades > 0 && this.ph === 'play') this.nadeAim = true; }
+    else if (k === K.prev) this.switchTo(this.prevWeapon);
+    else if (k === K.cam) this.toggleCam();
+    else if (k === K.buy) this.toggleBuy();
+    else if (k === K.med) this.ctx.send({ t: 'medkit' });
     else if (k === 'KeyX') this.ctx.send({ t: 'emo' });
     else if (k === 'Tab') { $('#sh-board').classList.add('show'); this.renderBoard(); }
-    else if (k === 'KeyF') this.toggleScope();
-    else if (k === 'KeyC' || k === 'ControlLeft') this.setCrouch(true);
+    else if (k === K.scope) this.toggleScope();
+    else if (k === K.crouch || k === 'ControlLeft') this.setCrouch(true);
   }
   tStart(e) {
     window.__touch = true;
@@ -172,7 +182,7 @@ export class ShooterClient {
   moveInput() {
     let f = 0, s = 0;
     if (this.joy) { let dx = (this.joy.x - this.joy.ox) / 50, dy = (this.joy.y - this.joy.oy) / 50; const m = Math.hypot(dx, dy); if (m > 0.15) { if (m > 1) { dx /= m; dy /= m; } s = dx; f = -dy; } }
-    else { const k = this.keys; f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0); s = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0); const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; } }
+    else { const k = this.keys, K = this.km; f = (k[K.fwd] || k.ArrowUp ? 1 : 0) - (k[K.back] || k.ArrowDown ? 1 : 0); s = (k[K.right] || k.ArrowRight ? 1 : 0) - (k[K.left] || k.ArrowLeft ? 1 : 0); const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; } }
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
     return { mx: fx * f + rx * s, mz: fz * f + rz * s, moving: Math.hypot(f, s) > 0.1 };
   }

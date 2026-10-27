@@ -242,6 +242,8 @@
   <div class="set-row"><span><i data-ic="target"></i> Чувствительность</span><input type="range" id="set-sens" min="30" max="250"></div>
   <div class="set-row"><span><i data-ic="target"></i> Помощь в прицеливании</span><div class="seg" id="set-aim"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
   <div class="set-row"><span><i data-ic="gun"></i> Автострельба (телефон)</span><div class="seg" id="set-auto"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row touch-only"><span><i data-ic="edit"></i> Кнопки на экране</span><button class="btn ghost sm" id="set-layout">Настроить</button></div>
+  <div class="set-row keys-only"><span><i data-ic="edit"></i> Клавиши</span><button class="btn ghost sm" id="set-keys">Настроить</button></div>
   <div class="set-row"><span><i data-ic="sparkles"></i> Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
   <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро».</p>
 </div></div>
@@ -257,6 +259,19 @@
   <div class="tut-dots" id="tut-dots"></div>
   <div class="row"><button class="btn ghost" id="tut-skip">Пропустить</button><button class="btn gold grow" id="tut-next">Дальше</button></div>
 </div></div>
+<div id="m-keys" class="modal"><div class="modal-card">
+  <div class="row"><h3 class="grow"><i data-ic="edit"></i> Клавиши</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <p class="muted small">Нажми на действие, потом на нужную клавишу. Стрелки тоже ходят.</p>
+  <div id="keys-list" class="keys-list"></div>
+  <button class="btn ghost" id="keys-reset"><i data-ic="rotate"></i> Сбросить как было</button>
+</div></div>
+<div id="lay-bar">
+  <b>Перетаскивай кнопки пальцем</b>
+  <label>Размер выбранной <input type="range" id="lay-size" min="70" max="150"></label>
+  <label>Прозрачность всех <input type="range" id="lay-op" min="30" max="100"></label>
+  <button class="btn ghost sm" id="lay-reset"><i data-ic="rotate"></i> Сбросить как было</button>
+  <button class="btn gold sm" id="lay-done"><i data-ic="check"></i> Готово</button>
+</div>
 <div id="m-pause" class="modal"><div class="modal-card">
   <h3><i data-ic="pause"></i> Меню</h3>
   <button class="btn ghost big" data-close><i data-ic="play"></i> Продолжить</button>

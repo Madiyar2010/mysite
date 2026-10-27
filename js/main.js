@@ -6,7 +6,7 @@ import { Input } from './input.js';
 import { AMAPS, AMAP_LIST, amapModels } from './amap.js';
 import { ShooterSim, S_MONSTERS, SHOOT_DEFAULTS } from './shooter/ssim.js';
 import { ShooterView } from './shooter/sview.js';
-import { ShooterClient, shBanner } from './shooter/sclient.js';
+import { ShooterClient, shBanner, KEY_DEF, keyName } from './shooter/sclient.js';
 import { SMAPS, SMAP_LIST, smapModels } from './shooter/smap.js';
 import { WEAPONS } from './shooter/weapons.js';
 import { AmongSim, DEFAULT_OPTS } from './among-sim.js';
@@ -181,6 +181,8 @@ function openSettings() {
   setSeg('#set-aim', LS.get('aimhelp', true) === false ? 0 : 1); setSeg('#set-auto', LS.get('autofire', true) === false ? 0 : 1);
   $('#set-aim').onclick = e => { const b = e.target.closest('button'); if (!b) return; LS.set('aimhelp', b.dataset.v === '1'); setSeg('#set-aim', b.dataset.v); };
   $('#set-auto').onclick = e => { const b = e.target.closest('button'); if (!b) return; LS.set('autofire', b.dataset.v === '1'); setSeg('#set-auto', b.dataset.v); };
+  $('#set-keys').onclick = () => { $('#m-settings').classList.remove('show'); openKeys(); };
+  $('#set-layout').onclick = () => { if (S.game) { toast('Кнопки настраиваются вне игры — выйди в лобби или на главный экран'); return; } $('#m-settings').classList.remove('show'); layoutEdit(true); };
   $('#set-quality').onclick = e => { const b = e.target.closest('button'); if (!b) return; R.setQuality(b.dataset.v); setSeg('#set-quality', b.dataset.v); };
   $('#set-vibe').onclick = e => { const b = e.target.closest('button'); if (!b) return; prefs.vibe = b.dataset.v === '1'; LS.set('vibe', prefs.vibe); setSeg('#set-vibe', b.dataset.v); vibrate(40); };
   $('#set-quiet').onclick = e => { const b = e.target.closest('button'); if (!b) return; Sound.set('quiet', b.dataset.v === '1'); setSeg('#set-quiet', b.dataset.v); };
@@ -667,3 +669,67 @@ addEventListener('popstate', () => {
 });
 addEventListener('beforeunload', e => { if (Net.code) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(() => { if (Net.code && !guardOn) armGuard(); if (!Net.code) guardOn = false; }, 1000);
+
+// ---------- свои клавиши (компьютер) ----------
+let keyWait = null;
+function openKeys() {
+  const cur = LS.get('keys', {}) || {};
+  $('#keys-list').innerHTML = Object.entries(KEY_DEF).map(([k, [def, name]]) => `<button class="key-row ${keyWait === k ? 'wait' : ''}" data-k="${k}"><span>${name}</span><b>${keyWait === k ? 'нажми клавишу…' : keyName(cur[k] || def)}</b></button>`).join('');
+  openModal('#m-keys');
+}
+$('#keys-list').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; keyWait = b.dataset.k; openKeys(); });
+$('#keys-reset').onclick = () => { LS.set('keys', {}); keyWait = null; openKeys(); toast('Клавиши как было'); };
+addEventListener('keydown', e => {
+  if (!keyWait || !$('#m-keys').classList.contains('show')) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.code === 'Escape') { keyWait = null; openKeys(); return; }
+  const cur = LS.get('keys', {}) || {};
+  // если клавиша уже занята — меняем местами
+  for (const [k, [def]] of Object.entries(KEY_DEF)) if ((cur[k] || def) === e.code && k !== keyWait) cur[k] = cur[keyWait] || KEY_DEF[keyWait][0];
+  cur[keyWait] = e.code; LS.set('keys', cur); keyWait = null; Sound.play('select', { vol: 0.5 }); openKeys();
+}, true);
+
+// ---------- своя раскладка кнопок (телефон, планшет) ----------
+const LAY_IDS = ['sh-fire', 'sh-jump', 'sh-crouch', 'sh-aim', 'sh-reload', 'sh-nade', 'sh-switch', 'sh-fire2', 'sh-med', 'sh-cam', 'sh-buyb'];
+function applyLayout() {
+  const L = LS.get('layout', {}) || {}, op = LS.get('layop', 1);
+  for (const id of LAY_IDS) {
+    const el = $('#' + id); if (!el) continue;
+    const v = L[id];
+    if (v) Object.assign(el.style, { left: v.x * 100 + '%', top: v.y * 100 + '%', right: 'auto', bottom: 'auto', transform: `translate(-50%,-50%) scale(${v.s || 1})` });
+    else Object.assign(el.style, { left: '', top: '', right: '', bottom: '', transform: '' });
+    el.style.opacity = op;
+  }
+}
+applyLayout();
+let layFrom = null, laySel = null;
+function layoutEdit(on) {
+  if (on) { layFrom = S.screen; show('s-shoot'); document.body.classList.add('lay-edit'); $('#lay-op').value = LS.get('layop', 1) * 100; laySelect(null); }
+  else { document.body.classList.remove('lay-edit'); laySelect(null); show(layFrom || 's-home'); }
+}
+function laySelect(id) {
+  laySel = id; LAY_IDS.forEach(i => { const el = $('#' + i); if (el) el.classList.toggle('lay-sel', i === id); });
+  const L = LS.get('layout', {}) || {}; $('#lay-size').value = ((L[id] && L[id].s) || 1) * 100; $('#lay-size').disabled = !id;
+}
+(() => {
+  let drag = null;
+  const pos = el => { const r = el.getBoundingClientRect(); return { x: (r.left + r.width / 2) / innerWidth, y: (r.top + r.height / 2) / innerHeight }; };
+  $('#sh-touch').addEventListener('pointerdown', e => {
+    if (!document.body.classList.contains('lay-edit')) return;
+    const el = e.target.closest('.act'); if (!el || !LAY_IDS.includes(el.id)) return;
+    e.preventDefault(); e.stopPropagation(); laySelect(el.id);
+    const L = LS.get('layout', {}) || {}; if (!L[el.id]) { L[el.id] = { ...pos(el), s: 1 }; LS.set('layout', L); applyLayout(); }
+    drag = { id: el.id, pid: e.pointerId }; try { el.setPointerCapture(e.pointerId); } catch (er) { }
+  }, true);
+  addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    const L = LS.get('layout', {}) || {}, v = L[drag.id] || { s: 1 };
+    v.x = Math.max(0.04, Math.min(0.96, e.clientX / innerWidth)); v.y = Math.max(0.06, Math.min(0.94, e.clientY / innerHeight));
+    L[drag.id] = v; LS.set('layout', L); applyLayout();
+  });
+  addEventListener('pointerup', () => { drag = null; });
+  $('#lay-size').oninput = e => { if (!laySel) return; const L = LS.get('layout', {}) || {}; const el = $('#' + laySel); L[laySel] = L[laySel] || { ...pos(el) }; L[laySel].s = e.target.value / 100; LS.set('layout', L); applyLayout(); };
+  $('#lay-op').oninput = e => { LS.set('layop', e.target.value / 100); applyLayout(); };
+  $('#lay-reset').onclick = () => { LS.set('layout', {}); LS.set('layop', 1); $('#lay-op').value = 100; applyLayout(); laySelect(null); toast('Кнопки как было'); };
+  $('#lay-done').onclick = () => { layoutEdit(false); toast('Раскладка сохранена'); };
+})();
