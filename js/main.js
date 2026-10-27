@@ -239,7 +239,7 @@ const AM_SET = {
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
-  teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
+  pveDiff: [0, 1, 2], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
 const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff'];
 
@@ -515,7 +515,8 @@ function shooterSettings(o, mode) {
   const match = timedOnly ? 'timed' : o.match;
   return `
     <div class="opt-maps four">${SMAP_LIST.filter(m => !!m.pve === (mode === 'pve')).map(m => `<button class="opt-map smap ${o.smap === m.id || m.pve ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
-    ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Волны монстров, закупка между волнами' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
+    ${mode === 'pve' ? optRow(`${icon('skull')} Сложность`, seg('pveDiff', [0, 1, 2], o.pveDiff ?? 1, ['Лёгкая', 'Обычная', 'Трудная'])) + `<div class="muted small">6 волн и босс. Жизни команды: ${[15, 8, 3][o.pveDiff ?? 1]}. Подойди к павшему и постой 3 секунды — поднимешь его.</div>` : ''}
+    ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Между волнами — закупка' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
     ${(mode === 'tdm' || mode === 'ctf') && o.teamSize ? `<div class="muted small">Свободные места в каждой команде займут боты</div>` : optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}

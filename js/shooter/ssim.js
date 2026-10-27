@@ -8,9 +8,11 @@ export const S_MONSTERS = {
   zombie: { model: 'grave/character-zombie', name: 'Зомби', hp: 150, speed: 3.0, dmg: 20, range: 1.6, cd: 1.2, scale: 1.25, money: 150 },
   vampire: { model: 'grave/character-vampire', name: 'Вампир', hp: 100, speed: 5.6, dmg: 14, range: 1.5, cd: 0.7, scale: 1.1, money: 150 },
   ghost: { model: 'grave/character-ghost', name: 'Призрак', hp: 60, speed: 3.4, dmg: 14, range: 16, cd: 1.6, scale: 1.1, money: 150, ranged: true },
+  imp: { model: 'grave/character-skeleton', name: 'Бесёнок', hp: 35, speed: 6.6, dmg: 8, range: 1.2, cd: 0.6, scale: 0.7, money: 80 },
+  bat: { model: 'grave/character-ghost', name: 'Летучий призрак', hp: 45, speed: 5.2, dmg: 10, range: 1.6, cd: 0.8, scale: 0.85, money: 110, hover: 1.4 },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
-export const SHOOT_DEFAULTS = { ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
+export const SHOOT_DEFAULTS = { pveDiff: 1, ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128, crouch: 256 };
 const WIDX = Object.keys(WEAPONS);
 
@@ -25,6 +27,7 @@ export class ShooterSim {
     this.ps = new Map(); this.mons = new Map(); this.projs = []; this.fx = [];
     this.pid = 0; this.mid = 0; this.t = 0; this.round = 0; this.teamScore = [0, 0]; this.score = new Map();
     this.wave = 0; this.goal = { tdm: 20, ctf: 3 }[mode] || 0;
+    this.lives = [15, 8, 3][this.opts.pveDiff ?? 1] ?? 8;
     roster.forEach(r => this.addPlayer(r));
     if (mode === 'ctf') this.flags = this.map.flags.map(f => ({ team: f.team, hx: f.x, hz: f.z, x: f.x, y: 0, z: f.z, carrier: null, home: true, dropT: 0 }));
     this.over = false;
@@ -91,6 +94,7 @@ export class ShooterSim {
     this.phase = 'buy'; this.phaseT = 20; this.buyReady = new Set();
     this.roundKills = new Map();
     if (this.rounds || first) for (const p of this.ps.values()) if (!p.left) this.spawn(p);
+    if (this.mode === 'pve' && !first) for (const p of this.ps.values()) if (!p.left && !p.alive) this.spawn(p);
     for (const p of this.ps.values()) if (p.bot) this.botBuy(p);
     this.projs = [];
     if (this.flags) for (const f of this.flags) Object.assign(f, { x: f.hx, z: f.hz, y: 0, carrier: null, home: true });
@@ -129,10 +133,11 @@ export class ShooterSim {
       }
     } else if (this.mode === 'pve') {
       const humans = [...this.ps.values()].filter(p => !p.left && !p.bot);
-      if (humans.length && humans.every(p => !p.alive) && [...this.ps.values()].filter(p => !p.left).every(p => !p.alive)) { this.finish(`Монстры победили на волне ${this.wave}…`, new Set()); return; }
+      const allP = [...this.ps.values()].filter(p => !p.left);
+      if (allP.length && allP.every(p => !p.alive) && this.lives <= 0) { this.finish(`Монстры победили на волне ${this.wave}…`, new Set()); return; }
       if (!this.queue.length && this.mons.size === 0) {
         if (this.wave >= 6) { this.finish('Все монстры побеждены! Вы — герои!', new Set([...this.ps.keys()])); return; }
-        this.phase = 'roundEnd'; this.phaseT = 4;
+        this.phase = 'roundEnd'; this.phaseT = 3;
         for (const p of this.ps.values()) { p.money = Math.min(MONEY.max, p.money + 600); }
         this.ev('roundEnd', `Волна ${this.wave} пройдена!`, -1, '');
       }
@@ -274,7 +279,8 @@ export class ShooterSim {
     const range = W.range || 80, sc = t.scale || 1;
     if (dist > range + 2 || Math.hypot(t.x - o.x, t.z - o.z) > range + 4) return null;
     const P = { x: o.x + d.x * dist, y: o.y + d.y * dist, z: o.z + d.z * dist };
-    if (Math.hypot(P.x - t.x, P.z - t.z) > 2.6 * sc || P.y < t.y - 0.6 || P.y > t.y + 2.3 * sc) return null;
+    const ty = t.y + (t.hy || 0);
+    if (Math.hypot(P.x - t.x, P.z - t.z) > 2.6 * sc || P.y < ty - 0.6 || P.y > ty + 2.3 * sc) return null;
     if (rayWorld(this.map, o, d, dist).t < dist - 0.35) return null; // стена на пути
     return { t, h: { t: dist, head: !!c[1] } };
   }
@@ -286,7 +292,7 @@ export class ShooterSim {
     if (ok) { hits.push(ok); if (!W.pierce) end = ok.h.t; }
     for (const t of this.targets()) {
       if (!this.canHurt(p, t) || (ok && ok.t === t)) continue;
-      const h = rayPlayer(o, d, t, end, t.scale || 1);
+      const h = rayPlayer(o, d, t.hy ? { x: t.x, y: t.y + t.hy, z: t.z } : t, end, t.scale || 1);
       if (h) hits.push({ t, h });
     }
     hits.sort((a, b) => a.h.t - b.h.t);
@@ -326,7 +332,7 @@ export class ShooterSim {
     const R = W ? W.splash : 2.5;
     this.ev('boom', +x.toFixed(2), +y.toFixed(2), +z.toFixed(2), R, pr.type);
     for (const t of this.targets()) {
-      const dx = t.x - x, dy = t.y + 0.9 - y, dz = t.z - z, dist = Math.hypot(dx, dy, dz);
+      const dx = t.x - x, dy = t.y + (t.hy || 0) + 0.9 - y, dz = t.z - z, dist = Math.hypot(dx, dy, dz);
       if (dist > R + 0.4) continue;
       if (owner && !this.canHurt(owner, t) && t !== owner) continue;
       if (!los(this.map, { x, y: y + 0.2, z }, { x: t.x, y: t.y + 1, z: t.z })) continue;
@@ -371,7 +377,11 @@ export class ShooterSim {
       if (this.mode === 'tdm' && !this.rounds) this.teamScore[src.team]++;
     }
     if (this.rounds) { t.slot1 = null; t.armor = 0; t.nades = 0; t.slot2 = t.slot2 === 'pistol' ? 'pistol' : 'pistol'; }
-    else t.respawnT = this.mode === 'pve' ? 8 : 4;
+    else if (this.mode === 'pve') {
+      // общий запас жизней команды: пока есть — вернёшься через 12 с; нет — поднимет товарищ или новая волна
+      if (this.lives > 0) { this.lives--; t.respawnT = 12; } else t.respawnT = 1e9;
+    } else t.respawnT = 4;
+    t.deadAt = { x: t.x, z: t.z }; t.revT = 0;
     t.buyWindow = 0;
   }
 
@@ -430,6 +440,12 @@ export class ShooterSim {
       else if (!en.carrier) goal = en;
       else goal = this.ps.get(my.carrier) || this.ps.get(en.carrier);
     }
+    // «Монстры»: бот бежит поднимать павшего товарища, если рядом нет врага
+    if (!goal && this.mode === 'pve' && (!target || bd > 8)) {
+      let dn = null, dd = 30;
+      for (const o of this.ps.values()) if (!o.alive && !o.left && o.deadAt) { const d = Math.hypot(o.deadAt.x - p.x, o.deadAt.z - p.z); if (d < dd) { dd = d; dn = o; } }
+      if (dn) goal = { x: dn.deadAt.x, z: dn.deadAt.z, revive: true };
+    }
     if (!goal) {
       let near = null, nd = 1e9;
       for (const t of this.targets()) if (this.enemies(p, t)) { const d = Math.hypot(t.x - p.x, t.z - p.z); if (d < nd) { nd = d; near = t; } }
@@ -439,7 +455,7 @@ export class ShooterSim {
     const W = WEAPONS[p.cur] || WEAPONS.pistol;
     if (target) {
       // прицеливание
-      const tx = target.x - eye.x, ty = target.y + 1.1 * (target.scale || 1) - eye.y, tz = target.z - eye.z;
+      const tx = target.x - eye.x, ty = target.y + (target.hy || 0) + 1.1 * (target.scale || 1) - eye.y, tz = target.z - eye.z;
       const yaw = Math.atan2(-tx, -tz), pitch = Math.atan2(ty, Math.hypot(tx, tz));
       const err = [0.09, 0.05, 0.025][lvl];
       if (ai.t <= 0) { ai.t = rnd(0.6, 1.5); ai.aimErr = rnd(-err, err); ai.strafe *= -1; }
@@ -483,20 +499,22 @@ export class ShooterSim {
   waveList(n) {
     const pc = Math.max(1, [...this.ps.values()].filter(p => !p.left).length);
     const L = [], add = (t, k) => { for (let i = 0; i < k; i++) L.push(t); };
-    if (n === 1) add('skeleton', 4 + pc * 2);
-    else if (n === 2) { add('skeleton', 4 + pc); add('zombie', 2 + pc); }
-    else if (n === 3) { add('skeleton', 4); add('vampire', 2 + pc); add('ghost', 2 + (pc >> 1)); }
-    else if (n === 4) { add('zombie', 3 + pc); add('vampire', 3); add('ghost', 3); add('skeleton', pc * 2); }
-    else if (n === 5) { add('skeleton', 6); add('zombie', 4); add('vampire', 3 + pc); add('ghost', 4); }
+    const k = this.opts.pveDiff === 0 ? 0.7 : this.opts.pveDiff === 2 ? 1.3 : 1, A = (t, c) => add(t, Math.max(1, Math.round(c * k)));
+    if (n === 1) { A('skeleton', 4 + pc * 2); A('imp', 2); }
+    else if (n === 2) { A('skeleton', 4 + pc); A('zombie', 2 + pc); A('imp', 2 + pc); }
+    else if (n === 3) { A('skeleton', 4); A('vampire', 2 + pc); A('ghost', 2 + (pc >> 1)); A('bat', 2); }
+    else if (n === 4) { A('zombie', 3 + pc); A('vampire', 3); A('ghost', 3); A('skeleton', pc * 2); A('bat', 2 + pc); }
+    else if (n === 5) { A('skeleton', 6); A('zombie', 4); A('vampire', 3 + pc); A('ghost', 4); A('imp', 4); A('bat', 3); }
     else { add('skeleton', 4); return ['boss', ...L]; }
     return shuffle(L);
   }
   spawnMonster(type, at) {
     const M = S_MONSTERS[type], s = at || pick(this.map.monsterSpawns);
     const pc = Math.max(1, [...this.ps.values()].filter(p => !p.left).length);
-    const hp = Math.round(M.hp * (M.boss ? 0.5 + pc * 0.3 : 1));
+    const dk = [0.7, 1, 1.4][this.opts.pveDiff ?? 1] || 1; // сложность: лёгкая / обычная / трудная
+    const hp = Math.round(M.hp * dk * (M.boss ? 0.5 + pc * 0.3 : 1));
     const m = { id: 'm' + (++this.mid), mon: true, type, x: s.x + rnd(-1, 1), y: 0, z: s.z + rnd(-1, 1), yaw: 0, vx: 0, vy: 0, vz: 0, ground: true, alive: true, hp, maxhp: hp, scale: M.scale,
-      atkT: rnd(0.5, 1.5), animN: 0, anim: 0, ai: { path: null, pathT: 0 }, slamT: 6, summonT: 14, volleyT: 9, slowUntil: 0, freezeUntil: 0, markUntil: 0 };
+      atkT: rnd(0.5, 1.5), animN: 0, anim: 0, ai: { path: null, pathT: 0 }, hy: M.hover || 0, dk, slamT: 6, summonT: 14, volleyT: 9, slowUntil: 0, freezeUntil: 0, markUntil: 0 };
     this.mons.set(m.id, m);
     if (M.boss) { this.bossId = m.id; this.ev('msg', 'Появился Хранитель склепа!'); }
   }
@@ -522,14 +540,18 @@ export class ShooterSim {
       if (dist > M.range * 0.8) { const st = this.followPath(m, target); mx = st.x; mz = st.z; }
       if (dist < M.range + (M.boss ? 1 : 0) && Math.abs(target.y - m.y) < 1.4 && m.atkT <= 0) {
         m.atkT = M.cd; m.animN = (m.animN + 1) & 7; m.atk = this.t;
-        this.damage(target, M.dmg, m, { w: 'claw', dir: { x: dx / (dist || 1), y: 0.3, z: dz / (dist || 1) }, knock: M.boss ? 9 : 4 });
+        this.damage(target, M.dmg * (m.dk || 1), m, { w: 'claw', dir: { x: dx / (dist || 1), y: 0.3, z: dz / (dist || 1) }, knock: M.boss ? 9 : 4 });
       }
     }
     if (M.boss) this.bossThink(m, dt);
     return { mx, mz };
   }
   bossThink(m, dt) {
-    const enraged = m.hp < m.maxhp / 2;
+    // три фазы: обычная → злая (залпы) → ярость (быстрее, призывает вампиров)
+    const ph = m.hp > m.maxhp * 0.66 ? 1 : m.hp > m.maxhp * 0.33 ? 2 : 3;
+    if (ph !== (m.phase || 1)) { m.phase = ph; this.ev('msg', ph === 2 ? 'Хранитель разозлился!' : 'Хранитель в ярости!'); this.ev('tele', +m.x.toFixed(2), +m.z.toFixed(2), 6, 0.8); }
+    const enraged = ph >= 2;
+    m.speedK = ph === 3 ? 1.35 : 1;
     m.slamT -= dt; m.summonT -= dt; m.volleyT -= dt;
     if (m.slamT <= 0 && !m.slam) { m.slamT = enraged ? 4.5 : 6.5; m.slam = { x: m.x, z: m.z, t: 1.1 }; this.ev('tele', +m.x.toFixed(2), +m.z.toFixed(2), 5, 1.1); }
     if (m.slam) {
@@ -540,8 +562,8 @@ export class ShooterSim {
         m.slam = null;
       }
     }
-    if (m.summonT <= 0) { m.summonT = enraged ? 11 : 15; for (let i = 0; i < 3; i++) this.spawnMonster('skeleton', { x: m.x + rnd(-3, 3), z: m.z + rnd(-3, 3) }); this.ev('msg', 'Хранитель призвал скелетов!'); }
-    if (enraged && m.volleyT <= 0) { m.volleyT = 6; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this.projs.push({ id: ++this.pid, type: 'bossorb', owner: m.id, x: m.x, y: 2.5, z: m.z, vx: Math.sin(a) * 9, vy: 0, vz: Math.cos(a) * 9, grav: 0, life: 3, dmg: 22 }); } }
+    if (m.summonT <= 0) { m.summonT = m.phase === 3 ? 9 : enraged ? 11 : 15; for (let i = 0; i < 3; i++) this.spawnMonster(m.phase === 3 ? 'vampire' : 'skeleton', { x: m.x + rnd(-3, 3), z: m.z + rnd(-3, 3) }); this.ev('msg', m.phase === 3 ? 'Хранитель призвал вампиров!' : 'Хранитель призвал скелетов!'); }
+    if (enraged && m.volleyT <= 0) { m.volleyT = m.phase === 3 ? 4 : 6; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this.projs.push({ id: ++this.pid, type: 'bossorb', owner: m.id, x: m.x, y: 2.5, z: m.z, vx: Math.sin(a) * 9, vy: 0, vz: Math.cos(a) * 9, grav: 0, life: 3, dmg: 22 }); } }
   }
 
   // техника, маятники: толкают и бьют
@@ -588,6 +610,17 @@ export class ShooterSim {
       }
       this.moverTouch(p);
     }
+    // подъём товарища: постой рядом с павшим 3 секунды
+    if (playing && this.mode === 'pve') {
+      this.revives = [];
+      for (const p of this.ps.values()) {
+        if (p.alive || p.left || !p.deadAt) continue;
+        const helper = [...this.ps.values()].find(h => h.alive && !h.left && Math.hypot(h.x - p.deadAt.x, h.z - p.deadAt.z) < 2.2);
+        p.revT = helper ? p.revT + dt : Math.max(0, p.revT - dt * 2);
+        if (p.revT > 0) this.revives.push([p.id, +(p.revT / 3).toFixed(2), helper ? helper.id : '']);
+        if (p.revT >= 3) { const at = p.deadAt; this.spawn(p); Object.assign(p, { x: at.x, z: at.z, hp: 50 }); if (!p.bot) this.io.sendTo(p.id, { t: 'spawn', x: at.x, y: 0, z: at.z, yaw: p.yaw }); this.ev('msg', `${helper.name} поднял ${p.name}!`); p.deadAt = null; }
+      }
+    }
     // монстры (в режиме «Монстры» — волны, на кладбище — скелеты из могил)
     if (playing && this.mode !== 'pve' && this.map.hazard) {
       const hz = this.map.hazard;
@@ -604,7 +637,7 @@ export class ShooterSim {
         const M = S_MONSTERS[m.type];
         const mv = this.monsterThink(m, dt);
         const slow = this.t < m.freezeUntil ? 0.3 : this.t < m.slowUntil ? 0.6 : 1;
-        movePlayer(this.map, m, { mx: mv.mx, mz: mv.mz, speedMul: M.speed / PH.SPEED * slow }, dt);
+        movePlayer(this.map, m, { mx: mv.mx, mz: mv.mz, speedMul: M.speed / PH.SPEED * slow * (m.speedK || 1) }, dt);
         this.moverTouch(m);
       }
       // монстры не стоят друг в друге
@@ -624,7 +657,7 @@ export class ShooterSim {
       const owner = this.ps.get(pr.owner) || this.mons.get(pr.owner);
       for (const t of this.targets()) {
         if (t.id === pr.owner || (owner && !this.canHurt(owner, t))) continue;
-        const h = rayPlayer({ x: ox, y: oy, z: oz }, d, t, hitT ?? L, (t.scale || 1) * 1.15);
+        const h = rayPlayer({ x: ox, y: oy, z: oz }, d, t.hy ? { x: t.x, y: t.y + t.hy, z: t.z } : t, hitT ?? L, (t.scale || 1) * 1.15);
         if (h && (hitT == null || h.t < hitT)) { hitT = h.t; victim = t; }
       }
       if (pr.type === 'grenade') {
@@ -658,13 +691,13 @@ export class ShooterSim {
       if (p.slowUntil > this.t || p.freezeUntil > this.t) fl |= FL.slow; if (this.flags && this.flags.some(f => f.carrier === p.id)) fl |= FL.carry; if (p.reloadUntil > this.t) fl |= FL.reload; if (p.scoped) fl |= FL.scoped; if (p.crouch && p.alive) fl |= FL.crouch;
       e.push([p.id, p.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.yaw.toFixed(2), +p.pitch.toFixed(2), (p.anim & 15) | (p.animN << 4), Math.max(0, p.hp), fl, WIDX.indexOf(p.cur)]);
     }
-    for (const m of this.mons.values()) e.push([m.id, 'm:' + m.type, +m.x.toFixed(2), +m.y.toFixed(2), +m.z.toFixed(2), +m.yaw.toFixed(2), 0, (Math.hypot(m.vx, m.vz) > 0.5 ? 1 : 0) | (m.animN << 4), Math.max(0, Math.round(m.hp)), (m.alive ? 0 : FL.dead) | (m.markUntil > this.t ? FL.mark : 0), m.maxhp]);
+    for (const m of this.mons.values()) e.push([m.id, 'm:' + m.type, +m.x.toFixed(2), +(m.y + (m.hy || 0)).toFixed(2), +m.z.toFixed(2), +m.yaw.toFixed(2), 0, (Math.hypot(m.vx, m.vz) > 0.5 ? 1 : 0) | (m.animN << 4), Math.max(0, Math.round(m.hp)), (m.alive ? 0 : FL.dead) | (m.markUntil > this.t ? FL.mark : 0), m.maxhp]);
     const s = { t: 's2', tm: +this.t.toFixed(2), ph: this.phase, tl: Math.max(0, +this.phaseT.toFixed(1)), rd: this.round, e, br: this.phase === 'buy' ? [this.buyReady.size, [...this.ps.values()].filter(p => !p.bot && !p.left && p.alive).length] : 0,
       p: this.projs.map(p => [p.id, p.type, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.vx.toFixed(1), +p.vy.toFixed(1), +p.vz.toFixed(1), p.grav || 0]), fx: this.fx };
     if (this.team) s.ts = this.teamScore;
     if (!this.team && this.rounds) s.rs = [...this.score];
     if (this.flags) s.fl = this.flags.map(f => [f.team, +f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2), f.carrier || '']);
-    if (this.mode === 'pve') { const b = this.bossId && this.mons.get(this.bossId); s.wave = this.wave; s.left = this.queue.length + [...this.mons.values()].filter(m => m.alive).length; if (b && b.alive) s.boss = [b.hp, b.maxhp]; }
+    if (this.mode === 'pve') { const b = this.bossId && this.mons.get(this.bossId); s.wave = this.wave; s.lv = this.lives; s.left = this.queue.length + [...this.mons.values()].filter(m => m.alive).length; if (b && b.alive) s.boss = [b.hp, b.maxhp, b.phase || 1]; if (this.revives && this.revives.length) s.rv = this.revives; }
     if (!this.sbT || this.t - this.sbT > 0.5) { this.sbT = this.t; s.sb = [...this.ps.values()].filter(p => !p.left).map(p => [p.id, p.kills, p.deaths, p.pts, this.score.get(p.id) || 0]); }
     this.io.broadcast(s);
     this.fx = [];

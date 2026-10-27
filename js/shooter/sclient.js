@@ -633,14 +633,17 @@ export class ShooterClient {
     $('#sh-time').textContent = ph; $('#sh-time').style.display = ph ? '' : 'none'; $('#sh-time').classList.toggle('low', s.ph === 'play' && s.tl < 15);
     let sc = '';
     if (s.ts) { const my = this.my.team; sc = `<div class="ts t0 ${my === 0 ? 'mine' : ''}">${s.ts[0]}</div><div class="ts-mid">${this.opts.match === 'rounds' && this.mode !== 'ctf' ? 'до ' + this.opts.rounds : this.mode === 'ctf' ? icon('flag') + ' до 3' : 'до 20'}</div><div class="ts t1 ${my === 1 ? 'mine' : ''}">${s.ts[1]}</div>`; }
-    else if (this.mode === 'pve') sc = `<div class="pill">Волна ${Math.max(1, s.wave)}/6</div><div class="pill">${icon('skull')} ${s.left || 0}</div>`;
+    else if (this.mode === 'pve') sc = `<div class="pill">Волна ${Math.max(1, s.wave)}/6</div><div class="pill">${icon('skull')} ${s.left || 0}</div><div class="pill ${s.lv === 0 ? 'warn' : ''}" title="жизни команды">${icon('heart')} ${s.lv ?? ''}</div>`;
     else if (s.sb) { const mine = s.sb.find(r => r[0] === this.me) || [0, 0, 0, 0, 0]; sc = this.opts.match === 'rounds' ? `<div class="pill">${icon('trophy')} ${mine[4]}/${this.opts.rounds}</div><div class="pill">${icon('swords')} ${mine[1]}</div>` : `<div class="pill">${icon('swords')} ${mine[1]}</div>`; }
     if (s.rd && this.opts.match === 'rounds' && this.mode !== 'pve') sc += `<div class="pill dim">Раунд ${s.rd}</div>`;
     if (sc !== this.lastSc) { this.lastSc = sc; $('#sh-score').innerHTML = sc; }
     if (s.sb) { this.sb = s.sb; }
     const bb = $('#sh-boss');
-    if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; } else bb.classList.remove('show');
-    if (!this.alive) { const r = $('#sh-resp'); if (r) r.textContent = this.opts.match === 'rounds' && this.mode !== 'pve' ? 'Ждём следующий раунд…' : pv.resp > 0 ? `Возрождение через ${Math.ceil(pv.resp)}` : ''; }
+    if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; bb.querySelector('b').textContent = ['Хранитель склепа', 'Хранитель склепа — злится!', 'Хранитель склепа — в ярости!'][(s.boss[2] || 1) - 1]; bb.dataset.ph = s.boss[2] || 1; } else bb.classList.remove('show');
+    // подъём товарищей
+    const rv = (s.rv || []).find(r => r[0] === this.me || r[2] === this.me);
+    if (rv && performance.now() - (this.rvShown || 0) > 400) { this.rvShown = performance.now(); const pct = Math.round(rv[1] * 100); if (rv[2] === this.me) shBanner(`${icon('heart')} Поднимаешь ${esc(this.name(rv[0]))}: ${pct}%`, 'small', 600); }
+    if (!this.alive) { const r = $('#sh-resp'); const me = (s.rv || []).find(x => x[0] === this.me); if (r) r.textContent = me ? `Тебя поднимают: ${Math.round(me[1] * 100)}%` : this.opts.match === 'rounds' && this.mode !== 'pve' ? 'Ждём следующий раунд…' : pv.resp > 0 && pv.resp < 1000 ? `Возрождение через ${Math.ceil(pv.resp)}` : this.mode === 'pve' ? 'Жизни кончились: подожди, пока тебя поднимут, или новую волну' : ''; }
   }
   buyList(groups) {
     // покупаем по очереди, считая остаток денег у себя (хост всё равно проверит)
