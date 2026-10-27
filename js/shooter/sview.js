@@ -50,6 +50,7 @@ const THEMES = {
   castle: { sky: ['#3f86d8', '#a9d3f5', '#f4e6c8'], fog: ['#cfe0ee', 50, 120], hemi: ['#eef5ff', '#6b5a40', 1.0], sun: ['#fff1d6', 1.9, [-18, 34, 14]], floor: 'grass', floorK: 3, stairs: 'stone', clouds: true },
   graveyard: { sky: ['#03050f', '#0d1530', '#1f2a55'], stars: true, moon: [40, 45, -70], fog: ['#161e3c', 12, 52], hemi: ['#8f9fe6', '#2a2232', 0.85], sun: ['#b4c4ff', 1.05, [16, 30, -14]], floor: 'darkgrass', floorK: 3, stairs: 'flagstone', night: true },
   port: { sky: ['#020512', '#0b1630', '#1b2b55'], stars: true, moon: [-50, 40, 60], fog: ['#101c38', 18, 75], hemi: ['#9fb0e6', '#2a2232', 0.9], sun: ['#b9c8ff', 1.0, [-20, 30, 18]], floor: 'concrete', floorK: 4, stairs: 'steps', night: true },
+  arena: { sky: ['#3b2466', '#d0674a', '#ffb070'], fog: ['#c98a6a', 45, 110], hemi: ['#ffe2c8', '#5a3a30', 1.0], sun: ['#ffb27a', 1.6, [-26, 22, 14]], floor: 'dirt', floorK: 3, stairs: 'stone', clouds: true },
   street: { sky: ['#2b2466', '#b75f86', '#ffbf7a'], fog: ['#c98f86', 40, 105], hemi: ['#ffe6cf', '#4a3a40', 0.95], sun: ['#ffbe85', 1.7, [-34, 20, 12]], floor: 'asphalt', floorK: 4, stairs: 'flagstone', clouds: true }
 };
 // какая текстура у какого блока: [текстура, метров на плитку, цвет]

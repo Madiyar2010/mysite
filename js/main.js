@@ -343,7 +343,7 @@ Net.onPeerLeft = pid => {
   hostLobby(false);
 };
 function rosterEntry(p) { return { pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, team: p.team }; }
-function startMsg() { return { t: 'start', mode: H.mode, roster: H.roster, opts: H.opts }; }
+function startMsg() { return { t: 'start', mode: H.mode, roster: H.roster, opts: H.gameOpts || H.opts }; }
 // все нажали «Готов» — начинаем сами
 function checkAllReady() {
   const on = [...H.players.values()].filter(p => p.online), mode = MODES[H.mode];
@@ -368,7 +368,7 @@ function lobbyAction(a) {
   } else if (a === 'random') {
     const ok = Object.keys(MODES).filter(k => MODES[k].group === 'arena' || on.length >= MODES[k].min);
     H.mode = pick(ok);
-    if (MODES[H.mode].group === 'traitor') H.opts.map = pick(AMAP_LIST.filter(x => x.ready)).id; else H.opts.smap = pick(SMAP_LIST.filter(x => x.ready)).id;
+    if (MODES[H.mode].group === 'traitor') H.opts.map = pick(AMAP_LIST.filter(x => x.ready)).id; else H.opts.smap = pick(SMAP_LIST.filter(x => x.ready && !x.pve)).id;
     if (MODES[H.mode].group === 'arena' && on.length < 2 && !H.opts.bots && !H.opts.teamSize) H.opts.bots = 3;
   } else if (a === 'shuffle' || a === 'fair') {
     // «Честные команды»: сначала взрослые по разным командам, потом дети
@@ -399,6 +399,8 @@ function hostStartGame() {
     if (!roster.some(r => r.team === 0) || !roster.some(r => r.team === 1)) roster.forEach((r, i) => r.team = i % 2);
   }
   roster.forEach(r => delete r.assigned);
+  // «Монстры» — всегда на Арене, остальные режимы — не на Арене
+  H.gameOpts = { ...H.opts, smap: H.mode === 'pve' ? 'arena' : (H.opts.smap === 'arena' ? 'warehouse' : H.opts.smap) };
   H.roster = roster; H.inGame = true;
   H.pending = { ready: new Set(), to: setTimeout(launchSim, 15000) };
   Net.broadcast(startMsg());
@@ -408,7 +410,7 @@ function launchSim() {
   if (!H.pending) return;
   clearTimeout(H.pending.to); H.pending = null;
   const io = { broadcast: m => Net.broadcast(m), sendTo: (p, m) => Net.sendTo(p, m), end: res => hostEndGame(res) };
-  H.sim = MODES[H.mode].group === 'traitor' ? new AmongSim(io, { roster: H.roster, opts: H.opts }) : new ShooterSim(io, { mode: H.mode, roster: H.roster, opts: H.opts });
+  H.sim = MODES[H.mode].group === 'traitor' ? new AmongSim(io, { roster: H.roster, opts: H.opts }) : new ShooterSim(io, { mode: H.mode, roster: H.roster, opts: H.gameOpts || H.opts });
 }
 function hostEndGame(res) {
   if (H.sim) H.sim.stop();
@@ -512,7 +514,7 @@ function shooterSettings(o, mode) {
   const timedOnly = mode === 'ctf' || mode === 'pve';
   const match = timedOnly ? 'timed' : o.match;
   return `
-    <div class="opt-maps four">${SMAP_LIST.map(m => `<button class="opt-map smap ${o.smap === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
+    <div class="opt-maps four">${SMAP_LIST.filter(m => !!m.pve === (mode === 'pve')).map(m => `<button class="opt-map smap ${o.smap === m.id || m.pve ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
     ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Волны монстров, закупка между волнами' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}

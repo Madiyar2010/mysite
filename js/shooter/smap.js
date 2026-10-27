@@ -1,5 +1,5 @@
 // Карты шутера: прямоугольные блоки (коллизия + вид), физика игрока, лучи, сетка для ботов.
-import { port, castle, graveyard, street } from './levels.js';
+import { port, castle, graveyard, street, arena } from './levels.js';
 export const PH = { R: 0.35, H: 1.7, EYE: 1.55, CEYE: 1.0, STEP: 0.5, G: 24, JUMP: 8.4, SPEED: 6, AIR: 14, ACC: 60 };
 
 // ---------- построение склада ----------
@@ -251,14 +251,15 @@ export function navPath(map, from, to) {
   return path.reverse();
 }
 
-export const SMAPS = { warehouse: warehouse(), port: port(), castle: castle(), graveyard: graveyard(), street: street() };
+export const SMAPS = { warehouse: warehouse(), port: port(), castle: castle(), graveyard: graveyard(), street: street(), arena: arena() };
 for (const m of Object.values(SMAPS)) buildNav(m);
 export const SMAP_LIST = [
   { id: 'port', name: 'Порт ночью', icon: 'anchor', ready: true },
   { id: 'warehouse', name: 'Склад', icon: 'station', ready: true },
   { id: 'castle', name: 'Замок', icon: 'castle', ready: true },
   { id: 'graveyard', name: 'Ночное кладбище', icon: 'skull', ready: true },
-  { id: 'street', name: 'Городская улица', icon: 'users', ready: true }
+  { id: 'street', name: 'Городская улица', icon: 'users', ready: true },
+  { id: 'arena', name: 'Арена', icon: 'swords', ready: true, pve: true }
 ];
 export function smapModels(map) {
   const s = new Set(map.id === 'warehouse' ? ['fa/conveyor-long', 'fa/box-small', 'ca/cone'] : []);

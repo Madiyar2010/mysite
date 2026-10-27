@@ -133,6 +133,54 @@ export function port() {
   };
 }
 
+// ================= АРЕНА ДЛЯ МОНСТРОВ =================
+// двор крепости: монстры выходят из трёх ворот, по углам башни для стрелков
+export function arena() {
+  const K = kit(), { box, wall, dec } = K;
+  const W = 28, D = 24, IX = 21, IZ = 17, WHt = 5;
+  box(0, -1, 0, W * 2 + 2, 1, D * 2 + 2, 'floor');
+  K.floors.push({ x: 0, z: 0, w: 2 * IX, d: 2 * IZ, tex: 'cobble', k: 3 }, { x: 0, z: 0, w: 10, d: 10, tex: 'flagstone', k: 2 });
+  // внешняя ограда и загоны за воротами
+  for (const s of [-1, 1]) { box(0, 0, s * (D - 0.4), 2 * W + 2, 6, 0.8, 'stonewall'); box(s * (W - 0.4), 0, 0, 0.8, 6, 2 * D, 'stonewall'); }
+  // стены двора с воротами: север, запад, восток (на юге ворот нет)
+  const gate = { c: 0, w: 4, top: 4 };
+  wall('x', -IX - 0.6, IX + 0.6, -IZ, 1.2, WHt, 'stonewall', [gate]);
+  wall('x', -IX - 0.6, IX + 0.6, IZ, 1.2, WHt, 'stonewall');
+  for (const sx of [-1, 1]) wall('z', -IZ + 0.6, IZ - 0.6, sx * IX, 1.2, WHt, 'stonewall', [gate]);
+  for (let x = -IX; x <= IX; x += 2) for (const z of [-IZ, IZ]) box(x, WHt, z, 1, 0.9, 1.2, 'merlon');
+  K.gates.push({ box: box(0, 0, -IZ, 4, 4, 0.4, 'portcullis', { dyn: 'gate' }), period: 12, openFor: 9, lift: 3.6, off: 0 });
+  for (const sx of [-1, 1]) K.gates.push({ box: box(sx * IX, 0, 0, 0.4, 4, 4, 'portcullis', { dyn: 'gate' }), period: 12, openFor: 9, lift: 3.6, off: sx < 0 ? 4 : 8 });
+  for (const [x, z] of [[0, -IZ - 0.8], [-IX - 0.8, 0], [IX + 0.8, 0]]) { K.lights.push({ x, y: 4.6, z, color: '#ff7a3d', i: 2.5, d: 9, flicker: 1 }); }
+  // башни для стрелков с лестницами
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const tx = sx * 14, tz = sz * 10.5;
+    box(tx, 0, tz, 3.6, 4, 3.6, 'tower2');
+    for (const [dx, dz] of [[-1.45, -1.45], [1.45, -1.45], [-1.45, 1.45], [1.45, 1.45]]) box(tx + dx, 4, tz + dz, 0.7, 1.1, 0.7, 'merlon');
+    for (let i = 0; i < 9; i++) box(tx - sx * (1.8 + 0.25 + (8 - i) * 0.5), 0, tz, 0.5, (4 / 9) * (i + 1), 1.6, 'stairs');
+    dec('arena/banner', tx, tz - sz * 1.9, { h: 2.8, y: 1, r: sz > 0 ? 0 : PI });
+  }
+  // укрытия во дворе
+  for (const s of [-1, 1]) {
+    box(s * 6, 0, -6, 4, 1.3, 0.9, 'lowwall'); box(s * 6, 0, 6, 4, 1.3, 0.9, 'lowwall');
+    box(s * 9, 0, 0, 0.9, 1.3, 4, 'lowwall');
+    box(s * 17, 0, -3, 1.2, 1.1, 1.2, 'crate'); box(s * 17, 0, 3, 2.4, 1.3, 1.3, 'hay', { model: 'grave/hay-bale-bundled' });
+    box(s * 8, 0, 13.5, 1.2, 1.1, 2.4, 'crate'); box(s * 8, 1.1, 13.5, 1.2, 1.1, 1.2, 'crate');
+    dec('arena/weapon-rack', s * 19.8, 12, { h: 1.7, r: -s * PI / 2 });
+  }
+  box(0, 0, 0, 1.5, 3, 1.5, 'none'); dec('arena/statue', 0, 0, { h: 3.4 });
+  K.lights.push({ x: 0, y: 4, z: 0, color: '#ffd38a', i: 2, d: 12 });
+  const spawns = [];
+  for (let i = 0; i < 6; i++) spawns.push({ x: -5 + i * 2, z: 12, yaw: 0 });
+  return {
+    id: 'arena', name: 'Арена', W, D, WH: 12, boxes: K.B, gates: K.gates, movers: [], deco: K.deco, floors: K.floors, lights: K.lights,
+    spawnsTeam: { 0: spawns.slice(0, 3), 1: spawns.slice(3) },
+    spawnsFFA: ffa([[-16, -12], [16, 12], [-16, 12], [16, -12], [0, 12], [0, -12], [-10, 0], [10, 0]]),
+    flags: [{ team: 0, x: -17, z: 0 }, { team: 1, x: 17, z: 0 }],
+    monsterSpawns: [[0, -21], [-1.5, -21.5], [1.5, -21.5], [-25, 0], [-25, 1.5], [25, 0], [25, -1.5]].map(([x, z]) => ({ x, z })),
+    theme: 'arena'
+  };
+}
+
 // ================= ЗАМОК =================
 // две половины через ров с подъёмными мостами; в центре тронный зал на втором этаже,
 // под ним — подземелье с маятниками; башни по краям, по стенам можно ходить
