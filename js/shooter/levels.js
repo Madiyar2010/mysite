@@ -2,7 +2,7 @@
 // Всё описывается прямоугольными блоками (коллизия) + декор (только вид).
 const PI = Math.PI;
 
-function kit() {
+export function kit() {
   const B = [], deco = [], floors = [], lights = [], gates = [];
   const box = (x, y, z, w, h, d, vis, extra = {}) => { const b = { x, y, z, w, h, d, vis, ...extra }; B.push(b); return b; };
   // стена вдоль оси x (или z) от a0 до a1 на линии c, с проёмами [{c, w, top, bot}]
@@ -25,12 +25,12 @@ function kit() {
   const dec = (model, x, z, o = {}) => deco.push({ model, x, z, y: o.y || 0, r: o.r || 0, h: o.h, s: o.s });
   return { B, deco, floors, lights, gates, box, wall, dec };
 }
-const teamSpawns = (x, dx = 1.4) => {
+export const teamSpawns = (x, dx = 1.4) => {
   const s = { 0: [], 1: [] };
   for (let i = 0; i < 6; i++) { s[0].push({ x: -x + (i % 2) * dx, z: -5 + i * 2, yaw: -PI / 2 }); s[1].push({ x: x - (i % 2) * dx, z: -5 + i * 2, yaw: PI / 2 }); }
   return s;
 };
-const ffa = list => list.map(([x, z]) => ({ x, z, yaw: Math.atan2(x, z) }));
+export const ffa = list => list.map(([x, z]) => ({ x, z, yaw: Math.atan2(x, z) }));
 
 // ================= ПОРТ НОЧЬЮ =================
 // контейнеры в два яруса, кран с кабиной для снайпера в центре, корабль у причала с каютой и мостиком

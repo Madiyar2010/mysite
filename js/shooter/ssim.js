@@ -1,6 +1,6 @@
 // Логика шутера (только у хоста).
 import { WEAPONS, GEAR, MONEY, NADES } from './weapons.js';
-import { SMAPS, PH, movePlayer, updateDynamics, rayWorld, rayPlayer, los, navPath } from './smap.js';
+import { SMAPS, PH, movePlayer, updateDynamics, rayWorld, rayPlayer, los, navPath, reachableTops } from './smap.js';
 import { TEAM_NAMES, shuffle, pick, rnd, clamp, giveAwards } from '../util.js';
 
 export const S_MONSTERS = {
@@ -429,9 +429,9 @@ export class ShooterSim {
   }
   // секретный сундук — наверху: на контейнере, крыше или мостике
   secretSpot() {
-    const tops = this.map.boxes.filter(b => b.vis !== 'floor' && !b.dyn && b.solid !== false && !b.pass && b.y + b.h > 1.5 && b.y + b.h < 9 && b.w >= 1.6 && b.d >= 1.6 && /container|roof|catwalk|tower|platform|deck|balcony|crane|stairs|ledge/.test(b.vis || ''));
+    const tops = reachableTops(this.map).filter(b => b.y + b.h < 9);
     for (let k = 0; k < 30 && tops.length; k++) {
-      const b = pick(tops), y = b.y + b.h, x = b.x + rnd(-b.w / 2 + 0.6, b.w / 2 - 0.6), z = b.z + rnd(-b.d / 2 + 0.6, b.d / 2 - 0.6);
+      const b = pick(tops), y = b.y + b.h, x = b.x + rnd(-b.w / 2 + 0.5, b.w / 2 - 0.5) * 0.8, z = b.z + rnd(-b.d / 2 + 0.5, b.d / 2 - 0.5) * 0.8;
       if (Math.abs(x) > this.map.W - 1 || Math.abs(z) > this.map.D - 1) continue;
       const above = this.map.boxes.some(o => o !== b && o.vis !== 'floor' && o.solid !== false && o.y >= y - 0.05 && o.y < y + 2 && Math.abs(x - o.x) < o.w / 2 + 0.5 && Math.abs(z - o.z) < o.d / 2 + 0.5);
       if (!above) return { x, y, z };

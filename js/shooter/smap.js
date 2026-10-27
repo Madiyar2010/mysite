@@ -1,5 +1,6 @@
 // Карты шутера: прямоугольные блоки (коллизия + вид), физика игрока, лучи, сетка для ботов.
 import { port, castle, graveyard, street, arena } from './levels.js';
+import { island, winter, toys, moon } from './levels2.js';
 export const PH = { R: 0.35, H: 1.7, EYE: 1.55, CEYE: 1.0, STEP: 0.5, G: 24, JUMP: 8.4, SPEED: 6, AIR: 14, ACC: 60 };
 
 // ---------- построение склада ----------
@@ -96,11 +97,13 @@ const solidBox = b => b.vis !== 'floor' && (b.solid !== false);
 export function movePlayer(map, p, inp, dt) {
   const sp = PH.SPEED * (inp.speedMul || 1);
   const ax = (inp.mx || 0) * sp, az = (inp.mz || 0) * sp;
-  const acc = p.ground ? PH.ACC : PH.AIR;
+  let acc = p.ground ? PH.ACC : PH.AIR;
+  // лёд: на озере скользко — разгон и торможение медленные
+  if (map.ice && p.ground && p.y < 0.3 && map.ice.some(r => Math.abs(p.x - r.x) < r.w / 2 && Math.abs(p.z - r.z) < r.d / 2)) acc = 7;
   p.vx += Math.max(-acc * dt, Math.min(acc * dt, ax - p.vx));
   p.vz += Math.max(-acc * dt, Math.min(acc * dt, az - p.vz));
-  if (inp.jump && p.ground) { p.vy = PH.JUMP; p.ground = false; }
-  p.vy -= PH.G * dt;
+  if (inp.jump && p.ground) { p.vy = PH.JUMP * (map.jumpK || 1); p.ground = false; }
+  p.vy -= PH.G * (map.grav || 1) * dt;
   const boxes = map.boxes, R = PH.R, H = PH.H;
   const overlapsXZ = (b, x, z) => Math.abs(x - b.x) < b.w / 2 + R && Math.abs(z - b.z) < b.d / 2 + R;
   const axis = (k) => {
@@ -251,7 +254,24 @@ export function navPath(map, from, to) {
   return path.reverse();
 }
 
-export const SMAPS = { warehouse: warehouse(), port: port(), castle: castle(), graveyard: graveyard(), street: street(), arena: arena() };
+// верх каких блоков можно достать: от земли по ступенькам и прыжками (для секретных сундуков)
+export function reachableTops(map) {
+  if (map.tops) return map.tops;
+  const jumpH = (PH.JUMP * (map.jumpK || 1)) ** 2 / (2 * PH.G * (map.grav || 1)) * 0.75;
+  const bs = map.boxes.filter(b => b.vis !== 'floor' && b.vis !== 'none' && !b.dyn && b.solid !== false && !b.pass && b.vis !== 'mover');
+  const top = b => b.y + b.h;
+  const touch = (a, b, g = 0.25) => Math.abs(a.x - b.x) <= (a.w + b.w) / 2 + g && Math.abs(a.z - b.z) <= (a.d + b.d) / 2 + g;
+  const ok = new Set(), queue = [];
+  for (const b of bs) if (top(b) <= jumpH && b.y < 0.1) { ok.add(b); queue.push(b); }
+  while (queue.length) {
+    const a = queue.shift();
+    for (const b of bs) { if (ok.has(b)) continue; const d = top(b) - top(a); if (d <= jumpH && d > -6 && b.y <= top(a) + 0.1 && touch(a, b)) { ok.add(b); queue.push(b); } }
+  }
+  // нельзя ставить под другим блоком
+  map.tops = [...ok].filter(b => top(b) > 1.4 && b.w >= 1.1 && b.d >= 1.1 && !b.roof && !bs.some(o => o !== b && o.y >= top(b) - 0.05 && o.y < top(b) + 1.8 && Math.abs(b.x - o.x) < (b.w + o.w) / 2 - 0.1 && Math.abs(b.z - o.z) < (b.d + o.d) / 2 - 0.1 && o.w * o.d > b.w * b.d * 0.6));
+  return map.tops;
+}
+export const SMAPS = { warehouse: warehouse(), port: port(), castle: castle(), graveyard: graveyard(), street: street(), arena: arena(), island: island(), winter: winter(), toys: toys(), moon: moon() };
 for (const m of Object.values(SMAPS)) buildNav(m);
 export const SMAP_LIST = [
   { id: 'port', name: 'Порт ночью', icon: 'anchor', ready: true },
@@ -259,6 +279,10 @@ export const SMAP_LIST = [
   { id: 'castle', name: 'Замок', icon: 'castle', ready: true },
   { id: 'graveyard', name: 'Ночное кладбище', icon: 'skull', ready: true },
   { id: 'street', name: 'Городская улица', icon: 'users', ready: true },
+  { id: 'island', name: 'Пиратский остров', icon: 'palm', ready: true },
+  { id: 'winter', name: 'Зимняя деревня', icon: 'snowflake', ready: true },
+  { id: 'toys', name: 'Игрушечная комната', icon: 'toy', ready: true },
+  { id: 'moon', name: 'Лунная база', icon: 'moon', ready: true },
   { id: 'arena', name: 'Арена', icon: 'swords', ready: true, pve: true }
 ];
 export function smapModels(map) {
