@@ -11,13 +11,15 @@ export const Sound = {
   sfxVol: LSget('sfxVol', 0.8), musicVol: LSget('musicVol', 0.35), quiet: LSget('quiet', false),
   loops: {}, music: null,
   unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running') try { this.ctx.resume(); } catch (e) { } return; }
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination);
       this.sfxGain = this.ctx.createGain(); this.sfxGain.connect(this.master);
       this.musicGain = this.ctx.createGain(); this.musicGain.connect(this.master);
       this.apply();
+      // айфон включает звук только по касанию: проигрываем тишину, чтобы «разбудить» звук
+      try { const b = this.ctx.createBuffer(1, 1, 22050), src = this.ctx.createBufferSource(); src.buffer = b; src.connect(this.ctx.destination); src.start(0); } catch (e) { }
       for (const f of FILES) this.load(f);
       if (this.wantMusic) this.playMusic(this.wantMusic);
     } catch (e) { }
@@ -110,5 +112,6 @@ export const Sound = {
   musicOff() { this.wantMusic = null; this.stopMusic(); }
 };
 // звук кнопок интерфейса
-document.addEventListener('pointerdown', () => Sound.unlock(), { capture: true });
+for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => Sound.unlock(), { capture: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Sound.ctx && Sound.ctx.state !== 'running') try { Sound.ctx.resume(); } catch (e) { } });
 document.addEventListener('click', e => { if (e.target.closest('button')) Sound.play('click', { vol: 0.6 }); }, { capture: true });

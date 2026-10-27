@@ -831,3 +831,21 @@ body.lay-edit #s-shoot > *:not(#sh-touch){visibility:hidden}
 body.lay-edit #sh-touch{display:block!important}
 body.lay-edit #sh-touch .act{outline:2px dashed rgba(255,255,255,.35);outline-offset:3px;touch-action:none}
 body.lay-edit #sh-touch .act.lay-sel{outline:3px solid #ffd166}
+
+/* айфон */
+body.ios .no-ios{display:none}
+.ios-only{display:none}
+body.ios:not(.standalone) .ios-only{display:flex}
+.a2hs-card p{margin:4px 0 10px;line-height:1.4}
+.a2hs-steps{list-style:none;padding:0;margin:0 0 12px;display:flex;flex-direction:column;gap:10px}
+.a2hs-steps li{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;background:rgba(255,255,255,.06);border-radius:14px;padding:8px 10px}
+.a2-pic{grid-row:span 2;width:56px;height:56px;border-radius:14px;background:#2b2366;display:flex;align-items:center;justify-content:center}
+.a2-pic svg{width:38px;height:38px}
+.a2hs-steps b{font-size:16px}.a2hs-steps small{color:var(--muted);font-weight:600}
+/* «Поверни телефон» — крупный телефон, который поворачивается */
+.rot-phone{width:70px;height:120px;border:7px solid #ffd166;border-radius:16px;position:relative;animation:rotphone 2.2s ease-in-out infinite;margin-bottom:14px}
+.rot-phone i{position:absolute;left:50%;bottom:6px;width:16px;height:4px;margin-left:-8px;border-radius:2px;background:#ffd166}
+@keyframes rotphone{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+#rotate b{font-size:30px}
+#rotate .btn svg{width:22px;height:22px}
+body.ios #rotate .btn{display:none}

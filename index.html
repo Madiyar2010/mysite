@@ -58,6 +58,7 @@
         <input class="field code" id="in-code" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters">
         <button class="btn teal" id="btn-join">Войти</button>
       </div>
+      <button class="btn ghost ios-only" id="btn-a2hs"><i data-ic="phone"></i> Как открыть на весь экран</button>
       <p class="hint">Один создаёт комнату, остальные вводят код или сканируют QR. Лучше всем быть в одной Wi‑Fi сети.</p>
       <p class="credits">3D-модели и звуки: Kenney (CC0) · Иконки: game-icons.net (CC BY 3.0)</p>
     </div>
@@ -238,7 +239,7 @@
   <div class="set-row"><span><i data-ic="sound"></i> Эффекты</span><input type="range" id="set-sfx" min="0" max="100"></div>
   <div class="set-row"><span><i data-ic="music"></i> Музыка</span><input type="range" id="set-music" min="0" max="100"></div>
   <div class="set-row"><span>Тихий режим (вечер)</span><div class="seg" id="set-quiet"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
-  <div class="set-row"><span><i data-ic="vibrate"></i> Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row no-ios"><span><i data-ic="vibrate"></i> Вибрация</span><div class="seg" id="set-vibe"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
   <div class="set-row"><span><i data-ic="target"></i> Чувствительность</span><input type="range" id="set-sens" min="30" max="250"></div>
   <div class="set-row"><span><i data-ic="target"></i> Помощь в прицеливании</span><div class="seg" id="set-aim"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
   <div class="set-row"><span><i data-ic="gun"></i> Автострельба (телефон)</span><div class="seg" id="set-auto"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
@@ -272,6 +273,16 @@
   <button class="btn ghost sm" id="lay-reset"><i data-ic="rotate"></i> Сбросить как было</button>
   <button class="btn gold sm" id="lay-done"><i data-ic="check"></i> Готово</button>
 </div>
+<div id="m-a2hs" class="modal"><div class="modal-card a2hs-card">
+  <div class="row"><h3 class="grow"><i data-ic="phone"></i> Игра на весь экран</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <p>На айфоне и айпаде игру можно поставить на экран «Домой» — она будет открываться как приложение, на весь экран.</p>
+  <ol class="a2hs-steps">
+    <li><span class="a2-pic"><svg viewBox="0 0 48 48"><path d="M24 6v24M15 15l9-9 9 9" fill="none" stroke="#4da3ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 22H10v20h28V22h-4" fill="none" stroke="#4da3ff" stroke-width="4" stroke-linejoin="round"/></svg></span><b>Нажми «Поделиться»</b><small>квадрат со стрелкой внизу (или вверху) Safari</small></li>
+    <li><span class="a2-pic"><svg viewBox="0 0 48 48"><rect x="8" y="8" width="32" height="32" rx="8" fill="none" stroke="#fff" stroke-width="4"/><path d="M24 16v16M16 24h16" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></span><b>Выбери «На экран „Домой“»</b><small>пролистай список вниз, если не видно</small></li>
+    <li><span class="a2-pic"><svg viewBox="0 0 48 48"><rect x="10" y="10" width="28" height="28" rx="7" fill="#1b1640"/><path d="M16 34V22l4 2v-6l4 2v-6l4 4 4-4v6l4-2v6l4-2v12z" transform="translate(-4 -2)" fill="#ffc94d"/></svg></span><b>Нажми «Добавить»</b><small>и открывай игру значком «Замок Героев»</small></li>
+  </ol>
+  <button class="btn gold big" data-close>Понятно</button>
+</div></div>
 <div id="m-pause" class="modal"><div class="modal-card">
   <h3><i data-ic="pause"></i> Меню</h3>
   <button class="btn ghost big" data-close><i data-ic="play"></i> Продолжить</button>
@@ -280,7 +291,7 @@
   <div id="pause-players"></div>
   <button class="btn red big" id="btn-quit"><i data-ic="exit"></i> Выйти из комнаты</button>
 </div></div>
-<div id="rotate"><div><i data-ic="rotate"></i><b>Поверни устройство</b><span>Играть удобнее горизонтально</span><button class="btn gold" data-act="fullscreen"><i data-ic="fullscreen"></i> На весь экран</button></div></div>
+<div id="rotate"><div><div class="rot-phone"><i></i></div><b>Поверни телефон</b><span>Игра — горизонтально, как экран телевизора</span><button class="btn gold" data-act="fullscreen"><i data-ic="fullscreen"></i> На весь экран</button></div></div>
 <div id="loading"><div class="spin"><i data-ic="castle"></i></div><div id="loading-text">Подключаемся…</div><button class="btn ghost sm" id="btn-cancel">Отмена</button></div>
 <div id="toast"></div>
 

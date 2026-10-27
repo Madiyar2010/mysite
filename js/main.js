@@ -54,9 +54,9 @@ async function goFullscreen(toggle) {
   const d = document.documentElement;
   const req = d.requestFullscreen || d.webkitRequestFullscreen;
   if (fsEl()) { if (!toggle) return; try { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { } return; }
-  if (!req) {
+  if (!req || /iPhone|iPod/.test(navigator.userAgent)) {
     if (navigator.standalone || !toggle) return;
-    toast('На iPhone: нажми «Поделиться» внизу Safari → «На экран „Домой“». Игра будет открываться на весь экран.', 6000);
+    openModal('#m-a2hs');
     return;
   }
   try { const r = req.call(d, { navigationUI: 'hide' }); if (r && r.then) await r; }
@@ -75,6 +75,13 @@ document.addEventListener('click', e => {
 });
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
 if (Input.touch) { document.body.classList.add('touch'); document.body.classList.add('need-landscape'); window.__touch = true; }
+// айфон и айпад: вибрации нет, полный экран — только через «На экран Домой»
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+if (IOS) document.body.classList.add('ios');
+if (STANDALONE) document.body.classList.add('standalone');
+if (IOS && !STANDALONE && !LS.get('a2hs', false)) setTimeout(() => { if (S.screen === 's-home') { LS.set('a2hs', true); openModal('#m-a2hs'); } }, 2500);
+$('#btn-a2hs').onclick = () => openModal('#m-a2hs');
 hydrate();
 
 let wakeLock = null;
