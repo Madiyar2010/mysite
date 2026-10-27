@@ -258,9 +258,26 @@ export function graveyard() {
     K.lights.push({ x: cx, y: 2.6, z: -12, color: '#ffae4a', i: 3, d: 8, flicker: 1 });
     dec('grave/cross-column', cx, z1 + 0.6, { y: H + 0.4, h: 1.1 });
   }
-  box(0, 0, 16, 7, 3.6, 5, 'crypt', { roof: 'slate', ridge: 'x', rh: 1.8 });
-  box(0, 0, 13.45, 2, 2.6, 0.1, 'bars');
-  dec('grave/cross-column', 0, 16, { y: 5.4, h: 1.4 });
+  // часовня с колокольней: в колокольню снаружи ведёт лестница, наверху — открытая звонница
+  const TX = 1.8, TZ0 = 9.2, TZ1 = 12.8, TB = 5.3;
+  wall('x', -TX, TX, TZ0, 0.4, TB, 'gravewall', [{ c: 0, w: 1.4, top: 2.4 }]);
+  for (const sx of [-1, 1]) wall('z', TZ0 + 0.2, TZ1, sx * TX, 0.4, TB, 'gravewall');
+  box(0, TB - 0.3, (TZ0 + TZ1) / 2, 2 * TX + 0.4, 0.3, TZ1 - TZ0 + 0.4, 'gpost');
+  for (const sx of [-1, 1]) for (const z of [TZ0, TZ1]) box(sx * TX, TB, z, 0.5, 2.8, 0.5, 'gpost');
+  box(0, TB + 2.8, (TZ0 + TZ1) / 2, 2 * TX + 0.8, 0.3, TZ1 - TZ0 + 0.8, 'cryptroof', { roof: 'slate', ridge: 'z', rh: 2.4 });
+  K.deco.push({ bell: true, x: 0, z: (TZ0 + TZ1) / 2, y: TB + 2.75 });
+  for (let i = 0; i < 12; i++) box(TX + 0.2 + 0.15 + (11 - i) * 0.3, 0, (TZ0 + TZ1) / 2, 0.3, (TB / 12) * (i + 1), 1.6, 'gstairs');
+  // зал часовни: двери из колокольни, окна по бокам, скамьи и алтарь
+  const CZ1 = 19.5;
+  wall('x', -4.6, -TX, TZ1, 0.4, 4.2, 'gravewall'); wall('x', TX, 4.6, TZ1, 0.4, 4.2, 'gravewall');
+  wall('x', -4.6, 4.6, CZ1, 0.4, 4.2, 'gravewall');
+  for (const sx of [-1, 1]) wall('z', TZ1 + 0.2, CZ1 - 0.2, sx * 4.4, 0.4, 4.2, 'gravewall', [{ c: 15, w: 1.2, bot: 1.2, top: 2.6 }, { c: 17.6, w: 1.2, bot: 1.2, top: 2.6 }]);
+  box(0, 4.2, (TZ1 + CZ1) / 2, 9.6, 0.3, CZ1 - TZ1 + 0.4, 'cryptroof', { roof: 'slate', ridge: 'z', rh: 2 });
+  K.floors.push({ x: 0, z: (TZ0 + CZ1) / 2, w: 8.4, d: CZ1 - TZ0, tex: 'flagstone', k: 1.5, y: 0.02 });
+  for (const sx of [-1, 1]) for (const z of [15, 16.8]) box(sx * 2.2, 0, z, 1.8, 0.6, 0.6, 'bench', { model: 'grave/bench', rot: PI });
+  box(0, 0, 18.6, 2.2, 1.0, 1, 'altar', { model: 'grave/altar-stone' });
+  dec('grave/candle-multiple', -0.7, 18.6, { y: 1.0, h: 0.45 }); dec('grave/candle-multiple', 0.7, 18.6, { y: 1.0, h: 0.45 });
+  K.lights.push({ x: 0, y: 3.2, z: 17, color: '#ffae4a', i: 3, d: 9, flicker: 1 });
   // могилы — за ними прячутся и из них встают скелеты
   const stones = ['grave/gravestone-cross', 'grave/gravestone-round', 'grave/gravestone-bevel', 'grave/gravestone-decorative', 'grave/gravestone-wide', 'grave/gravestone-broken'];
   let si = 0; const graves = [];
