@@ -1054,6 +1054,89 @@ export function buildAmap3D(scene, map) {
   return out;
 }
 
+// ---------- ориентиры на картах «Найди предателя» ----------
+// названия комнат на полу, стрелки «к собранию» в коридорах, яркие места в главных комнатах
+function textDecal(text, color, w) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const g = c.getContext('2d');
+  g.font = '900 54px Rubik, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 10; g.strokeStyle = 'rgba(0,0,0,.45)'; g.strokeText(text, 256, 50); g.fillStyle = color; g.fillText(text, 256, 50);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 96 / 512), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.55, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.renderOrder = 1; return m;
+}
+function arrowTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 6); g.lineTo(58, 34); g.lineTo(42, 34); g.lineTo(42, 58); g.lineTo(22, 58); g.lineTo(22, 34); g.lineTo(6, 34); g.closePath(); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+export function decorateAmap(scene, map) {
+  const root = new THREE.Group(); scene.add(root); const anim = [];
+  const th = map.theme || 'space', labelCol = th === 'haunted' ? '#ffd9a8' : th === 'underwater' ? '#bff4ff' : '#e6ecff';
+  // названия комнат
+  for (const r of map.rooms) {
+    const w = Math.min(r.wx2 - r.wx1 - 1, 9);
+    const m = textDecal(r.name, labelCol, w); m.position.set(r.cx, 0.03, r.wz2 - 0.9); root.add(m);
+  }
+  // стрелки к комнате собраний: поиск в ширину от неё
+  const { GW, GH, grid } = map, spawn = map.R[map.def.spawnRoom];
+  const dist = new Int16Array(GW * GH).fill(-1), q = [];
+  for (let y = spawn.y1; y <= spawn.y2; y++) for (let x = spawn.x1; x <= spawn.x2; x++) { dist[y * GW + x] = 0; q.push(y * GW + x); }
+  while (q.length) { const c = q.shift(), x = c % GW, y = (c / GW) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, n = ny * GW + nx; if (nx < 0 || ny < 0 || nx >= GW || ny >= GH || !grid[n] || dist[n] >= 0) continue; dist[n] = dist[c] + 1; q.push(n); } }
+  const at = arrowTex(), amat = new THREE.MeshBasicMaterial({ map: at, color: th === 'haunted' ? '#ffb347' : '#ffd23f', transparent: true, opacity: 0.5, depthWrite: false });
+  const ageo = new THREE.PlaneGeometry(0.9, 0.9);
+  for (const c of map.corridors) {
+    const cells = []; for (let y = c.y1; y <= c.y2; y++) for (let x = c.x1; x <= c.x2; x++) cells.push([x, y]);
+    // по одной стрелке на каждые 3 клетки вдоль коридора, в средней линии
+    const line = c.h ? cells.filter(([x, y]) => y === c.y1) : cells.filter(([x, y]) => x === c.x1);
+    line.forEach(([x, y], i) => {
+      if (i % 3 !== 1) return;
+      const d0 = dist[y * GW + x]; if (d0 <= 0) return;
+      let best = null; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = (y + dy) * GW + x + dx; if (dist[n] >= 0 && dist[n] < d0) best = [dx, dy]; }
+      if (!best) return;
+      const m = new THREE.Mesh(ageo, amat); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.atan2(-best[0], -best[1]);
+      m.position.set(c.h ? map.W(x) : map.W(x) + 1, 0.025, c.h ? map.Z(y) + 1 : map.Z(y)); m.renderOrder = 1; root.add(m);
+    });
+  }
+  // яркие места: светящийся круг на полу и ориентир в главных комнатах
+  const ring = (r, color, rad = 2.2) => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(rad * 0.82, rad, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.rotation.x = -Math.PI / 2; m.position.set(r.x, 0.04, r.z); root.add(m); anim.push(t => { m.material.opacity = 0.35 + Math.sin(t * 2.5) * 0.15; }); return m;
+  };
+  const room = id => map.R[id];
+  const LM = {
+    space: { R: ['#ff6b3d', 'reactor'], A: ['#3df5ff', 'holo'], N: ['#8f7bff', 'stars'], H: ['#5ee07a', 'hex'], C: ['#ffd23f'] },
+    underwater: { R: ['#ff9a3d', 'reactor'], A: ['#3df5ff', 'holo'], N: ['#3dd6d0', 'fish'], C: ['#ffd23f', 'fish'], O: ['#7fe3ff', 'fish'] },
+    haunted: { C: ['#ff4d6c', 'candles'], A: ['#d8b4ff', 'books'], O: ['#8cff5a', 'flies'], H: ['#ffd34d', 'gold'], E: ['#6bff9a', 'slime'] }
+  }[th] || {};
+  for (const [id, [color, kind]] of Object.entries(LM)) {
+    const r = room(id); if (!r) continue;
+    // свободное место в комнате: подальше от предметов
+    let spot = { x: r.cx, z: r.cz }, bd = -1;
+    for (let k = 0; k < 40; k++) { const x = rnd(r.wx1 + 2, r.wx2 - 2), z = rnd(r.wz1 + 2, r.wz2 - 2); const d = Math.min(...map.solids.map(o => Math.max(Math.abs(x - o.x) - o.hw, Math.abs(z - o.z) - o.hd)), 9) + Math.min(...map.props.map(p => Math.hypot(p.x - x, p.z - z)), 9) * 0.3; if (d > bd) { bd = d; spot = { x, z }; } }
+    if (id !== 'C') ring(spot, color, 1.6);
+    if (id === 'C' && map.stations.button) ring(map.stations.button, color, 2.6);
+    const g = new THREE.Group(); g.position.set(spot.x, 0, spot.z); root.add(g);
+    if (kind === 'reactor') { const core = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.6, 16), new THREE.MeshBasicMaterial({ color })); core.position.y = 0.8; g.add(core); for (let i = 0; i < 3; i++) { const rr = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: '#fff3c4' })); rr.rotation.x = Math.PI / 2; g.add(rr); anim.push(t => { rr.position.y = 0.2 + ((t * 0.6 + i / 3) % 1) * 1.4; }); } const L = new THREE.PointLight(color, 1.6, 7, 1.6); L.position.y = 1.5; g.add(L); anim.push(t => { L.intensity = 1.3 + Math.sin(t * 4) * 0.4; }); }
+    else if (kind === 'holo') { const pl = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 14), new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.7 })); pl.position.y = 1.4; g.add(pl); anim.push((t, dt) => { pl.rotation.y += dt; }); const beam = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.2, 20, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, depthWrite: false, side: THREE.DoubleSide })); beam.position.y = 0.6; beam.rotation.x = Math.PI; g.add(beam); }
+    else if (kind === 'stars' || kind === 'fish') {
+      // окно в полу: звёзды или рыбки под ногами
+      const win = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32), new THREE.MeshBasicMaterial({ color: kind === 'stars' ? '#05061a' : '#0b4f7a' })); win.rotation.x = -Math.PI / 2; win.position.y = 0.02; g.add(win);
+      for (let i = 0; i < (kind === 'stars' ? 18 : 5); i++) {
+        const o = kind === 'stars' ? new THREE.Mesh(new THREE.SphereGeometry(0.03 + Math.random() * 0.03, 6, 4), new THREE.MeshBasicMaterial({ color: '#ffffff' })) : new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.32, 6), new THREE.MeshBasicMaterial({ color: ['#ff9a3d', '#ffd23f', '#ff6b9a', '#7fe3ff'][i % 4] }));
+        const a0 = Math.random() * 6.28, rr = 0.3 + Math.random() * 0.9; o.position.set(Math.cos(a0) * rr, 0.035, Math.sin(a0) * rr); if (kind === 'fish') o.rotation.x = Math.PI / 2; g.add(o);
+        if (kind === 'fish') anim.push(t => { const a = a0 + t * (0.5 + i * 0.1); o.position.set(Math.cos(a) * rr, 0.035, Math.sin(a) * rr); o.rotation.z = -a; });
+        else anim.push(t => { o.material.color.setScalar(0.6 + Math.sin(t * 3 + i) * 0.4); });
+      }
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 6, 32), new THREE.MeshStandardMaterial({ color: '#c9d1e0', metalness: 0.6 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.04; g.add(rim);
+    }
+    else if (kind === 'hex') { for (let i = 0; i < 6; i++) { const h = new THREE.Mesh(new THREE.CircleGeometry(0.42, 6), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5 })); const a = i / 6 * Math.PI * 2; h.rotation.x = -Math.PI / 2; h.position.set(Math.cos(a) * 0.75, 0.03, Math.sin(a) * 0.75); g.add(h); anim.push(t => { h.material.opacity = 0.3 + 0.3 * Math.max(0, Math.sin(t * 3 - i)); }); } }
+    else if (kind === 'candles') { for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8), std('#f4ead2')); c.position.set(Math.cos(a) * 1.3, 0.2, Math.sin(a) * 1.3); g.add(c); const f = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshBasicMaterial({ color: '#ffb347' })); f.position.set(c.position.x, 0.46, c.position.z); g.add(f); anim.push(t => { f.scale.setScalar(0.8 + Math.random() * 0.5); }); } const L = new THREE.PointLight('#ff9a3d', 1.2, 6, 1.6); L.position.y = 1; g.add(L); }
+    else if (kind === 'books') { for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.42), std(['#e63946', '#3a6fd8', '#2a9d5c', '#ffd34d', '#b46bff'][i])); g.add(b); anim.push(t => { const a = t * 0.8 + i * 1.26; b.position.set(Math.cos(a) * 0.8, 1.1 + Math.sin(t * 2 + i) * 0.15, Math.sin(a) * 0.8); b.rotation.y = -a; }); } }
+    else if (kind === 'flies' || kind === 'slime') { const n = 14; for (let i = 0; i < n; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(kind === 'slime' ? 0.12 : 0.05, 6, 6), new THREE.MeshBasicMaterial({ color })); g.add(f); const a0 = Math.random() * 6.28, r0 = Math.random() * 1.4; anim.push(t => { if (kind === 'slime') { f.position.set(Math.cos(a0) * r0, 0.05 + Math.abs(Math.sin(t * 2 + i)) * 0.15, Math.sin(a0) * r0); } else f.position.set(Math.cos(a0 + t * 0.4) * r0, 0.6 + Math.sin(t * 1.7 + i) * 0.4, Math.sin(a0 + t * 0.4) * r0); }); } }
+    else if (kind === 'gold') { for (let i = 0; i < 26; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 10), std('#ffd34d', { metalness: 0.8, roughness: 0.3, emissive: '#6b4b00', emissiveIntensity: 0.5 })); const a = Math.random() * 6.28, rr = Math.random() * 0.7; c.position.set(Math.cos(a) * rr, 0.02 + (0.7 - rr) * 0.4 * Math.random(), Math.sin(a) * rr); c.rotation.set(Math.random(), 0, Math.random()); g.add(c); } const L = new THREE.PointLight('#ffd34d', 0.9, 5, 1.6); L.position.y = 1; g.add(L); }
+  }
+  return { root, anim };
+}
 export class AmongView {
   constructor(opts) {
     this.opts = opts; this.map = opts.map; this.myId = opts.myPid;
@@ -1087,6 +1170,7 @@ export class AmongView {
       this.scene.add(this.motes);
     }
     this.built = buildAmap3D(this.scene, this.map);
+    this.marks = decorateAmap(this.scene, this.map);
     this.fx = new FX(this.scene);
     this.ents = new Map();
     this.focus = new THREE.Vector3(); this.camPos = new THREE.Vector3(0, 30, 10);
@@ -1105,6 +1189,7 @@ export class AmongView {
     for (const a of this.ents.values()) a.update(dt, this);
     this.fx.update(dt);
     const t = performance.now() / 1000;
+    if (this.marks) for (const f of this.marks.anim) f(t, dt);
     for (const d of this.built.doors) {
       if (d.target == null) d.target = 1;
       d.open += (d.target - d.open) * Math.min(1, dt * 7);
