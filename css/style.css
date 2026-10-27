@@ -695,7 +695,11 @@ body:not(.touch) #am-actions .act.use{width:78px;height:78px}
 body.touch #sh-touch{display:block}
 body.touch #sh-br{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 58px);right:max(14px,env(safe-area-inset-right))}
 body.touch #sh-br #sh-ammo b{font-size:26px}
-body.touch #sh-feed{top:calc(max(8px,env(safe-area-inset-top)) + 54px);right:auto;left:max(12px,env(safe-area-inset-left));align-items:flex-start}
+body.touch #sh-feed{top:max(8px,env(safe-area-inset-top));right:auto;left:calc(max(12px,env(safe-area-inset-left)) + 100px);align-items:flex-start}
+#sh-mini{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 56px);right:max(12px,env(safe-area-inset-right));width:180px;z-index:3;pointer-events:none;background:rgba(10,8,30,.55);border:1px solid rgba(255,255,255,.18);border-radius:10px}
+#sh-feed{top:calc(max(8px,env(safe-area-inset-top)) + 64px + var(--shmm,0px)) !important}
+body.touch #sh-feed{top:max(8px,env(safe-area-inset-top)) !important}
+body.touch #sh-mini{right:auto;left:max(10px,env(safe-area-inset-left));top:calc(max(8px,env(safe-area-inset-top)) + 50px);width:96px}
 body.touch #sh-feed .kf{font-size:12px;padding:4px 8px}
 #sh-touch .act{position:absolute;z-index:4}
 #sh-fire{right:max(26px,env(safe-area-inset-right));bottom:max(30px,env(safe-area-inset-bottom));width:96px;height:96px;background:radial-gradient(circle at 40% 35%,#ff8a8a,#e63946);border-color:#fff}
@@ -714,7 +718,7 @@ body.touch #sh-feed .kf{font-size:12px;padding:4px 8px}
 #sh-touch .act.small small{font-size:9px}
 body.touch #sh-bl{bottom:max(8px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(240px,30vw)}
 body.touch #sh-bl .bar{padding:3px 8px;font-size:13px}
-#sh-keys{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(8px,env(safe-area-inset-top)) + 50px);background:rgba(10,8,25,.55);padding:6px 12px;border-radius:10px;font-size:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
+#sh-keys{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(8px,env(safe-area-inset-top)) + 50px);background:rgba(10,8,25,.55);padding:6px 12px;border-radius:10px;font-size:12px;color:var(--muted);width:max-content;max-width:calc(100vw - 460px);text-align:center;pointer-events:none}
 body.touch #sh-keys{display:none}
 @media (max-width:1250px){#sh-keys{display:none}}
 #sh-dead{position:absolute;left:50%;top:30%;transform:translateX(-50%);display:none;z-index:5;pointer-events:none}

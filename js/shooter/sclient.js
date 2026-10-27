@@ -606,7 +606,42 @@ export class ShooterClient {
     const sl = $('#sh-slots');
     sl.innerHTML = [[1, this.pv.slot1], [2, this.pv.slot2], [3, 'knife'], [4, this.pv.nades > 0 ? 'grenade' : null]].map(([n, w]) => w ? `<div class="${w === this.cur ? 'on' : ''}"><i>${n}</i>${icon(WEAPONS[w].icon)}</div>` : '').join('');
   }
+  // маленькая карта сверху справа: стены, ты (стрелка), свои, флаги; враги — только подсвеченные, монстры — всегда
+  miniMap() {
+    const cv = $('#sh-mini'), m = this.map; if (!cv || !m) return;
+    const now = performance.now(); if (now - (this.mmT || 0) < 120) return; this.mmT = now;
+    const W = cv.clientWidth; if (!W) return;
+    if (!this.mmB) {
+      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (const b of m.boxes) { if (b.w > 60 || b.d > 60) continue; x0 = Math.min(x0, b.x - b.w / 2); x1 = Math.max(x1, b.x + b.w / 2); z0 = Math.min(z0, b.z - b.d / 2); z1 = Math.max(z1, b.z + b.d / 2); }
+      this.mmB = { x0, x1, z0, z1 };
+    }
+    const B = this.mmB, k = W / (B.x1 - B.x0), H = Math.round((B.z1 - B.z0) * k);
+    if (!this.mmBase || this.mmBase.W !== W) {
+      cv.style.height = H + 'px'; cv.width = W * 2; cv.height = H * 2; document.documentElement.style.setProperty('--shmm', H + 'px');
+      const c = document.createElement('canvas'); c.width = W * 2; c.height = H * 2; const g = c.getContext('2d'); g.scale(2, 2);
+      const list = m.boxes.filter(b => b.w <= 60 && b.d <= 60 && b.vis !== 'invis' && b.solid !== false).sort((a, b) => (a.y + a.h) - (b.y + b.h));
+      for (const b of list) { const top = b.y + b.h; g.fillStyle = b.vis === 'floor' || top < 0.3 ? 'rgba(255,255,255,.10)' : top < 1.6 ? 'rgba(170,180,230,.45)' : 'rgba(210,215,255,.8)'; g.fillRect((b.x - b.w / 2 - B.x0) * k, (b.z - b.d / 2 - B.z0) * k, Math.max(1, b.w * k), Math.max(1, b.d * k)); }
+      this.mmBase = { W, c };
+    }
+    const g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(this.mmBase.c, 0, 0); g.scale(2, 2);
+    const tx = x => (x - B.x0) * k, tz = z => (z - B.z0) * k;
+    const dot = (x, z, col, r = 3) => { g.fillStyle = col; g.beginPath(); g.arc(tx(x), tz(z), r, 0, 7); g.fill(); };
+    for (const [id, a] of this.view.ents) {
+      if (id === this.me || a.dead || a.x == null) continue;
+      const enemy = this.isEnemyId(id), mon = String(id).startsWith('m');
+      if (enemy && !mon && !((a.fl || 0) & 4)) continue;
+      dot(a.x, a.z, mon ? '#ff5d6c' : enemy ? '#ff9f43' : this.team ? (this.my.team === 0 ? '#ff6b6b' : '#4dabf7') : '#5ee07a', 3);
+    }
+    if (this.view.flags) for (const [team, f] of this.view.flags) { const p = f.userData.p; if (p) { g.fillStyle = team === 0 ? '#ff4d5e' : '#3a86ff'; g.fillRect(tx(p[0]) - 3, tz(p[2]) - 6, 6, 6); g.fillRect(tx(p[0]) - 3, tz(p[2]) - 6, 1.5, 10); } }
+    if (this.alive) { // ты — стрелка по направлению взгляда
+      const x = tx(this.p.x), z = tz(this.p.z), dx = -Math.sin(this.yaw), dz = -Math.cos(this.yaw);
+      g.fillStyle = '#ffd166'; g.strokeStyle = '#000'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x + dx * 7, z + dz * 7); g.lineTo(x - dx * 4 + dz * 4.5, z - dz * 4 - dx * 4.5); g.lineTo(x - dx * 4 - dz * 4.5, z - dz * 4 + dx * 4.5); g.closePath(); g.fill(); g.stroke();
+    }
+  }
   hudFrame() {
+    this.miniMap();
     const W = WEAPONS[this.cur] || {};
     const moving = Math.hypot(this.p.vx, this.p.vz) > 1.5 || !this.p.ground;
     const spread = (this.scoped && W.scopeSpread != null ? W.scopeSpread : (W.spread || 0.01)) + (moving ? W.moveSpread || 0 : 0) + Math.max(0, 0.03 - (performance.now() / 1000 - this.lastFire)) * 0.5;
