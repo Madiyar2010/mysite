@@ -793,3 +793,13 @@ body.touch #sh-keys{display:none}
 
 .raw{display:inline-flex;align-items:center;gap:4px;margin-top:3px;background:rgba(255,209,102,.18);color:#ffd166;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:800}
 .raw svg{width:13px;height:13px}
+
+.colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.colors .sw{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.25);padding:0}
+.colors .sw.on{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.adult{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;font-weight:800;cursor:pointer}
+.adult input{width:26px;height:26px;accent-color:#ffd166}
+.adult span{display:inline-flex;align-items:center;gap:6px}
+.adult span svg{width:18px;height:18px;color:#ffd166}
+.adult small{width:100%;color:var(--muted);font-weight:600;font-size:12px}
+.adult-i svg{width:13px;height:13px;color:#ffd166;vertical-align:-1px}

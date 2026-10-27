@@ -22,13 +22,14 @@ let myPid;
 try { myPid = localStorage.getItem('ha_pid') || sessionStorage.getItem('ha_pid'); if (!myPid) myPid = rid(); localStorage.setItem('ha_pid', myPid); } catch (e) { myPid = rid(); }
 const me = {
   pid: myPid, name: LS.get('name', ''), model: LS.get('model', pick(A.HEROES)), cls: LS.get('cls', 'knight'),
-  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none')
+  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none'), color: LS.get('color', '#ffd166'), adult: LS.get('adult', false)
 };
 const prefs = window.__prefs = { vibe: LS.get('vibe', true) };
 Net.myPid = myPid;
 const thumb = m => `assets/thumbs/${m}.png`;
-function saveMe() { for (const k of ['name', 'model', 'cls', 'hat', 'aura']) LS.set(k, me[k]); }
-function profile() { return { pid: me.pid, name: me.name, model: me.model, cls: me.cls, hat: me.hat, aura: me.aura }; }
+const PCOLORS = ['#ffd166', '#ff6b78', '#4da3ff', '#5ee07a', '#b46bff', '#ff9a3d', '#3dd6d0', '#ff7ad9'];
+function saveMe() { for (const k of ['name', 'model', 'cls', 'hat', 'aura', 'color', 'adult']) LS.set(k, me[k]); }
+function profile() { return { pid: me.pid, name: me.name, model: me.model, cls: me.cls, hat: me.hat, aura: me.aura, color: me.color, adult: !!me.adult }; }
 function hydrate(root = document) { root.querySelectorAll('[data-ic]').forEach(el => { if (!el.firstChild) el.innerHTML = icon(el.dataset.ic); }); }
 
 // ---------- общий интерфейс ----------
@@ -141,6 +142,11 @@ function initHome() {
   codeIn.addEventListener('input', () => { codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); });
   codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') $('#btn-join').click(); });
   $('#in-name').addEventListener('input', () => { me.name = $('#in-name').value.trim().slice(0, 14); saveMe(); refreshShowroom(); });
+  const drawColors = () => { $('#colors').innerHTML = PCOLORS.map(c => `<button class="sw ${c === me.color ? 'on' : ''}" data-c="${c}" style="background:${c}" aria-label="цвет"></button>`).join(''); };
+  drawColors();
+  $('#colors').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; me.color = b.dataset.c; saveMe(); drawColors(); Sound.play('select', { vol: 0.5 }); if (Net.code) Net.toHost({ t: 'prof', ...profile() }); };
+  $('#in-adult').checked = !!me.adult;
+  $('#in-adult').onchange = () => { me.adult = $('#in-adult').checked; saveMe(); if (Net.code) Net.toHost({ t: 'prof', ...profile() }); };
   const readName = () => { const n = $('#in-name').value.trim().slice(0, 14); if (!n) { toast('Как тебя зовут?'); $('#in-name').focus(); return false; } me.name = n; saveMe(); return true; };
   $('#btn-create').onclick = async () => {
     if (!readName()) return;
@@ -238,12 +244,12 @@ function hostStart(code) {
 }
 function lobbyMsg() {
   return { t: 'lobby', code: Net.code, hostId: me.pid, mode: H.mode, opts: H.opts, inGame: H.inGame,
-    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, team: p.team, online: p.online, pts: p.pts })) };
+    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, color: p.color, adult: p.adult, team: p.team, online: p.online, pts: p.pts })) };
 }
 function hostLobby(go) { const m = lobbyMsg(); if (go) m.go = 1; Net.broadcast(m); }
 function cleanProfile(m) {
   return { name: String(m.name || 'Игрок').slice(0, 14) || 'Игрок', model: A.HEROES.includes(m.model) ? m.model : 'character-a',
-    cls: CLASSES[m.cls] ? m.cls : 'knight', hat: HATS.some(h => h.id === m.hat) ? m.hat : 'none', aura: AURAS.some(a => a.id === m.aura) ? m.aura : 'none' };
+    cls: CLASSES[m.cls] ? m.cls : 'knight', hat: HATS.some(h => h.id === m.hat) ? m.hat : 'none', aura: AURAS.some(a => a.id === m.aura) ? m.aura : 'none', color: PCOLORS.includes(m.color) ? m.color : '#ffd166', adult: !!m.adult };
 }
 Net.onHostMessage = (pid, m) => {
   switch (m.t) {
@@ -463,7 +469,7 @@ function renderLobby() {
     <button class="pl ${p.pid === me.pid ? 'me' : ''}" data-pid="${p.pid}">
       ${teams ? `<span class="team-dot" style="background:${TEAM_COLORS[p.team]}"></span>` : ''}
       <img src="${thumb(p.model)}" alt="">
-      <div style="min-width:0"><div class="pn">${esc(p.name)}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
+      <div style="min-width:0"><div class="pn" style="color:${p.color || '#fff'}">${esc(p.name)}${p.adult ? ` <span class="adult-i" title="взрослый">${icon('crown')}</span>` : ''}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
       <div class="ps">${icon(CLASSES[p.cls].icon)} ${CLASSES[p.cls].name} · ${icon('star')} ${p.pts}</div></div>
       ${isHost && p.pid !== me.pid ? `<span class="kick" data-kick="${p.pid}" title="Убрать из комнаты">${icon('close')}</span>` : ''}
     </button>`;
