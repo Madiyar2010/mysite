@@ -698,7 +698,7 @@ body.touch #sh-br #sh-ammo b{font-size:26px}
 body.touch #sh-feed{top:max(8px,env(safe-area-inset-top));right:auto;left:calc(max(12px,env(safe-area-inset-left)) + 100px);align-items:flex-start}
 #sh-mini{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 56px);right:max(12px,env(safe-area-inset-right));width:180px;z-index:3;pointer-events:none;background:rgba(10,8,30,.55);border:1px solid rgba(255,255,255,.18);border-radius:10px}
 #sh-feed{top:calc(max(8px,env(safe-area-inset-top)) + 64px + var(--shmm,0px)) !important}
-body.touch #sh-feed{top:max(8px,env(safe-area-inset-top)) !important}
+body.touch #sh-feed{top:calc(max(8px,env(safe-area-inset-top)) + 50px) !important}
 body.touch #sh-mini{right:auto;left:max(10px,env(safe-area-inset-left));top:calc(max(8px,env(safe-area-inset-top)) + 50px);width:96px}
 body.touch #sh-feed .kf{font-size:12px;padding:4px 8px}
 #sh-touch .act{position:absolute;z-index:4}

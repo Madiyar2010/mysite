@@ -12,6 +12,8 @@ export const S_MONSTERS = {
   bat: { model: 'grave/character-ghost', name: 'Летучий призрак', hp: 45, speed: 5.2, dmg: 10, range: 1.6, cd: 0.8, scale: 0.85, money: 110, hover: 1.4 },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
+// «Оружейная гонка»: оружие по порядку, последнее — нож
+export const GUN_LADDER = ['smg', 'rifle', 'shotgun', 'plasma', 'sniper', 'railgun', 'laser', 'paint', 'pistol', 'knife'];
 export const SHOOT_DEFAULTS = { pveDiff: 1, endless: false, ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128, crouch: 256 };
 const WIDX = Object.keys(WEAPONS);
@@ -20,7 +22,7 @@ export class ShooterSim {
   constructor(io, { mode, roster, opts }) {
     this.io = io; this.mode = mode;
     this.opts = { ...SHOOT_DEFAULTS, ...opts };
-    if (mode === 'ctf' || mode === 'pve') this.opts.match = 'timed';
+    if (mode === 'ctf' || mode === 'pve' || mode === 'gun') this.opts.match = 'timed';
     this.rounds = this.opts.match === 'rounds';
     this.team = mode === 'tdm' || mode === 'ctf';
     this.map = SMAPS[this.opts.smap] || SMAPS.warehouse;
@@ -43,12 +45,19 @@ export class ShooterSim {
     const p = { id: r.pid, name: r.name, team: r.team ?? 0, bot: !!r.bot, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vy: 0, vz: 0, ground: true,
       alive: true, hp: 100, armor: 0, money: this.rounds ? MONEY.start : MONEY.startTimed, slot1: null, slot2: 'pistol', nades: 0, medkit: 0, cur: 'pistol',
       ammo: {}, lastFire: 0, reloadUntil: 0, slowUntil: 0, freezeUntil: 0, markUntil: 0, protUntil: 0, kills: 0, deaths: 0, pts: 0, caps: 0,
-      anim: 0, animN: 0, respawnT: 0, left: false, lastPos: 0, ai: { t: 0, path: null, pathT: 0, react: 0, strafe: 1, aimErr: 0 }, buyWindow: 0, moverHit: 0 };
+      anim: 0, animN: 0, respawnT: 0, left: false, lastPos: 0, ai: { t: 0, path: null, pathT: 0, react: 0, strafe: 1, aimErr: 0 }, buyWindow: 0, moverHit: 0, gl: 0 };
     this.giveAmmo(p, 'pistol');
+    if (this.mode === 'gun') this.gunSet(p);
     this.ps.set(p.id, p);
     return p;
   }
   addLate(r) { const p = this.addPlayer(r); if (this.rounds && this.phase === 'play') { p.alive = false; } else this.spawn(p); return p; }
+  // оружие по уровню в «Оружейной гонке» (патронов с запасом)
+  gunSet(p) {
+    const w = GUN_LADDER[Math.min(p.gl, GUN_LADDER.length - 1)], W = WEAPONS[w];
+    p.slot1 = W.slot === 1 ? w : null; p.slot2 = W.slot === 2 ? w : null; p.nades = 0; p.cur = w;
+    if (W.mag) p.ammo[w] = [W.mag, 999];
+  }
   giveAmmo(p, w) { const W = WEAPONS[w]; if (W && W.mag) p.ammo[w] = [W.mag, W.reserve]; }
   enemies(a, b) {
     if (a === b) return false;
@@ -84,6 +93,7 @@ export class ShooterSim {
     Object.assign(p, { x: s.x, y: 0, z: s.z, yaw: s.yaw, pitch: 0, vx: 0, vy: 0, vz: 0, alive: true, hp: 100, protUntil: this.t + 3, slowUntil: 0, freezeUntil: 0, reloadUntil: 0, buyWindow: this.t + 10 });
     for (const w of [p.slot1, p.slot2]) if (w) this.giveAmmo(p, w);
     p.cur = p.slot1 || p.slot2;
+    if (this.mode === 'gun') this.gunSet(p);
     if (!p.bot) this.io.sendTo(p.id, { t: 'spawn', x: s.x, y: 0, z: s.z, yaw: s.yaw });
     p.ai.path = null;
   }
@@ -91,11 +101,11 @@ export class ShooterSim {
   // ---------- раунды ----------
   startRound(first) {
     this.round++;
-    this.phase = 'buy'; this.phaseT = 20; this.buyReady = new Set();
+    this.phase = 'buy'; this.phaseT = this.mode === 'gun' ? 4 : 20; this.buyReady = new Set();
     this.roundKills = new Map();
     if (this.rounds || first) for (const p of this.ps.values()) if (!p.left) this.spawn(p);
     if (this.mode === 'pve' && !first) for (const p of this.ps.values()) if (!p.left && !p.alive) this.spawn(p);
-    for (const p of this.ps.values()) if (p.bot) this.botBuy(p);
+    if (this.mode !== 'gun') for (const p of this.ps.values()) if (p.bot) this.botBuy(p);
     this.projs = [];
     if (this.flags) for (const f of this.flags) Object.assign(f, { x: f.hx, z: f.hz, y: 0, carrier: null, home: true });
     if (this.mode === 'pve') { this.wave++; this.queue = this.waveList(this.wave); this.spawnT = 0; }
@@ -150,6 +160,10 @@ export class ShooterSim {
       const [a, b] = this.teamScore;
       if (a === b) this.finish('Ничья!', new Set());
       else { const w = a > b ? 0 : 1; this.finish(`Победили ${TEAM_NAMES[w]}!`, new Set(players.filter(p => p.team === w).map(p => p.id))); }
+    } else if (this.mode === 'gun') {
+      const best = Math.max(...players.map(p => p.gl));
+      const ws = players.filter(p => p.gl === best);
+      this.finish(`Время вышло! Дальше всех прошёл ${ws.map(p => p.name).join(' и ')}`, new Set(ws.map(p => p.id)));
     } else {
       const best = Math.max(...players.map(p => p.kills));
       const ws = players.filter(p => p.kills === best);
@@ -208,6 +222,7 @@ export class ShooterSim {
     }
   }
   canBuy(p) {
+    if (this.mode === 'gun') return false;
     if (this.phase === 'buy' || this.phase === 'roundEnd') return true;
     if (!this.rounds && (!p.alive || this.t < p.buyWindow)) return true;
     return false;
@@ -376,6 +391,11 @@ export class ShooterSim {
       src.kills++; src.pts++; src.money = Math.min(MONEY.max, src.money + MONEY.kill);
       this.roundKills.set(src.id, (this.roundKills.get(src.id) || 0) + 1);
       if (this.mode === 'tdm' && !this.rounds) this.teamScore[src.team]++;
+      if (this.mode === 'gun') {
+        if (src.gl >= GUN_LADDER.length - 1) { this.finish(`Победил ${src.name}! Прошёл всё оружие`, new Set([src.id])); return; }
+        src.gl++; this.gunSet(src); src.reloadUntil = 0;
+        if (src.gl === GUN_LADDER.length - 1) this.ev('msg', `${src.name} взял нож! Ещё одно выбивание — и победа`);
+      }
     }
     if (this.rounds) { t.slot1 = null; t.armor = 0; t.nades = 0; t.slot2 = t.slot2 === 'pistol' ? 'pistol' : 'pistol'; }
     else if (this.mode === 'pve') {
@@ -462,9 +482,10 @@ export class ShooterSim {
       if (ai.t <= 0) { ai.t = rnd(0.6, 1.5); ai.aimErr = rnd(-err, err); ai.strafe *= -1; }
       p.yaw = lerpAng(p.yaw, yaw + ai.aimErr, Math.min(1, dt * 8)); p.pitch += (pitch + ai.aimErr * 0.5 - p.pitch) * Math.min(1, dt * 8);
       const want = W.melee ? 1 : W.range && W.range < 25 ? 6 : 14;
-      if (bd > want + 2 && !this.flags) { const st = this.followPath(p, target); mx = st.x; mz = st.z; }
+      if (W.melee && bd > 1.2) { const st = bd < 4 ? { x: tx / Math.hypot(tx, tz), z: tz / Math.hypot(tx, tz) } : this.followPath(p, target); mx = st.x; mz = st.z; } // с ножом — прямо к цели
+      else if (bd > want + 2 && !this.flags) { const st = this.followPath(p, target); mx = st.x; mz = st.z; }
       const fx = Math.sin(p.yaw + Math.PI / 2), fz = Math.cos(p.yaw + Math.PI / 2);
-      mx += -fx * ai.strafe * 0.6; mz += -fz * ai.strafe * 0.6;
+      if (!W.melee) { mx += -fx * ai.strafe * 0.6; mz += -fz * ai.strafe * 0.6; }
       if (goal && this.flags) { const st = this.followPath(p, goal); mx = mx * 0.4 + st.x; mz = mz * 0.4 + st.z; }
       // выстрел
       if (ai.react <= 0 && this.phase === 'play') {
@@ -482,7 +503,7 @@ export class ShooterSim {
       p.pitch *= 0.9;
       const a = p.ammo[p.cur]; if (W.mag && a && a[0] < W.mag * 0.5) this.reload(p);
     }
-    if (p.cur === 'grenade' || !p.cur) p.cur = p.slot1 || p.slot2;
+    if (p.cur === 'grenade' || !p.cur) p.cur = p.slot1 || p.slot2 || 'knife';
     return { mx, mz };
   }
   followPath(p, goal) {
@@ -701,7 +722,7 @@ export class ShooterSim {
     if (!this.team && this.rounds) s.rs = [...this.score];
     if (this.flags) s.fl = this.flags.map(f => [f.team, +f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2), f.carrier || '']);
     if (this.mode === 'pve') { const b = this.bossId && this.mons.get(this.bossId); s.wave = this.wave; s.lv = this.lives; s.left = this.queue.length + [...this.mons.values()].filter(m => m.alive).length; if (b && b.alive) s.boss = [b.hp, b.maxhp, b.phase || 1]; if (this.revives && this.revives.length) s.rv = this.revives; }
-    if (!this.sbT || this.t - this.sbT > 0.5) { this.sbT = this.t; s.sb = [...this.ps.values()].filter(p => !p.left).map(p => [p.id, p.kills, p.deaths, p.pts, this.score.get(p.id) || 0]); }
+    if (!this.sbT || this.t - this.sbT > 0.5) { this.sbT = this.t; s.sb = [...this.ps.values()].filter(p => !p.left).map(p => [p.id, p.kills, p.deaths, p.pts, this.score.get(p.id) || 0, p.gl]); }
     this.io.broadcast(s);
     this.fx = [];
   }

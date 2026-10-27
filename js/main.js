@@ -513,12 +513,12 @@ function amongSettings(o) {
     </details>`;
 }
 function shooterSettings(o, mode) {
-  const timedOnly = mode === 'ctf' || mode === 'pve';
+  const timedOnly = mode === 'ctf' || mode === 'pve' || mode === 'gun';
   const match = timedOnly ? 'timed' : o.match;
   return `
     <div class="opt-maps four">${SMAP_LIST.filter(m => !!m.pve === (mode === 'pve')).map(m => `<button class="opt-map smap ${o.smap === m.id || m.pve ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
     ${mode === 'pve' ? optRow(`${icon('skull')} Сложность`, seg('pveDiff', [0, 1, 2], o.pveDiff ?? 1, ['Лёгкая', 'Обычная', 'Трудная'])) + optRow(`${icon('hourglass')} Бесконечно`, seg('endless', [0, 1], o.endless ? 1 : 0, ['Выкл', 'Вкл'])) + `<div class="muted small">${o.endless ? `Волны без конца, каждые 6 — босс и монстры сильнее. За волну +1 жизнь команде. Рекорд на этом устройстве: волна ${(LS.get('endlessBest', {}) || {})[o.pveDiff ?? 1] || 0}.` : '6 волн и босс.'} Жизни команды: ${[15, 8, 3][o.pveDiff ?? 1]}. Подойди к павшему и постой 3 секунды — поднимешь его.</div>` : ''}
-    ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Между волнами — закупка' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
+    ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Между волнами — закупка' : mode === 'gun' ? 'Оружие по очереди: пистолет-пулемёт, автомат, дробовик, плазмомёт, снайперка, рельсотрон, лазерный пистолет, пейнтбол, пистолет и последним — нож. Закупки нет. Если время выйдет — побеждает тот, кто прошёл дальше.' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
     ${(mode === 'tdm' || mode === 'ctf') && o.teamSize ? `<div class="muted small">Свободные места в каждой команде займут боты</div>` : optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}

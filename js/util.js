@@ -39,6 +39,7 @@ export const MODES = {
   ffa: { name: 'Каждый сам за себя', icon: 'swords', group: 'arena', min: 1, desc: 'Кто больше всех выбьет соперников за 3 минуты.' },
   tdm: { name: 'Команда на команду', icon: 'users', group: 'arena', min: 2, desc: 'Красные против синих. Первые до 15 очков.' },
   ctf: { name: 'Захват флага', icon: 'flag', group: 'arena', min: 2, desc: 'Укради флаг врага и принеси на свою базу. До 3 захватов.' },
+  gun: { name: 'Оружейная гонка', icon: 'gun', group: 'arena', min: 1, desc: 'За каждое выбивание — новое оружие. Кто первым выбьет ножом — победил!' },
   pve: { name: 'Все против монстров', icon: 'skull', group: 'arena', min: 1, desc: 'Вместе отбивайтесь от волн скелетов. В конце — босс!' },
   traitor: { name: 'Найди предателя', icon: 'impostor', group: 'traitor', min: 3, desc: 'Как Among Us: задания, саботаж, люки, собрания. Среди вас — предатель!' }
 };

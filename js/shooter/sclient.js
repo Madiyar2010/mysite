@@ -597,7 +597,7 @@ export class ShooterClient {
     const W = WEAPONS[this.cur] || {}, a = this.ammo[this.cur];
     $('#sh-wname').innerHTML = `${icon(W.icon || 'gun')} ${W.name || ''}`;
     $('#sh-ammo').innerHTML = W.mag && a ? `<b class="${a[0] <= Math.ceil(W.mag * 0.25) ? 'low' : ''}">${a[0]}</b><span>/ ${a[1]}</span>` : W.throw ? `<b>${this.pv.nades}</b>` : '';
-    $('#sh-money').textContent = '$' + (this.pv.money || 0);
+    $('#sh-money').textContent = '$' + (this.pv.money || 0); $('#sh-money').style.display = this.mode === 'gun' ? 'none' : '';
     $('#sh-nade').style.display = this.pv.nades > 0 ? '' : 'none';
     $('#sh-nade').querySelector('small').textContent = '×' + (this.pv.nades || 0);
     $('#sh-aim').style.display = W.zoom ? '' : 'none';
@@ -677,6 +677,7 @@ export class ShooterClient {
     let sc = '';
     if (s.ts) { const my = this.my.team; sc = `<div class="ts t0 ${my === 0 ? 'mine' : ''}">${s.ts[0]}</div><div class="ts-mid">${this.opts.match === 'rounds' && this.mode !== 'ctf' ? 'до ' + this.opts.rounds : this.mode === 'ctf' ? icon('flag') + ' до 3' : 'до 20'}</div><div class="ts t1 ${my === 1 ? 'mine' : ''}">${s.ts[1]}</div>`; }
     else if (this.mode === 'pve') sc = `<div class="pill">Волна ${Math.max(1, s.wave)}${this.opts.endless ? '' : '/6'}</div><div class="pill">${icon('skull')} ${s.left || 0}</div><div class="pill ${s.lv === 0 ? 'warn' : ''}" title="жизни команды">${icon('heart')} ${s.lv ?? ''}</div>`;
+    else if (this.mode === 'gun' && s.sb) { const mine = s.sb.find(r => r[0] === this.me) || [0, 0, 0, 0, 0, 0], top = Math.max(...s.sb.map(r => r[5] || 0)); sc = `<div class="pill">${icon('gun')} Оружие ${(mine[5] || 0) + 1}/10</div><div class="pill dim">${icon('trophy')} лидер ${top + 1}/10</div>`; }
     else if (s.sb) { const mine = s.sb.find(r => r[0] === this.me) || [0, 0, 0, 0, 0]; sc = this.opts.match === 'rounds' ? `<div class="pill">${icon('trophy')} ${mine[4]}/${this.opts.rounds}</div><div class="pill">${icon('swords')} ${mine[1]}</div>` : `<div class="pill">${icon('swords')} ${mine[1]}</div>`; }
     if (s.rd && this.opts.match === 'rounds' && this.mode !== 'pve') sc += `<div class="pill dim">Раунд ${s.rd}</div>`;
     if (sc !== this.lastSc) { this.lastSc = sc; $('#sh-score').innerHTML = sc; }
