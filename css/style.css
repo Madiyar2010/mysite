@@ -900,3 +900,5 @@ body.ios #rotate .btn{display:none}
 #sh-boss[data-ph="3"] i{background:linear-gradient(90deg,#b30024,#ff2e63);animation:bossp .5s infinite alternate}
 @keyframes bossp{to{filter:brightness(1.4)}}
 .pill.warn{background:#b3243a}
+
+#res-coins .rec{font-size:20px;font-weight:900;color:var(--gold);margin-bottom:6px}

@@ -4,7 +4,7 @@
 //   node tests/smoke.js shooter [режим ffa|tdm|ctf|pve] [карта warehouse|castle|graveyard|street]
 //   node tests/smoke.js among [карта station|haunted|underwater]
 //   node tests/smoke.js lobby
-// TUTOR=1 — показывать обучение. Скриншоты — в папку tests/out (или OUT=папка). Код выхода 1, если на странице были ошибки.
+// TUTOR=1 — показывать обучение. CLICK="селектор;селектор" — нажать кнопки в лобби перед стартом (например, .seg[data-o=endless] button[data-v="1"]). Скриншоты — в папку tests/out (или OUT=папка). Код выхода 1, если на странице были ошибки.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const URL = process.env.URL || 'http://localhost:8765/';
@@ -47,6 +47,7 @@ const errors = [];
       await host.click(`.mode[data-m=${a1 || 'ffa'}]`); await host.waitForTimeout(300);
       if (a2) { await host.click(`.opt-map[data-smap=${a2}]`); await host.waitForTimeout(300); }
       await host.click('.seg[data-o=bots] button[data-v="2"]').catch(() => { }); await host.waitForTimeout(300);
+      if (process.env.CLICK) for (const sel of process.env.CLICK.split(';')) { await host.click(sel).catch(e => errors.push('нет кнопки ' + sel)); await host.waitForTimeout(300); }
     } else {
       await host.click('.mode[data-m=traitor]'); await host.waitForTimeout(300);
       if (a1) { await host.click(`.opt-map[data-map=${a1}]`); await host.waitForTimeout(300); }

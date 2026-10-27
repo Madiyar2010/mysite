@@ -12,7 +12,7 @@ export const S_MONSTERS = {
   bat: { model: 'grave/character-ghost', name: 'Летучий призрак', hp: 45, speed: 5.2, dmg: 10, range: 1.6, cd: 0.8, scale: 0.85, money: 110, hover: 1.4 },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
-export const SHOOT_DEFAULTS = { pveDiff: 1, ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
+export const SHOOT_DEFAULTS = { pveDiff: 1, endless: false, ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128, crouch: 256 };
 const WIDX = Object.keys(WEAPONS);
 
@@ -134,11 +134,12 @@ export class ShooterSim {
     } else if (this.mode === 'pve') {
       const humans = [...this.ps.values()].filter(p => !p.left && !p.bot);
       const allP = [...this.ps.values()].filter(p => !p.left);
-      if (allP.length && allP.every(p => !p.alive) && this.lives <= 0) { this.finish(`Монстры победили на волне ${this.wave}…`, new Set()); return; }
+      if (allP.length && allP.every(p => !p.alive) && this.lives <= 0) { this.finish(this.opts.endless ? `Бесконечно: вы продержались до волны ${this.wave}!` : `Монстры победили на волне ${this.wave}…`, new Set()); return; }
       if (!this.queue.length && this.mons.size === 0) {
-        if (this.wave >= 6) { this.finish('Все монстры побеждены! Вы — герои!', new Set([...this.ps.keys()])); return; }
+        if (this.wave >= 6 && !this.opts.endless) { this.finish('Все монстры побеждены! Вы — герои!', new Set([...this.ps.keys()])); return; }
         this.phase = 'roundEnd'; this.phaseT = 3;
         for (const p of this.ps.values()) { p.money = Math.min(MONEY.max, p.money + 600); }
+        if (this.opts.endless) this.lives += 1; // в «Бесконечно» за каждую волну +1 жизнь команде
         this.ev('roundEnd', `Волна ${this.wave} пройдена!`, -1, '');
       }
     } else if (timeUp) this.finishTimed();
@@ -168,7 +169,7 @@ export class ShooterSim {
     const rows = [...this.ps.values()].map(p => {
       const win = winners.has(p.id);
       let coins = 10 + p.kills * 2 + (win ? 20 : 0) + p.caps * 4;
-      if (this.mode === 'pve') coins = 10 + Math.round(p.kills / 2) + (win ? 25 : 0) + this.wave * 2;
+      if (this.mode === 'pve') coins = 10 + Math.round(p.kills / 2) + (win ? 25 : 0) + Math.min(this.wave, 20) * 2;
       return { pid: p.id, name: p.name, bot: p.bot, team: p.team, kills: p.kills, deaths: p.deaths, pts: p.pts, caps: p.caps, win, coins: p.bot ? 0 : coins, rounds: this.score.get(p.id) || 0 };
     }).sort((a, b) => (b.win - a.win) || (b.kills - a.kills));
     giveAwards(rows, this.mode === 'pve' ? [
@@ -179,7 +180,7 @@ export class ShooterSim {
       { name: 'Больше всех помог', icon: 'flag', ok: r => r.caps > 0 || r.win, score: r => r.caps * 3 + (r.win ? 1 : 0) + r.kills * 0.1 },
       { name: 'Самый живучий', icon: 'heart', ok: () => true, score: r => -r.deaths + r.kills * 0.01 }
     ]);
-    setTimeout(() => this.io.end({ mode: this.mode, winText: text, rows, teamScore: this.teamScore, wave: this.wave }), 1800);
+    setTimeout(() => this.io.end({ mode: this.mode, winText: text, rows, teamScore: this.teamScore, wave: this.wave, endless: !!(this.mode === 'pve' && this.opts.endless), pveDiff: this.opts.pveDiff }), 1800);
   }
 
   // ---------- сообщения ----------
@@ -499,7 +500,9 @@ export class ShooterSim {
   waveList(n) {
     const pc = Math.max(1, [...this.ps.values()].filter(p => !p.left).length);
     const L = [], add = (t, k) => { for (let i = 0; i < k; i++) L.push(t); };
-    const k = this.opts.pveDiff === 0 ? 0.7 : this.opts.pveDiff === 2 ? 1.3 : 1, A = (t, c) => add(t, Math.max(1, Math.round(c * k)));
+    // «Бесконечно»: после 6-й волны всё повторяется по кругу, с каждым кругом монстров больше
+    const cyc = Math.floor((n - 1) / 6); n = (n - 1) % 6 + 1;
+    const k = (this.opts.pveDiff === 0 ? 0.7 : this.opts.pveDiff === 2 ? 1.3 : 1) * (1 + cyc * 0.4), A = (t, c) => add(t, Math.max(1, Math.round(c * k)));
     if (n === 1) { A('skeleton', 4 + pc * 2); A('imp', 2); }
     else if (n === 2) { A('skeleton', 4 + pc); A('zombie', 2 + pc); A('imp', 2 + pc); }
     else if (n === 3) { A('skeleton', 4); A('vampire', 2 + pc); A('ghost', 2 + (pc >> 1)); A('bat', 2); }
@@ -511,7 +514,7 @@ export class ShooterSim {
   spawnMonster(type, at) {
     const M = S_MONSTERS[type], s = at || pick(this.map.monsterSpawns);
     const pc = Math.max(1, [...this.ps.values()].filter(p => !p.left).length);
-    const dk = [0.7, 1, 1.4][this.opts.pveDiff ?? 1] || 1; // сложность: лёгкая / обычная / трудная
+    const dk = ([0.7, 1, 1.4][this.opts.pveDiff ?? 1] || 1) * (1 + Math.floor(Math.max(0, this.wave - 1) / 6) * 0.3); // сложность: лёгкая / обычная / трудная (+ круги в «Бесконечно»)
     const hp = Math.round(M.hp * dk * (M.boss ? 0.5 + pc * 0.3 : 1));
     const m = { id: 'm' + (++this.mid), mon: true, type, x: s.x + rnd(-1, 1), y: 0, z: s.z + rnd(-1, 1), yaw: 0, vx: 0, vy: 0, vz: 0, ground: true, alive: true, hp, maxhp: hp, scale: M.scale,
       atkT: rnd(0.5, 1.5), animN: 0, anim: 0, ai: { path: null, pathT: 0 }, hy: M.hover || 0, dk, slamT: 6, summonT: 14, volleyT: 9, slowUntil: 0, freezeUntil: 0, markUntil: 0 };

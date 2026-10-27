@@ -243,7 +243,7 @@ const AM_SET = {
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
   pveDiff: [0, 1, 2], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
-const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff'];
+const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff', 'endless'];
 
 // последние настройки хоста сохраняются на устройстве
 // в «Команда на команду» раунды до 13 или 7, в остальных — 3, 5 или 7
@@ -517,7 +517,7 @@ function shooterSettings(o, mode) {
   const match = timedOnly ? 'timed' : o.match;
   return `
     <div class="opt-maps four">${SMAP_LIST.filter(m => !!m.pve === (mode === 'pve')).map(m => `<button class="opt-map smap ${o.smap === m.id || m.pve ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
-    ${mode === 'pve' ? optRow(`${icon('skull')} Сложность`, seg('pveDiff', [0, 1, 2], o.pveDiff ?? 1, ['Лёгкая', 'Обычная', 'Трудная'])) + `<div class="muted small">6 волн и босс. Жизни команды: ${[15, 8, 3][o.pveDiff ?? 1]}. Подойди к павшему и постой 3 секунды — поднимешь его.</div>` : ''}
+    ${mode === 'pve' ? optRow(`${icon('skull')} Сложность`, seg('pveDiff', [0, 1, 2], o.pveDiff ?? 1, ['Лёгкая', 'Обычная', 'Трудная'])) + optRow(`${icon('hourglass')} Бесконечно`, seg('endless', [0, 1], o.endless ? 1 : 0, ['Выкл', 'Вкл'])) + `<div class="muted small">${o.endless ? `Волны без конца, каждые 6 — босс и монстры сильнее. За волну +1 жизнь команде. Рекорд на этом устройстве: волна ${(LS.get('endlessBest', {}) || {})[o.pveDiff ?? 1] || 0}.` : '6 волн и босс.'} Жизни команды: ${[15, 8, 3][o.pveDiff ?? 1]}. Подойди к павшему и постой 3 секунды — поднимешь его.</div>` : ''}
     ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Между волнами — закупка' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
@@ -707,9 +707,11 @@ function showResults(res) {
   const mine = res.rows.find(r => r.pid === me.pid);
   if (mine && mine.coins) { Wallet.add(mine.coins); updateCoins(); }
   $('#res-title').textContent = res.winText;
+  // рекорд «Бесконечно» хранится на устройстве, отдельно для каждой сложности
+  if (res.endless) { const best = LS.get('endlessBest', {}) || {}, d = res.pveDiff ?? 1, was = best[d] || 0; if (res.wave > was) { best[d] = res.wave; LS.set('endlessBest', best); } res.recordText = res.wave > was ? `Новый рекорд: волна ${res.wave}!` : `Рекорд: волна ${was}`; }
   const impWin = res.mode === 'traitor' && res.win === 'impostor';
   $('#res-icon').innerHTML = icon(mine && mine.win ? 'trophy' : impWin ? 'impostor' : 'medal');
-  $('#res-coins').innerHTML = mine && mine.coins ? `+${mine.coins} ${icon('coin')} <span class="muted small">монет в копилку</span>` : '';
+  $('#res-coins').innerHTML = (res.recordText ? `<div class="rec">${icon('trophy')} ${res.recordText}</div>` : '') + (mine && mine.coins ? `+${mine.coins} ${icon('coin')} <span class="muted small">монет в копилку</span>` : '');
   const roster = S.roster || new Map();
   $('#res-list').innerHTML = res.rows.map((r, i) => {
     const info = roster.get(r.pid) || {};

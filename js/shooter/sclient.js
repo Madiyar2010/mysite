@@ -610,14 +610,16 @@ export class ShooterClient {
   miniMap() {
     const cv = $('#sh-mini'), m = this.map; if (!cv || !m) return;
     const now = performance.now(); if (now - (this.mmT || 0) < 120) return; this.mmT = now;
-    const W = cv.clientWidth; if (!W) return;
     if (!this.mmB) {
       let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
       for (const b of m.boxes) { if (b.w > 60 || b.d > 60) continue; x0 = Math.min(x0, b.x - b.w / 2); x1 = Math.max(x1, b.x + b.w / 2); z0 = Math.min(z0, b.z - b.d / 2); z1 = Math.max(z1, b.z + b.d / 2); }
       this.mmB = { x0, x1, z0, z1 };
     }
-    const B = this.mmB, k = W / (B.x1 - B.x0), H = Math.round((B.z1 - B.z0) * k);
+    // ширина по месту, но не выше maxH (на телефоне ниже — чтобы не налезать на кнопку огня)
+    const B = this.mmB, touch = document.body.classList.contains('touch'), maxW = touch ? 96 : 180, maxH = touch ? 66 : 180;
+    const k = Math.min(maxW / (B.x1 - B.x0), maxH / (B.z1 - B.z0)), W = Math.round((B.x1 - B.x0) * k), H = Math.round((B.z1 - B.z0) * k);
     if (!this.mmBase || this.mmBase.W !== W) {
+      cv.style.width = W + 'px';
       cv.style.height = H + 'px'; cv.width = W * 2; cv.height = H * 2; document.documentElement.style.setProperty('--shmm', H + 'px');
       const c = document.createElement('canvas'); c.width = W * 2; c.height = H * 2; const g = c.getContext('2d'); g.scale(2, 2);
       const list = m.boxes.filter(b => b.w <= 60 && b.d <= 60 && b.vis !== 'invis' && b.solid !== false).sort((a, b) => (a.y + a.h) - (b.y + b.h));
@@ -674,7 +676,7 @@ export class ShooterClient {
     $('#sh-time').textContent = ph; $('#sh-time').style.display = ph ? '' : 'none'; $('#sh-time').classList.toggle('low', s.ph === 'play' && s.tl < 15);
     let sc = '';
     if (s.ts) { const my = this.my.team; sc = `<div class="ts t0 ${my === 0 ? 'mine' : ''}">${s.ts[0]}</div><div class="ts-mid">${this.opts.match === 'rounds' && this.mode !== 'ctf' ? 'до ' + this.opts.rounds : this.mode === 'ctf' ? icon('flag') + ' до 3' : 'до 20'}</div><div class="ts t1 ${my === 1 ? 'mine' : ''}">${s.ts[1]}</div>`; }
-    else if (this.mode === 'pve') sc = `<div class="pill">Волна ${Math.max(1, s.wave)}/6</div><div class="pill">${icon('skull')} ${s.left || 0}</div><div class="pill ${s.lv === 0 ? 'warn' : ''}" title="жизни команды">${icon('heart')} ${s.lv ?? ''}</div>`;
+    else if (this.mode === 'pve') sc = `<div class="pill">Волна ${Math.max(1, s.wave)}${this.opts.endless ? '' : '/6'}</div><div class="pill">${icon('skull')} ${s.left || 0}</div><div class="pill ${s.lv === 0 ? 'warn' : ''}" title="жизни команды">${icon('heart')} ${s.lv ?? ''}</div>`;
     else if (s.sb) { const mine = s.sb.find(r => r[0] === this.me) || [0, 0, 0, 0, 0]; sc = this.opts.match === 'rounds' ? `<div class="pill">${icon('trophy')} ${mine[4]}/${this.opts.rounds}</div><div class="pill">${icon('swords')} ${mine[1]}</div>` : `<div class="pill">${icon('swords')} ${mine[1]}</div>`; }
     if (s.rd && this.opts.match === 'rounds' && this.mode !== 'pve') sc += `<div class="pill dim">Раунд ${s.rd}</div>`;
     if (sc !== this.lastSc) { this.lastSc = sc; $('#sh-score').innerHTML = sc; }
