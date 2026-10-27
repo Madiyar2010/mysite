@@ -43,6 +43,7 @@ export function shBanner(html, cls = '', ms = 2400) {
 export class ShooterClient {
   constructor(ctx) {
     this.ctx = ctx; this.view = ctx.view; this.map = ctx.view.map; this.me = ctx.myPid; this.roster = ctx.roster; this.mode = ctx.mode;
+    this.surf = { winter: 'snow', island: 'grass', graveyard: 'grass', arena: 'grass', castle: 'concrete', toys: 'wood', moon: 'concrete', street: 'concrete', port: 'concrete', warehouse: 'concrete' }[this.map.theme] || null;
     this.opts = ctx.opts || {};
     this.team = this.mode === 'tdm' || this.mode === 'ctf';
     this.my = this.roster.get(this.me) || {};
@@ -368,7 +369,7 @@ export class ShooterClient {
       this.aimHelp(dt);
       if (this.fireHeld) { const W = WEAPONS[this.cur]; if (W && (W.auto || !this.firedThisPress)) { this.doFire(); this.firedThisPress = true; } }
       // шаги
-      if (mv.moving && this.p.ground && !frozen) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = this.scoped ? 0.5 : 0.36; Sound.play('step' + (Math.random() * 5 | 0), { vol: 0.25, vary: true }); } }
+      if (mv.moving && this.p.ground && !frozen) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = this.scoped ? 0.5 : 0.36; Sound.play(Sound.step(this.surf), { vol: 0.25, vary: true }); } }
     }
     this.jumpReq = false;
     this.updateArc();
@@ -503,7 +504,7 @@ export class ShooterClient {
       if (id === this.me) continue;
       a.setTarget(x, z, yaw + Math.PI, y); if (a.fresh) { a.fresh = false; a.snap(); }
       // шаги других слышно с нужной стороны (присевших не слышно)
-      if (id !== this.me && !(fl & 1) && !(fl & 256)) { const mvd = Math.hypot(x - (a.lx ?? x), z - (a.lz ?? z)); a.stepT = (a.stepT || 0) - 0.05; if (mvd > 0.12 && a.stepT <= 0) { a.stepT = 0.38; this.snd('step' + (Math.random() * 5 | 0), x, z, 0.4, 16); } }
+      if (id !== this.me && !(fl & 1) && !(fl & 256)) { const mvd = Math.hypot(x - (a.lx ?? x), z - (a.lz ?? z)); a.stepT = (a.stepT || 0) - 0.05; if (mvd > 0.12 && a.stepT <= 0) { a.stepT = 0.38; this.snd(Sound.step(this.surf), x, z, 0.4, 16); } }
       a.lx = x; a.lz = z;
       const mon = String(k).startsWith('m:');
       if (mon) a.setHP(hp, w); else { a.setHP(hp, 100); if (w >= 0) a.setGun(WIDX[w], WEAPONS[WIDX[w]]); }
@@ -586,11 +587,11 @@ export class ShooterClient {
         break;
       }
       case 'die': { const [, id, x, y, z] = f; v.burst(x, y + 1, z, '#d9d9d9', 16, 4, 0.12, 0.8); this.snd('thud', x, z, 0.6); break; }
-      case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, tp === 'flash' ? 1.2 : r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355', flash: '#ffffff', sticky: '#ff4dc4', banana: '#ffe14d', bananaS: '#ffe14d', bubble: '#8fe8ff' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : tp === 'bubble' || tp === 'sticky' ? 'pop' : tp === 'flash' ? 'laser2' : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
+      case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, tp === 'flash' ? 1.2 : r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355', flash: '#ffffff', sticky: '#ff4dc4', banana: '#ffe14d', bananaS: '#ffe14d', bubble: '#8fe8ff' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : tp === 'bubble' || tp === 'sticky' ? 'pop' : tp === 'flash' ? 'laser2' : tp === 'grenade' || tp === 'banana' || tp === 'bananaS' ? (Math.random() < 0.5 ? 'boom2' : 'boom3') : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
       case 'puff': { const [, x, y, z, tp] = f; v.burst(x, y, z, tp === 'orb' ? '#b36bff' : '#ffffff', 6, 2, 0.08, 0.4); break; }
-      case 'bounce': this.snd('thud', f[1], f[2], 0.4, 20); break;
+      case 'bounce': this.snd('bounce', f[1], f[2], 0.6, 20); break;
       case 'smoke': { const [, x, z, r, life] = f; v.smoke(x, z, r, life); this.snd('vent', x, z, 0.8, 30); break; }
-      case 'chest': { const [, pid, secret, x, y, z] = f; v.burst(x, y + 0.6, z, '#ffd34d', 24, 4, 0.1, 0.9); if (pid === this.me) { shBanner(`${icon('chest')} ${secret ? 'Секретный сундук!' : 'Сундук!'} +$${secret ? 800 : 400} и +5 монет`, 'small good', 2200); Sound.coin(); vib([20, 30, 20]); } else this.snd('pop', x, z, 0.6, 20); break; }
+      case 'chest': { const [, pid, secret, x, y, z] = f; v.burst(x, y + 0.6, z, '#ffd34d', 24, 4, 0.1, 0.9); if (pid === this.me) { shBanner(`${icon('chest')} ${secret ? 'Секретный сундук!' : 'Сундук!'} +$${secret ? 800 : 400} и +5 монет`, 'small good', 2200); Sound.coin(); Sound.play('chips', { vol: 0.7 }); vib([20, 30, 20]); } else this.snd('chips', x, z, 0.6, 20); break; }
       case 'rise': { const [, x, z] = f; v.burst(x, 0.2, z, '#4a3b2c', 22, 3, 0.13, 1); v.burst(x, 0.3, z, '#9fe8a0', 8, 1.5, 0.08, 1.2); this.snd('glitch', x, z, 0.8, 30); if (!this.riseShown) { this.riseShown = true; shBanner(`${icon('skull')} Из могил встают скелеты!`, 'small', 2500); } break; }
       case 'tele': v.ring(f[1], f[2], f[3], f[4]); break;
       case 'heal': if (f[1] === this.me) { Sound.play('taskdone', { vol: 0.6 }); shBanner(`${icon('heart')} +60 здоровья`, 'small', 1200); } break;
@@ -715,7 +716,7 @@ export class ShooterClient {
     if (sc !== this.lastSc) { this.lastSc = sc; $('#sh-score').innerHTML = sc; }
     if (s.sb) { this.sb = s.sb; }
     const bb = $('#sh-boss');
-    if (!!s.boss !== !!this.bossMus) { this.bossMus = !!s.boss; Sound.playMusic(s.boss ? 'boss' : 'battle'); }
+    if (!!s.boss !== !!this.bossMus) { this.bossMus = !!s.boss; Sound.playMusic(s.boss ? 'boss' : (window.__music || 'battle')); }
     if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; bb.querySelector('b').textContent = ['Хранитель склепа', 'Хранитель склепа — злится!', 'Хранитель склепа — в ярости!'][(s.boss[2] || 1) - 1]; bb.dataset.ph = s.boss[2] || 1; } else bb.classList.remove('show');
     // подъём товарищей
     const rv = (s.rv || []).find(r => r[0] === this.me || r[2] === this.me);

@@ -719,6 +719,9 @@ async function startGame(m) {
     show('s-shoot');
     shBanner(`${icon(MODES[m.mode].icon)} ${MODES[m.mode].name}`, 'big', 2500);
   }
+  // своя музыка под карту
+  S.music = group === 'traitor' ? ({ haunted: 'spooky', underwater: 'deep' }[m.opts.map] || 'tense') : ({ island: 'sunny', winter: 'snowy', toys: 'musicbox', moon: 'space', graveyard: 'spooky' }[m.opts.smap] || 'battle');
+  Sound.playMusic(S.music); window.__music = S.music;
   document.body.dataset.game = group === 'traitor' ? 'traitor' : 'shooter';
   Input.active = group === 'traitor';
   loading(false);

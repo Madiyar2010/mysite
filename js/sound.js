@@ -1,7 +1,8 @@
 // Звуки (Kenney, CC0) и простая фоновая музыка, которая играется синтезатором прямо в браузере.
 const FILES = ['click', 'select', 'back', 'confirm', 'error', 'toggle', 'open', 'close', 'tick', 'glitch', 'taskdone', 'step', 'drop', 'pop',
   'door_open', 'door_close', 'vent', 'kill', 'slime', 'lights', 'eject', 'computer', 'ambient', 'boom', 'laser', 'laser2', 'blaster', 'hit', 'explode', 'thud',
-  'step0', 'step1', 'step2', 'step3', 'step4', 'j_crew', 'j_impostor', 'j_meeting', 'j_win', 'j_lose', 'j_start', 'j_report'];
+  'step0', 'step1', 'step2', 'step3', 'step4', 'coin1', 'coin2', 'boom2', 'boom3', 'knife', 'draw', 'bounce', 'shield', 'chips', 'bell', 'bubble',
+  ...['snow', 'grass', 'wood', 'carpet', 'concrete'].flatMap(k => [0, 1, 2].map(i => 'st_' + k + i)), 'j_crew', 'j_impostor', 'j_meeting', 'j_win', 'j_lose', 'j_start', 'j_report'];
 
 const LSget = (k, d) => { try { const v = localStorage.getItem('ha_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 const LSset = (k, v) => { try { localStorage.setItem('ha_' + k, JSON.stringify(v)); } catch (e) { } };
@@ -10,6 +11,13 @@ const MUSIC = {
   menu: { bpm: 92, vol: 1, chords: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 55, 59]], pad: 'triangle', padV: 0.05, bass: 4, bassV: 0.09, lead: 0.28, leadV: 0.035 },
   battle: { bpm: 116, vol: 0.55, chords: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]], pad: 'sawtooth', padV: 0.012, bass: 2, bassT: 'triangle', bassV: 0.1, walk: true, drums: 1, lead: 0.06, leadV: 0.02 },
   tense: { bpm: 66, vol: 0.6, chords: [[45, 48, 52], [46, 49, 53], [43, 46, 50], [44, 47, 51]], pad: 'sine', padV: 0.05, bass: 8, bassV: 0.08, drip: 0.6 },
+  // музыка под карты
+  sunny: { bpm: 108, vol: 0.55, chords: [[60, 64, 67], [65, 69, 72], [67, 71, 74], [60, 64, 67]], pad: 'triangle', padV: 0.03, bass: 2, bassT: 'triangle', bassV: 0.08, walk: true, drums: 1, lead: 0.3, leadV: 0.025, leadT: 'triangle' },
+  snowy: { bpm: 84, vol: 0.6, chords: [[62, 66, 69], [59, 62, 66], [67, 71, 74], [64, 67, 71]], pad: 'sine', padV: 0.045, bass: 8, bassV: 0.07, lead: 0.32, leadV: 0.03, leadT: 'triangle', leadUp: 12 },
+  musicbox: { bpm: 100, vol: 0.6, chords: [[60, 64, 67], [57, 60, 64], [65, 69, 72], [67, 71, 74]], pad: 'sine', padV: 0.018, bass: 4, bassV: 0.06, lead: 0.6, leadV: 0.03, leadUp: 12 },
+  space: { bpm: 60, vol: 0.7, chords: [[48, 55, 62], [46, 53, 60], [51, 58, 65], [50, 57, 64]], pad: 'sine', padV: 0.06, bass: 16, bassV: 0.07, drip: 0.5, lead: 0.08, leadV: 0.02 },
+  spooky: { bpm: 72, vol: 0.6, chords: [[45, 48, 52], [44, 47, 52], [41, 45, 48], [40, 44, 47]], pad: 'triangle', padV: 0.04, bass: 4, bassV: 0.08, drip: 0.5, drums: 0 },
+  deep: { bpm: 58, vol: 0.65, chords: [[38, 45, 50], [36, 43, 48], [41, 48, 53], [40, 47, 52]], pad: 'sine', padV: 0.06, bass: 8, bassV: 0.09, drip: 0.4 },
   boss: { bpm: 138, vol: 0.6, chords: [[40, 43, 47], [41, 44, 48], [38, 41, 45], [39, 43, 46]], pad: 'sawtooth', padV: 0.015, bass: 2, bassT: 'sawtooth', bassV: 0.06, walk: true, drums: 2, lead: 0.1, leadV: 0.02 }
 };
 export const Sound = {
@@ -117,7 +125,7 @@ export const Sound = {
         // бас
         if (T.bass && s % T.bass === 0) note(freq(ch[0] - 12 + (T.walk && s % 8 === 4 ? 7 : 0)), t, beat * (T.bass / 4) * 1.6, T.bassT || 'sine', T.bassV);
         // мелодия
-        if (T.lead && Math.random() < T.lead) note(freq(ch[Math.random() * 3 | 0] + 12 + (Math.random() < 0.3 ? 2 : 0)), t, beat * 0.9, 'sine', T.leadV);
+        if (T.lead && Math.random() < T.lead) note(freq(ch[Math.random() * 3 | 0] + 12 + (T.leadUp || 0) + (Math.random() < 0.3 ? 2 : 0)), t, beat * 0.9, T.leadT || 'sine', T.leadV);
         // барабаны
         if (T.drums) {
           if (s % 4 === 0 && (T.drums > 1 || s % 8 === 0)) kick(t);
@@ -137,6 +145,7 @@ export const Sound = {
   // звон монет: несколько коротких «дзинь» вверх
   coin(n = 3) {
     if (!this.ctx) return;
+    if (this.buf.coin1) this.play(Math.random() < 0.5 ? 'coin1' : 'coin2', { ui: true, vol: 0.9 });
     const ctx = this.ctx, t0 = ctx.currentTime;
     for (let i = 0; i < n; i++) for (const [f, v] of [[1568, 0.12], [2093, 0.07]]) {
       const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i * 0.09;
@@ -145,6 +154,8 @@ export const Sound = {
       o.connect(g); g.connect(this.uiGain); o.start(t); o.stop(t + 0.4);
     }
   },
+  // шаги по поверхности карты
+  step(surf) { return surf && this.buf['st_' + surf + '0'] ? 'st_' + surf + (Math.random() * 3 | 0) : 'step' + (Math.random() * 5 | 0); },
   musicOff() { this.wantMusic = null; this.stopMusic(); }
 };
 // звук кнопок интерфейса

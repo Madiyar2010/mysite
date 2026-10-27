@@ -1,7 +1,7 @@
 // Оружие шутера. style: real — «настоящее» мультяшное, blaster — бластеры, toy — игрушечное.
 // slot: 1 основное, 2 пистолет, 3 нож, 4 граната
 export const WEAPONS = {
-  knife:   { name: 'Нож', slot: 3, style: 'real', price: 0, melee: true, dmg: 55, rate: 0.5, range: 2.2, icon: 'kill' },
+  knife:   { name: 'Нож', slot: 3, style: 'real', price: 0, melee: true, sound: 'knife', dmg: 55, rate: 0.5, range: 2.2, icon: 'kill' },
   pistol:  { name: 'Пистолет', slot: 2, style: 'real', model: 'bl/blaster-a', price: 0, dmg: 26, head: 2, rate: 0.22, mag: 12, reserve: 48, reload: 1.3, spread: 0.012, moveSpread: 0.03, range: 70, sound: 'hit', tracer: '#ffe08a', icon: 'pistol' },
   laser:   { name: 'Лазерный пистолет', slot: 2, style: 'blaster', model: 'bl/blaster-i', price: 500, dmg: 22, head: 1.8, rate: 0.16, mag: 20, reserve: 60, reload: 1.4, spread: 0.008, moveSpread: 0.02, range: 80, sound: 'laser', tracer: '#3df5ff', beam: true, icon: 'power' },
   water:   { name: 'Водяной пистолет', slot: 2, style: 'toy', model: 'bl/blaster-m', price: 300, dmg: 7, head: 1.2, rate: 0.07, auto: true, mag: 60, reserve: 120, reload: 1.6, spread: 0.05, moveSpread: 0.06, range: 16, sound: 'slime', tracer: '#5ab8ff', slow: 1.6, icon: 'water' },
@@ -13,7 +13,7 @@ export const WEAPONS = {
   railgun: { name: 'Рельсотрон', slot: 1, style: 'blaster', model: 'bl/blaster-f', price: 4500, dmg: 105, head: 1.6, pierce: true, rate: 1.5, mag: 4, reserve: 12, reload: 2.6, spread: 0.002, moveSpread: 0.03, range: 150, zoom: 2, sound: 'laser2', tracer: '#c06bff', beam: true, icon: 'power' },
   paint:   { name: 'Пейнтбол', slot: 1, style: 'toy', model: 'bl/blaster-j', price: 900, dmg: 22, head: 2, rate: 0.17, auto: true, mag: 25, reserve: 75, reload: 1.8, spread: 0.02, moveSpread: 0.03, range: 60, sound: 'pop', tracer: '#ff4dc4', mark: 6, icon: 'target' },
   snow:    { name: 'Снежкомёт', slot: 1, style: 'toy', model: 'bl/blaster-h', price: 1400, proj: 'snow', speed: 30, grav: 14, dmg: 34, splash: 1.4, freeze: 1.1, knock: 9, rate: 0.55, mag: 8, reserve: 24, reload: 2, spread: 0.01, moveSpread: 0.02, sound: 'thud', icon: 'water' },
-  bubble:  { name: 'Пупырчатая пушка', slot: 1, style: 'toy', model: 'bl/blaster-c', price: 1100, proj: 'bubble', speed: 15, grav: -1.5, dmg: 30, splash: 1.8, rate: 0.28, auto: true, mag: 20, reserve: 60, reload: 1.8, spread: 0.03, moveSpread: 0.03, sound: 'pop', icon: 'bubble', desc: 'Стреляет пузырями — лопаются и толкают' },
+  bubble:  { name: 'Пупырчатая пушка', slot: 1, style: 'toy', model: 'bl/blaster-c', price: 1100, proj: 'bubble', speed: 15, grav: -1.5, dmg: 30, splash: 1.8, rate: 0.28, auto: true, mag: 20, reserve: 60, reload: 1.8, spread: 0.03, moveSpread: 0.03, sound: 'bubble', icon: 'bubble', desc: 'Стреляет пузырями — лопаются и толкают' },
   grenade: { name: 'Граната', slot: 4, style: 'real', model: 'bl/grenade-a', price: 300, throw: true, dmg: 95, splash: 4.5, fuse: 2.2, max: 2, rate: 0.8, icon: 'bomb' }
 };
 // гранаты: в слоте 4 лежит один вид (купил другой — старые заменятся)

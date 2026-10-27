@@ -163,7 +163,7 @@ export class AmongClient {
       if (f[0] === 'vent') { const vent = this.map.vents.find(x => Math.abs(x.x - f[1]) < 0.1 && Math.abs(x.z - f[2]) < 0.1); if (vent) v.ventAnim(vent.id); if (heard(f[1], f[2])) Sound.at('vent', f[1] - me.x, f[2] - me.z, 12); }
       if (f[0] === 'sab') { Sound.play(f[1] === 'lights' ? 'lights' : f[1] === 'comms' ? 'glitch' : 'error'); amBanner(`${icon(SAB[f[1]].icon)} ${SAB[f[1]].name}!`, 'bad big'); vib([100, 60, 100]); }
       if (f[0] === 'sabfix') { Sound.play('confirm'); amBanner(`${icon('check')} Саботаж устранён`, 'good'); }
-      if (f[0] === 'shield') v.fx.ringPulse(f[1], f[2], '#7cc4ff', 0.5, 2, 0.6);
+      if (f[0] === 'shield') { v.fx.ringPulse(f[1], f[2], '#7cc4ff', 0.5, 2, 0.6); if (me && Math.hypot(me.x - f[1], me.z - f[2]) < 14) Sound.at('shield', f[1] - me.x, f[2] - me.z, 14); }
       if (f[0] === 'shift') { v.fx.burst(f[1], 1, f[2], '#c9b6ff', 16, 3, 0.12, 0.6); }
       if (f[0] === 'msg') amBanner(esc(f[1]), 'small');
     }
