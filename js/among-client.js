@@ -8,6 +8,8 @@ import { BASE, FLAG, DEFAULT_OPTS } from './among-sim.js';
 import { Input } from './input.js';
 import { Sound } from './sound.js';
 import * as Tasks from './among-tasks.js';
+import { Voice } from './voice.js';
+import { Net } from './net.js';
 
 const vib = p => { if (window.__prefs && !window.__prefs.vibe) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
 const thumb = m => `assets/thumbs/${m}.png`;
@@ -40,6 +42,8 @@ export class AmongClient {
     this.stepT = 0; this.lastDoors = '';
     this.canvas = $('#am-vision'); this.g = this.canvas.getContext('2d');
     this.view.onFrame = dt => this.frame(dt);
+    this.talkers = new Set();
+    if (this.opts.voice !== false && Voice.supported()) { if (Net.isHost) Voice.hostListen(); else setTimeout(() => Voice.join(), 1500); }
     this.bindUI();
     this.iv = setInterval(() => this.tick(), 50);
     Input.onKeyGame = a => this.key(a);
@@ -47,7 +51,7 @@ export class AmongClient {
   }
   dispose() {
     clearInterval(this.iv); clearInterval(this.meetIv); Tasks.close(true); this.closeOverlay();
-    Input.onKeyGame = null; this.view.onFrame = null; Sound.siren(false); Sound.stopLoops();
+    Voice.stop(); Input.onKeyGame = null; this.view.onFrame = null; Sound.siren(false); Sound.stopLoops();
     ['#am-meeting', '#am-intro', '#am-killscr', '#am-eject', '#am-pick', '#am-splash'].forEach(s => $(s).className = '');
   }
   info(pid) { return this.roster.get(pid) || { name: '?', model: 'character-a' }; }
@@ -98,6 +102,7 @@ export class AmongClient {
       case 'killed': this.killedScreen(m); break;
       case 'toast': amBanner(esc(m.text), 'small'); break;
       case 'reveal': this.reveal(m); break;
+      case 'talk': if (m.v) this.talkers.add(m.pid); else this.talkers.delete(m.pid); this.renderMeeting(); break;
       case 'meet': this.openMeeting(m); break;
       case 'votenow': this.meetStage = 'vote'; this.meetEnds = performance.now() + m.left * 1000; Sound.play('j_start', { vol: 0.5 }); this.renderMeeting(); break;
       case 'voted': this.voted.add(m.pid); Sound.play('pop', { vol: 0.6 }); this.renderMeeting(); break;
@@ -121,7 +126,7 @@ export class AmongClient {
     const dk = s.doors.join(',');
     if (dk !== this.lastDoors) { if (s.doors.length > this.lastDoors.split(',').filter(Boolean).length) Sound.play('door_close', { vol: 0.6 }); else Sound.play('door_open', { vol: 0.5 }); this.lastDoors = dk; }
     v.setDoors(s.doors);
-    if (prev && prev.ph !== 'play' && s.ph === 'play') { $('#am-meeting').className = ''; $('#am-eject').className = ''; }
+    if (prev && prev.ph !== 'play' && s.ph === 'play') { $('#am-meeting').className = ''; $('#am-eject').className = ''; if (this.talkOn) { this.talkOn = false; $('#amm-talk').classList.remove('on'); this.ctx.send({ t: 'talk', v: 0 }); } Voice.talk(false); }
     const meRow = s.e.find(r => r[0] === this.me);
     if (meRow) this.alive = !!(meRow[5] & FLAG.alive);
     const seen = new Set();
@@ -547,6 +552,15 @@ export class AmongClient {
     $('#amm-quick').querySelectorAll('button').forEach(b => b.onclick = () => this.say(b.textContent));
     $('#amm-form').onsubmit = e => { e.preventDefault(); const i = $('#amm-in'); this.say(i.value); i.value = ''; };
     $('#amm-skip').onclick = () => this.vote('skip');
+    this.talkers.clear();
+    const tb = $('#amm-talk'), voiceOn = this.opts.voice !== false && Voice.supported() && this.alive;
+    tb.style.display = voiceOn ? '' : 'none';
+    if (voiceOn) {
+      const down = async e => { e.preventDefault(); if (this.talkOn) return; this.talkOn = true; tb.classList.add('on'); const r = await Voice.talk(true); if (r !== 'ok') { this.talkOn = false; tb.classList.remove('on'); amBanner(r === 'denied' ? 'Нет доступа к микрофону. Разреши его в настройках браузера' : 'Голосовой чат здесь не работает', 'small', 3500); return; } if (!this.talkOn) { Voice.talk(false); return; } this.ctx.send({ t: 'talk', v: 1 }); };
+      const up = () => { if (!this.talkOn) return; this.talkOn = false; tb.classList.remove('on'); Voice.talk(false); this.ctx.send({ t: 'talk', v: 0 }); };
+      tb.onpointerdown = down; tb.onpointerup = up; tb.onpointerleave = up; tb.onpointercancel = up;
+    }
+    $('#am-meeting').onpointerdown = () => Voice.unlock();
     $('#amm-in').disabled = false;
     // экран «Тело найдено!»
     const sp = $('#am-splash'); sp.innerHTML = `<div class="spl ${m.reason}">${icon(m.reason === 'body' ? 'body' : 'alarm')}<b>${m.reason === 'body' ? 'Тело найдено!' : 'Собрание!'}</b></div>`; sp.className = 'show';
@@ -581,7 +595,7 @@ export class AmongClient {
       const alive = this.aliveMap.get(r.pid), vs = votesFor.get(r.pid) || [];
       const cls = ['mp', alive ? '' : 'dead', this.sel === r.pid ? 'sel' : '', this.myVote === r.pid ? 'voted-me' : '', res && res.ejected === r.pid ? 'ejected' : ''].join(' ');
       const mate = this.role === 'impostor' && (this.mates.includes(r.pid) || r.pid === this.me);
-      return `<button class="${cls}" data-pid="${r.pid}" ${!alive || !canVote ? 'disabled' : ''}><img src="${thumb(r.model)}"><span class="nm" style="${mate ? 'color:#ff6b78' : ''}">${esc(r.name)}${r.pid === this.me ? ' (ты)' : ''}</span>
+      return `<button class="${cls}" data-pid="${r.pid}" ${!alive || !canVote ? 'disabled' : ''}><img src="${thumb(r.model)}"><span class="nm" style="${mate ? 'color:#ff6b78' : ''}">${esc(r.name)}${r.pid === this.me ? ' (ты)' : ''}</span>${this.talkers && this.talkers.has(r.pid) ? `<span class="talk">${icon('mic')}</span>` : ''}
         ${!alive ? `<span class="tag">${icon('skull')}</span>` : this.voted.has(r.pid) && !res ? `<span class="tag ok">${icon('check')}</span>` : ''}
         ${res ? `<span class="vs">${vs.map(v => v === '?' ? '<i class="anon"></i>' : `<img src="${thumb(this.info(v).model)}">`).join('')}</span>` : ''}</button>`;
     }).join('');

@@ -265,7 +265,7 @@ const AM_SET = {
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], detective: [0, 1], guard: [0, 1], jester: [0, 1], amBots: [0, 1, 2, 3, 4, 5], bots: [0, 1, 2, 3, 4, 5, 6, 7],
   pveDiff: [0, 1, 2], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
-const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff', 'endless'];
+const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff', 'endless', 'voice'];
 
 // последние настройки хоста сохраняются на устройстве
 // в «Команда на команду» раунды до 13 или 7, в остальных — 3, 5 или 7
@@ -539,6 +539,8 @@ function amongSettings(o) {
       ${optRow('Обсуждение, сек', seg('discuss', AM_SET.discuss, o.discuss))}
       ${optRow('Голосование, сек', seg('vote', AM_SET.vote, o.vote))}
       ${optRow('Анонимные голоса', yes('anon', o.anon))}
+      ${optRow(`${icon('mic')} Голосовой чат`, yes('voice', o.voice !== false))}
+      <div class="muted small">На собрании держи кнопку «Говорить» — тебя услышат все. Браузер спросит разрешение на микрофон.</div>
       ${optRow('Показывать роль выгнанного', yes('confirm', o.confirm))}
     </details>
     <details class="opt-group"><summary>${icon('speed')} Скорость и обзор</summary>

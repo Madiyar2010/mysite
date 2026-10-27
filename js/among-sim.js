@@ -5,7 +5,7 @@ import { AMAPS, TASKS, SAB, collide, lineOfSight, roomAtPos, applyMapText, solid
 export const DEFAULT_OPTS = {
   map: 'station', maxPlayers: 10, impostors: 1, confirm: true, meetings: 1, meetCd: 15, discuss: 30, vote: 60, anon: false,
   speed: 1, crewVision: 1, impVision: 1.5, killCd: 25, killDist: 1, visualTasks: true, taskBar: 'always',
-  common: 1, long: 1, short: 3, engineer: 0, scientist: 0, sheriff: 0, angel: 0, shapeshifter: 0, detective: 0, guard: 0, jester: 0, amBots: 0
+  common: 1, long: 1, short: 3, engineer: 0, scientist: 0, sheriff: 0, angel: 0, shapeshifter: 0, detective: 0, guard: 0, jester: 0, amBots: 0, voice: true
 };
 const BOT_SAY = ['Я делал задание', 'Это не я!', 'Кто был рядом?', 'Подозрительно…', 'Пропустим голосование', 'Давайте подумаем', 'Я вам верю'];
 export const BASE = { speed: 4.6, vision: 7, killDist: [1.5, 2.1, 2.9] };
@@ -99,6 +99,7 @@ export class AmongSim {
       case 'busy': p.busy = m.st || null; if (p.busy) this.setAnim(p, A_ANIM.interact, 0.5); break;
       case 'shift': if (play) this.tryShift(p, m.target); break;
       case 'protect': if (play) this.tryProtect(p, m.target); break;
+      case 'talk': if ((this.phase === 'meeting' || this.phase === 'eject') && p.alive) this.io.broadcast({ t: 'talk', pid, v: !!m.v }); break;
       case 'emo': if (play && p.alive && p.animT <= 0) this.setAnim(p, m.v ? A_ANIM.yes : A_ANIM.no, 1.5); break;
       case 'chat': {
         if (this.phase !== 'meeting' && this.phase !== 'eject') return;

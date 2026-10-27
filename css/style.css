@@ -968,3 +968,7 @@ body.ios #rotate .btn{display:none}
 .rv-log svg{width:16px;height:16px;flex:none}
 .rv-log .kill svg{color:#ff6b78}.rv-log .meet svg{color:#ffd166}.rv-log .eject svg{color:#4da3ff}
 @media (orientation:landscape) and (max-height:560px){.rv-title{font-size:22px}.rv-imp img{width:64px;height:64px}.rv-log{font-size:12.5px;padding:6px 10px}}
+#amm-talk{touch-action:none;user-select:none;-webkit-user-select:none}
+#amm-talk.on{background:linear-gradient(#ff8a8a,#ff4d5e);box-shadow:0 0 0 4px rgba(255,77,94,.35);transform:scale(1.04)}
+.mp .talk{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#3ee0c0;display:flex;align-items:center;justify-content:center;animation:pulse 1s infinite}
+.mp .talk svg{width:14px;height:14px;color:#10202a}
