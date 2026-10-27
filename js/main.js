@@ -40,7 +40,7 @@ function show(id) {
   S.screen = id;
   const game = GAME_SCREENS.includes(id);
   if (!game) { Input.active = false; Input.reset(); document.body.dataset.game = ''; Sound.playMusic('menu'); }
-  else Sound.musicOff();
+  else Sound.playMusic(id === 's-among' ? 'tense' : 'battle');
   refreshShowroom();
 }
 function toast(t, ms = 2600) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), ms); }
@@ -184,6 +184,7 @@ function openSettings() {
   $('#set-sfx').oninput = e => { Sound.set('sfxVol', e.target.value / 100); };
   $('#set-sfx').onchange = () => Sound.play('confirm');
   $('#set-music').oninput = e => { Sound.set('musicVol', e.target.value / 100); };
+  $('#set-ui').value = Sound.uiVol * 100; $('#set-ui').oninput = e => { Sound.set('uiVol', e.target.value / 100); Sound.play('click', { vol: 0.6, ui: true }); };
   $('#set-sens').value = LS.get('sens', 1) * 100; $('#set-sens').oninput = e => LS.set('sens', e.target.value / 100);
   setSeg('#set-aim', LS.get('aimhelp', true) === false ? 0 : 1); setSeg('#set-auto', LS.get('autofire', true) === false ? 0 : 1);
   $('#set-aim').onclick = e => { const b = e.target.closest('button'); if (!b) return; LS.set('aimhelp', b.dataset.v === '1'); setSeg('#set-aim', b.dataset.v); };

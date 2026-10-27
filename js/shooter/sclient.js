@@ -645,6 +645,7 @@ export class ShooterClient {
     if (sc !== this.lastSc) { this.lastSc = sc; $('#sh-score').innerHTML = sc; }
     if (s.sb) { this.sb = s.sb; }
     const bb = $('#sh-boss');
+    if (!!s.boss !== !!this.bossMus) { this.bossMus = !!s.boss; Sound.playMusic(s.boss ? 'boss' : 'battle'); }
     if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; bb.querySelector('b').textContent = ['Хранитель склепа', 'Хранитель склепа — злится!', 'Хранитель склепа — в ярости!'][(s.boss[2] || 1) - 1]; bb.dataset.ph = s.boss[2] || 1; } else bb.classList.remove('show');
     // подъём товарищей
     const rv = (s.rv || []).find(r => r[0] === this.me || r[2] === this.me);
