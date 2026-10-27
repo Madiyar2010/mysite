@@ -32,7 +32,7 @@ const KITS = [
 ];
 const vib = p => { if (window.__prefs && !window.__prefs.vibe) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
 const thumb = m => `assets/thumbs/${m}.png`;
-const RECOIL = { pistol: 0.018, laser: 0.012, water: 0.003, smg: 0.012, rifle: 0.016, shotgun: 0.06, sniper: 0.07, plasma: 0.03, railgun: 0.06, paint: 0.01, snow: 0.025, knife: 0, grenade: 0 };
+const RECOIL = { bubble: 0.008, pistol: 0.018, laser: 0.012, water: 0.003, smg: 0.012, rifle: 0.016, shotgun: 0.06, sniper: 0.07, plasma: 0.03, railgun: 0.06, paint: 0.01, snow: 0.025, knife: 0, grenade: 0 };
 
 export function shBanner(html, cls = '', ms = 2400) {
   const b = $('#sh-banner'); const d = document.createElement('div'); d.className = 'bn ' + cls; d.innerHTML = html; b.appendChild(d);
@@ -461,6 +461,8 @@ export class ShooterClient {
       case 's2': this.snapshot(m); break;
       case 'me2': this.privateState(m); break;
       case 'spawn': this.setCrouch(false); Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.specLabel(null); this.releaseAll(); this.toggleScope(false); this.reloadUntil = 0; break;
+      case 'flash': { const el = $('#flashfx'); el.style.transition = 'none'; el.style.opacity = Math.min(1, m.k * 1.1); void el.offsetWidth; el.style.transition = `opacity ${1.2 + m.k * 2}s ease-in`; el.style.opacity = 0; Sound.play('lights', { vol: 0.7 }); vib(60); break; }
+      case 'paint': { const el = $('#paintfx'); el.innerHTML = Array.from({ length: 7 }, () => `<i style="left:${rnd(5, 85)}%;top:${rnd(5, 80)}%;width:${rnd(80, 190)}px;height:${rnd(80, 190)}px;background:${['#ff4dc4', '#ffd23f', '#3dd6d0', '#8cff5a'][Math.random() * 4 | 0]}"></i>`).join(''); el.className = ''; void el.offsetWidth; el.className = 'on'; Sound.play('slime', { vol: 0.7 }); break; }
       case 'kb': this.p.vx += m.vx; this.p.vz += m.vz; this.p.vy = Math.max(this.p.vy, m.vy); this.p.ground = false; break;
       case 'bought': Sound.play('drop'); vib(15); this.roundBuys = this.roundBuys || []; this.roundBuys.push(m.item); LS.set('lastBuy', this.roundBuys); if (WEAPONS[m.item] && WEAPONS[m.item].slot === 1) { setTimeout(() => this.switchTo(m.item), 120); } break;
     }
@@ -523,6 +525,7 @@ export class ShooterClient {
     }
     for (const id of [...v.ents.keys()]) if (!seen.has(id)) v.removeEnt(id);
     v.syncProjectiles(s.p);
+    v.syncChests(s.ch || []);
     if (s.fl) v.syncFlags(s.fl);
     for (const f of s.fx) this.fx(f);
     this.hud(s);
@@ -583,9 +586,11 @@ export class ShooterClient {
         break;
       }
       case 'die': { const [, id, x, y, z] = f; v.burst(x, y + 1, z, '#d9d9d9', 16, 4, 0.12, 0.8); this.snd('thud', x, z, 0.6); break; }
-      case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
+      case 'boom': { const [, x, y, z, r, tp] = f; v.boom(x, y, z, tp === 'flash' ? 1.2 : r, { plasma: '#9b6bff', snow: '#ffffff', grenade: '#ff8a3d', slam: '#ff3355', flash: '#ffffff', sticky: '#ff4dc4', banana: '#ffe14d', bananaS: '#ffe14d', bubble: '#8fe8ff' }[tp] || '#ff8a3d'); this.snd(tp === 'snow' ? 'thud' : tp === 'bubble' || tp === 'sticky' ? 'pop' : tp === 'flash' ? 'laser2' : 'explode', x, z, 1, 45); const d = Math.hypot(x - this.p.x, z - this.p.z); if (d < 12) v.shake = Math.max(v.shake || 0, (12 - d) / 8); break; }
       case 'puff': { const [, x, y, z, tp] = f; v.burst(x, y, z, tp === 'orb' ? '#b36bff' : '#ffffff', 6, 2, 0.08, 0.4); break; }
       case 'bounce': this.snd('thud', f[1], f[2], 0.4, 20); break;
+      case 'smoke': { const [, x, z, r, life] = f; v.smoke(x, z, r, life); this.snd('vent', x, z, 0.8, 30); break; }
+      case 'chest': { const [, pid, secret, x, y, z] = f; v.burst(x, y + 0.6, z, '#ffd34d', 24, 4, 0.1, 0.9); if (pid === this.me) { shBanner(`${icon('chest')} ${secret ? 'Секретный сундук!' : 'Сундук!'} +$${secret ? 800 : 400} и +5 монет`, 'small good', 2200); Sound.coin(); vib([20, 30, 20]); } else this.snd('pop', x, z, 0.6, 20); break; }
       case 'rise': { const [, x, z] = f; v.burst(x, 0.2, z, '#4a3b2c', 22, 3, 0.13, 1); v.burst(x, 0.3, z, '#9fe8a0', 8, 1.5, 0.08, 1.2); this.snd('glitch', x, z, 0.8, 30); if (!this.riseShown) { this.riseShown = true; shBanner(`${icon('skull')} Из могил встают скелеты!`, 'small', 2500); } break; }
       case 'tele': v.ring(f[1], f[2], f[3], f[4]); break;
       case 'heal': if (f[1] === this.me) { Sound.play('taskdone', { vol: 0.6 }); shBanner(`${icon('heart')} +60 здоровья`, 'small', 1200); } break;
@@ -626,11 +631,12 @@ export class ShooterClient {
     $('#sh-money').textContent = '$' + (this.pv.money || 0); $('#sh-money').style.display = this.mode === 'gun' ? 'none' : '';
     $('#sh-nade').style.display = this.pv.nades > 0 ? '' : 'none';
     $('#sh-nade').querySelector('small').textContent = '×' + (this.pv.nades || 0);
+    { const nt = WEAPONS[this.pv.nadeType || 'grenade']; const sp = $('#sh-nade').querySelector('span'); if (nt && sp.dataset.nt !== nt.icon) { sp.dataset.nt = nt.icon; sp.innerHTML = icon(nt.icon); } }
     $('#sh-aim').style.display = W.zoom ? '' : 'none';
     $('#sh-switch').querySelector('span').innerHTML = icon(W.icon || 'gun');
     $('#sh-reload').style.display = W.mag ? '' : 'none';
     const sl = $('#sh-slots');
-    sl.innerHTML = [[1, this.pv.slot1], [2, this.pv.slot2], [3, 'knife'], [4, this.pv.nades > 0 ? 'grenade' : null]].map(([n, w]) => w ? `<div class="${w === this.cur ? 'on' : ''}"><i>${n}</i>${icon(WEAPONS[w].icon)}</div>` : '').join('');
+    sl.innerHTML = [[1, this.pv.slot1], [2, this.pv.slot2], [3, 'knife'], [4, this.pv.nades > 0 ? 'grenade' : null]].map(([n, w]) => w ? `<div class="${w === this.cur ? 'on' : ''}"><i>${n}</i>${icon(WEAPONS[w === 'grenade' ? this.pv.nadeType || 'grenade' : w].icon)}</div>` : '').join('');
   }
   // маленькая карта сверху справа: стены, ты (стрелка), свои, флаги; враги — только подсвеченные, монстры — всегда
   miniMap() {
@@ -731,7 +737,7 @@ export class ShooterClient {
   buyReady() { if (this.ph !== 'buy' || this.isReady) return; this.isReady = true; this.ctx.send({ t: 'bready' }); Sound.play('confirm', { vol: 0.5 }); }
   renderBuy() {
     const pv = this.pv;
-    const key = [pv.money, pv.slot1, pv.slot2, pv.armor, pv.nades, pv.medkit, (this.prevBuys || []).length].join('|');
+    const key = [pv.money, pv.slot1, pv.slot2, pv.armor, pv.nades, pv.nadeType, pv.medkit, (this.prevBuys || []).length].join('|');
     if (key === this.buyKey && $('#sh-buy-list').firstChild) return;
     this.buyKey = key;
     const owned = new Set([pv.slot1, pv.slot2]);
@@ -741,12 +747,12 @@ export class ShooterClient {
     const kitRow = `<div class="bg"><h4>Быстро</h4><div class="kits">${prev.length ? `<button class="kit" data-kit="last">${icon('rotate')}<b>Как в прошлый раз</b><small>${prev.map(x => (WEAPONS[x] || GEAR[x]).name).slice(0, 3).join(', ')}</small></button>` : ''}${KITS.map(k => `<button class="kit" data-kit="${k.id}">${icon(k.icon)}<b>${k.name}</b><small>${k.groups.map(g => (WEAPONS[g[0]] || GEAR[g[0]]).name).join(' + ')}</small></button>`).join('')}</div></div>`;
     $('#sh-buy-list').innerHTML = kitRow + BUY_GROUPS.map(g => `<div class="bg"><h4>${g.name}</h4><div class="bitems">${g.items.map(id => {
       const W = WEAPONS[id], G = GEAR[id], it = W || G, price = it.price;
-      const own = owned.has(id) || (id === 'armor' && pv.armor >= 100) || (id === 'medkit' && pv.medkit > 0) || (id === 'grenade' && pv.nades >= 2);
+      const own = owned.has(id) || (id === 'armor' && pv.armor >= 100) || (id === 'medkit' && pv.medkit > 0) || (W && W.nade && pv.nadeType === id && pv.nades >= W.max);
       const poor = pv.money < price;
       const dps = W && W.dmg && !W.throw ? (W.dmg * (W.pellets || 1)) / W.rate : 0;
       return `<button class="bitem ${own ? 'own' : ''} ${poor ? 'poor' : ''} ${W ? 'st-' + W.style : ''}" data-item="${id}">
         <div class="bt">${icon(it.icon)}<b>${it.name}</b></div>
-        ${W && !W.throw ? `<div class="bstats"><span>Урон</span><div>${bar(W.dmg * (W.pellets || 1), 110)}</div><span>Скорость</span><div>${bar(1 / W.rate, 14)}</div><span>Точность</span><div>${bar(1 - Math.min(1, (W.spread || 0.05) * 10), 1)}</div></div>` : `<div class="bdesc">${G ? G.desc : 'Взрыв по площади'}</div>`}
+        ${W && !W.throw ? `<div class="bstats"><span>Урон</span><div>${bar(W.dmg * (W.pellets || 1), 110)}</div><span>Скорость</span><div>${bar(1 / W.rate, 14)}</div><span>Точность</span><div>${bar(1 - Math.min(1, (W.spread || 0.05) * 10), 1)}</div><span>Дальность</span><div>${bar(W.range || (W.proj ? (W.grav > 0 ? 45 : W.speed * 2.2) : 60), 150)}</div></div>` : `<div class="bdesc">${G ? G.desc : W.desc || 'Взрыв по площади'}</div>`}
         <div class="bp">${W ? `<small>${STYLE_NAMES[W.style]}</small>` : ''}<span>${own && W && W.slot !== 4 ? 'Есть · патроны' : price ? '$' + price : 'Бесплатно'}</span></div></button>`;
     }).join('')}</div></div>`).join('');
   }

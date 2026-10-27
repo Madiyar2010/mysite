@@ -79,7 +79,7 @@ export class ShooterView {
     this.scene.add(sun); this.scene.add(sun.target);
     if (th.sky) this.sky(th);
     this.build();
-    this.ents = new Map(); this.projs = new Map(); this.flags = new Map();
+    this.ents = new Map(); this.projs = new Map(); this.flags = new Map(); this.chests = new Map(); this.smokes = [];
     this.tracers = []; this.decals = []; this.parts = [];
     this.pGeo = new THREE.BoxGeometry(1, 1, 1);
     this.camMode = 'fps';
@@ -330,6 +330,9 @@ export class ShooterView {
       if (!p) {
         let g;
         if (type === 'grenade') { g = makeGun('grenade', WEAPONS.grenade); }
+        else if (type === 'smoke' || type === 'flash' || type === 'sticky') { g = new THREE.Group(); const c = { smoke: '#9aa3ad', flash: '#f4f7ff', sticky: '#ff4dc4' }[type]; const body = new THREE.Mesh(type === 'sticky' ? new THREE.SphereGeometry(0.13, 12, 8) : new THREE.CylinderGeometry(0.08, 0.08, 0.24, 12), new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, emissive: type === 'sticky' ? '#5a0040' : '#000', emissiveIntensity: 0.4 })); body.rotation.x = Math.PI / 2; g.add(body); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), new THREE.MeshStandardMaterial({ color: '#444', metalness: 0.6 })); cap.position.y = type === 'sticky' ? 0.13 : 0.14; g.add(cap); }
+        else if (type === 'banana' || type === 'bananaS') { g = new THREE.Group(); const sc = type === 'banana' ? 1 : 0.6; const b = new THREE.Mesh(new THREE.TorusGeometry(0.16 * sc, 0.06 * sc, 8, 16, Math.PI * 0.9), new THREE.MeshStandardMaterial({ color: '#ffe14d', roughness: 0.5 })); g.add(b); const tip = new THREE.Mesh(new THREE.SphereGeometry(0.035 * sc, 6, 6), new THREE.MeshStandardMaterial({ color: '#5a3b1a' })); tip.position.set(0.16 * sc, 0, 0); g.add(tip); }
+        else if (type === 'bubble') { g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshStandardMaterial({ color: '#bff4ff', transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.2, emissive: '#3dd6ff', emissiveIntensity: 0.25, depthWrite: false }))); const sh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffffff' })); sh.position.set(-0.08, 0.1, 0.12); g.add(sh); }
         else { const c = { plasma: '#8a5bff', snow: '#ffffff', orb: '#b36bff', bossorb: '#ff2e63' }[type] || '#fff'; g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.SphereGeometry(type === 'snow' ? 0.14 : 0.18, 12, 8), new THREE.MeshBasicMaterial({ color: type === 'snow' ? '#ffffff' : '#fff4f4' }))); if (type !== 'snow') g.add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 8), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }))); g.userData.c = c; }
         g.position.set(x, y, z); this.scene.add(g); p = { g, type }; this.projs.set(id, p);
       }
@@ -337,6 +340,36 @@ export class ShooterView {
       p.g.position.lerp(new THREE.Vector3(x, y, z), 0.5);
     }
     for (const [id, p] of this.projs) if (!seen.has(id)) { p.g.removeFromParent(); this.projs.delete(id); }
+  }
+  // сундуки с монетами
+  syncChests(list) {
+    const seen = new Set();
+    for (const [id, x, y, z, secret] of list) {
+      seen.add(id);
+      if (this.chests.has(id)) continue;
+      const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: secret ? '#7b2cbf' : '#8a5a2b', roughness: 0.7 }), gold = new THREE.MeshStandardMaterial({ color: '#ffd34d', metalness: 0.8, roughness: 0.3, emissive: '#6b4b00', emissiveIntensity: 0.4 });
+      const add = (geo, m, px, py, pz) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.castShadow = true; g.add(o); return o; };
+      add(new THREE.BoxGeometry(0.8, 0.45, 0.55), wood, 0, 0.22, 0);
+      const lid = add(new THREE.CylinderGeometry(0.275, 0.275, 0.8, 12, 1, false, 0, Math.PI), wood, 0, 0.45, 0); lid.rotation.z = Math.PI / 2;
+      add(new THREE.BoxGeometry(0.84, 0.06, 0.6), gold, 0, 0.44, 0);
+      for (const sx of [-0.3, 0.3]) add(new THREE.BoxGeometry(0.07, 0.75, 0.6), gold, sx, 0.35, 0);
+      add(new THREE.BoxGeometry(0.14, 0.16, 0.05), gold, 0, 0.36, 0.29);
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: secret ? '#d29bff' : '#ffd34d', transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.03; g.add(glow);
+      g.position.set(x, y, z); g.userData = { y, ph: Math.random() * 6, glow };
+      this.scene.add(g); this.chests.set(id, g);
+    }
+    for (const [id, g] of this.chests) if (!seen.has(id)) { g.removeFromParent(); this.chests.delete(id); }
+  }
+  // облако дыма
+  smoke(x, z, r, life) {
+    const g = new THREE.Group();
+    for (let i = 0; i < 14; i++) {
+      const s = r * rnd(0.45, 0.75), m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: '#d5d9e0', emissive: '#8a9099', emissiveIntensity: 0.9, roughness: 1, transparent: true, opacity: 0, depthWrite: false }));
+      const a = Math.random() * Math.PI * 2, d = Math.random() * r * 0.55;
+      m.position.set(x + Math.cos(a) * d, rnd(0.6, 2.4), z + Math.sin(a) * d); m.userData = { y: m.position.y, s }; m.scale.setScalar(s); g.add(m);
+    }
+    this.scene.add(g); this.smokes.push({ g, t: 0, life });
   }
   syncFlags(list) {
     for (const [team, x, y, z, carrier] of list) {
@@ -365,7 +398,14 @@ export class ShooterView {
     if (this.skyMesh) this.skyMesh.position.copy(this.camera.position);
     if (this.convBoxes) for (const c of this.convBoxes) { const u = c.userData; c.position.x = u.x0 + ((c.position.x - u.x0 + dt * 1.2) % u.len); }
     for (const a of this.ents.values()) a.update(dt, null);
-    for (const p of this.projs.values()) { p.vy -= (p.grav || 0) * dt; p.g.position.x += p.vx * dt; p.g.position.y += p.vy * dt; p.g.position.z += p.vz * dt; if (p.type === 'grenade') { p.g.rotation.x += dt * 8; } else if (Math.random() < 0.5 && p.g.userData.c) this.particle(p.g.position.x, p.g.position.y, p.g.position.z, 0, 0, 0, p.g.userData.c, 0.25, 0.08, 0); }
+    for (const p of this.projs.values()) { p.vy -= (p.grav || 0) * dt; p.g.position.x += p.vx * dt; p.g.position.y += p.vy * dt; p.g.position.z += p.vz * dt; if (p.type === 'grenade' || p.type === 'smoke' || p.type === 'flash' || p.type === 'banana' || p.type === 'bananaS') { p.g.rotation.x += dt * 8; } else if (p.type === 'bubble' || p.type === 'sticky') { p.g.scale.setScalar(1 + Math.sin(t * 9) * 0.08); } else if (Math.random() < 0.5 && p.g.userData.c) this.particle(p.g.position.x, p.g.position.y, p.g.position.z, 0, 0, 0, p.g.userData.c, 0.25, 0.08, 0); }
+    for (const c of this.chests.values()) { c.rotation.y += dt * 0.8; c.position.y = c.userData.y + Math.sin(t * 2.5 + c.userData.ph) * 0.06; c.userData.glow.material.opacity = 0.35 + Math.sin(t * 4) * 0.15; }
+    for (let i = this.smokes.length - 1; i >= 0; i--) {
+      const sm = this.smokes[i]; sm.t += dt; const k = sm.t / sm.life;
+      if (k >= 1) { sm.g.removeFromParent(); sm.g.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); this.smokes.splice(i, 1); continue; }
+      const op = Math.min(1, sm.t * 2.5) * (k > 0.8 ? (1 - k) / 0.2 : 1);
+      sm.g.children.forEach((m, j) => { m.material.opacity = 0.9 * op; m.position.y = m.userData.y + Math.sin(t * 0.6 + j) * 0.15; m.scale.setScalar(m.userData.s * (0.6 + Math.min(1, sm.t) * 0.4)); });
+    }
     for (const [team, f] of this.flags) {
       const c = f.userData.c && this.ents.get(f.userData.c);
       if (c && c.root.visible) { f.position.set(c.x - 0.3, c.y + 1.3, c.z); f.scale.setScalar(0.55); } else { const p = f.userData.p; f.position.set(p[0], p[1], p[2]); f.scale.setScalar(1); }

@@ -943,3 +943,8 @@ body.ios #rotate .btn{display:none}
 #res-coins .rec svg{width:18px;height:18px;vertical-align:-3px}
 @media (orientation:landscape) and (max-height:560px){.tile{min-height:54px;padding:6px 4px;font-size:12.5px}.tile svg{width:22px;height:22px}}
 @media (orientation:landscape) and (max-height:560px){.shop-about{display:none}}
+#flashfx{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:7}
+#paintfx{position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0}
+#paintfx.on{animation:paintFade 3.5s ease-in forwards}
+#paintfx i{position:absolute;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;opacity:.85;filter:blur(1px)}
+@keyframes paintFade{0%{opacity:1}70%{opacity:.9}100%{opacity:0}}

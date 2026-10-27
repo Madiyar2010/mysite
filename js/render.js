@@ -1170,7 +1170,7 @@ function styledMap(map, style) {
   gunTex.set(key, t);
   return t;
 }
-const GUN_LEN = { knife: 0.4, pistol: 0.42, laser: 0.42, water: 0.45, smg: 0.62, rifle: 0.9, shotgun: 0.85, sniper: 1.15, plasma: 0.8, railgun: 1.1, paint: 0.75, snow: 0.8, grenade: 0.18 };
+const GUN_LEN = { bubble: 0.8, smoke: 0.18, flash: 0.18, sticky: 0.18, banana: 0.18, knife: 0.4, pistol: 0.42, laser: 0.42, water: 0.45, smg: 0.62, rifle: 0.9, shotgun: 0.85, sniper: 1.15, plasma: 0.8, railgun: 1.1, paint: 0.75, snow: 0.8, grenade: 0.18 };
 export function makeGun(id, W, skin) {
   const g = new THREE.Group();
   if (id === 'knife' || !W || !W.model || !A.has(W.model)) {

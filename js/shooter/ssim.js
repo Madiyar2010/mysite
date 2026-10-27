@@ -1,5 +1,5 @@
 // Логика шутера (только у хоста).
-import { WEAPONS, GEAR, MONEY } from './weapons.js';
+import { WEAPONS, GEAR, MONEY, NADES } from './weapons.js';
 import { SMAPS, PH, movePlayer, updateDynamics, rayWorld, rayPlayer, los, navPath } from './smap.js';
 import { TEAM_NAMES, shuffle, pick, rnd, clamp, giveAwards } from '../util.js';
 
@@ -32,6 +32,7 @@ export class ShooterSim {
     this.lives = [15, 8, 3][this.opts.pveDiff ?? 1] ?? 8;
     roster.forEach(r => this.addPlayer(r));
     if (mode === 'ctf') this.flags = this.map.flags.map(f => ({ team: f.team, hx: f.x, hz: f.z, x: f.x, y: 0, z: f.z, carrier: null, home: true, dropT: 0 }));
+    this.smokes = []; this.chests = []; this.chestId = 0; this.chestT = 3;
     this.over = false;
     this.startRound(true);
     this.last = performance.now(); this.sendT = 0; this.meT = 0;
@@ -44,7 +45,7 @@ export class ShooterSim {
   addPlayer(r) {
     const p = { id: r.pid, name: r.name, team: r.team ?? 0, bot: !!r.bot, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vy: 0, vz: 0, ground: true,
       alive: true, hp: 100, armor: 0, money: this.rounds ? MONEY.start : MONEY.startTimed, slot1: null, slot2: 'pistol', nades: 0, medkit: 0, cur: 'pistol',
-      ammo: {}, lastFire: 0, reloadUntil: 0, slowUntil: 0, freezeUntil: 0, markUntil: 0, protUntil: 0, kills: 0, deaths: 0, pts: 0, caps: 0,
+      ammo: {}, lastFire: 0, reloadUntil: 0, slowUntil: 0, freezeUntil: 0, markUntil: 0, protUntil: 0, kills: 0, deaths: 0, pts: 0, caps: 0, hits: 0, chests: 0, nadeType: 'grenade',
       anim: 0, animN: 0, respawnT: 0, left: false, lastPos: 0, ai: { t: 0, path: null, pathT: 0, react: 0, strafe: 1, aimErr: 0 }, buyWindow: 0, moverHit: 0, gl: 0 };
     this.giveAmmo(p, 'pistol');
     if (this.mode === 'gun') this.gunSet(p);
@@ -184,7 +185,8 @@ export class ShooterSim {
       const win = winners.has(p.id);
       let coins = 10 + p.kills * 2 + (win ? 20 : 0) + p.caps * 4;
       if (this.mode === 'pve') coins = 10 + Math.round(p.kills / 2) + (win ? 25 : 0) + Math.min(this.wave, 20) * 2;
-      return { pid: p.id, name: p.name, bot: p.bot, team: p.team, kills: p.kills, deaths: p.deaths, pts: p.pts, caps: p.caps, win, coins: p.bot ? 0 : coins, rounds: this.score.get(p.id) || 0 };
+      coins += p.chests * 5; // сундуки: +5 монет каждый
+      return { pid: p.id, name: p.name, bot: p.bot, team: p.team, kills: p.kills, deaths: p.deaths, pts: p.pts, caps: p.caps, hits: p.hits || 0, chests: p.chests, win, coins: p.bot ? 0 : coins, rounds: this.score.get(p.id) || 0 };
     }).sort((a, b) => (b.win - a.win) || (b.kills - a.kills));
     giveAwards(rows, this.mode === 'pve' ? [
       { name: 'Охотник на монстров', icon: 'skull', ok: r => r.kills > 0, score: r => r.kills },
@@ -235,7 +237,7 @@ export class ShooterSim {
     if (W) {
       if (W.slot === 1) { if (p.slot1 === item) { this.giveAmmo(p, item); } else { p.slot1 = item; this.giveAmmo(p, item); p.cur = item; } }
       else if (W.slot === 2) { p.slot2 = item; this.giveAmmo(p, item); p.cur = p.slot1 || item; }
-      else if (W.slot === 4) { if (p.nades >= W.max) return; p.nades++; }
+      else if (W.slot === 4) { if (p.nadeType !== item) { p.nadeType = item; p.nades = 0; } if (p.nades >= W.max) return; p.nades++; }
       else return;
     } else if (item === 'armor') { if (p.armor >= 100) return; p.armor = 100; }
     else if (item === 'medkit') { if (p.medkit >= 1) return; p.medkit = 1; }
@@ -266,7 +268,7 @@ export class ShooterSim {
     const moving = Math.hypot(p.vx, p.vz) > 1.5 || !p.ground;
     let spread = (m.sc && W.scopeSpread != null ? W.scopeSpread : W.spread) + (moving ? W.moveSpread || 0 : 0);
     if (W.melee) { this.melee(p, o, d, W); return; }
-    if (W.throw) { p.nades--; if (p.nades <= 0) p.cur = p.slot1 || p.slot2; this.throwNade(p, o, d); return; }
+    if (W.throw) { p.nades--; if (p.nades <= 0) p.cur = p.slot1 || p.slot2; this.throwNade(p, o, d, p.nadeType || 'grenade'); return; }
     if (W.proj) {
       const dd = jitter(d, spread);
       this.projs.push({ id: ++this.pid, type: W.proj, owner: p.id, x: o.x + dd.x * 0.6, y: o.y + dd.y * 0.6 - 0.15, z: o.z + dd.z * 0.6, vx: dd.x * W.speed, vy: dd.y * W.speed, vz: dd.z * W.speed, grav: W.grav || 0, life: 3, w });
@@ -338,14 +340,27 @@ export class ShooterSim {
       this.damage(best, W.dmg, p, { w: 'knife', dir: d, knock: 4 });
     }
   }
-  throwNade(p, o, d) {
-    const sp = 17;
-    this.projs.push({ id: ++this.pid, type: 'grenade', owner: p.id, x: o.x + d.x * 0.5, y: o.y + d.y * 0.5, z: o.z + d.z * 0.5, vx: d.x * sp, vy: d.y * sp + 3, vz: d.z * sp, grav: 22, life: WEAPONS.grenade.fuse, bounce: true, w: 'grenade' });
+  throwNade(p, o, d, type = 'grenade') {
+    const sp = 17, W = WEAPONS[type] || WEAPONS.grenade;
+    this.projs.push({ id: ++this.pid, type, owner: p.id, x: o.x + d.x * 0.5, y: o.y + d.y * 0.5, z: o.z + d.z * 0.5, vx: d.x * sp, vy: d.y * sp + 3, vz: d.z * sp, grav: 22, life: W.fuse, bounce: true, sticky: type === 'sticky', w: type });
     this.ev('shot', p.id, 'grenade');
   }
+  // дым мешает видеть: отрезок проходит сквозь облако?
+  smoked(a, b) {
+    for (const s of this.smokes) {
+      const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, L2 = dx * dx + dy * dy + dz * dz || 1;
+      const k = clamp(((s.x - a.x) * dx + (s.y - a.y) * dy + (s.z - a.z) * dz) / L2, 0, 1);
+      if (Math.hypot(a.x + dx * k - s.x, (a.y + dy * k - s.y) * 1.4, a.z + dz * k - s.z) < s.r) return true;
+    }
+    return false;
+  }
+  see(a, b) { return los(this.map, a, b) && !this.smoked(a, b); }
   explode(pr, x, y, z) {
     const W = WEAPONS[pr.w], owner = this.ps.get(pr.owner) || this.mons.get(pr.owner);
     const R = W ? W.splash : 2.5;
+    if (pr.type === 'smoke') { this.smokes.push({ x, y: Math.max(1.2, y), z, r: R, until: this.t + 12 }); this.ev('smoke', +x.toFixed(2), +z.toFixed(2), R, 12); return; }
+    if (pr.type === 'flash') { this.flash(x, y + 0.3, z, owner); return; }
+    if (pr.type === 'banana') for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + rnd(-0.3, 0.3), sp = rnd(4, 6.5); this.projs.push({ id: ++this.pid, type: 'bananaS', owner: pr.owner, x, y: y + 0.4, z, vx: Math.cos(a) * sp, vy: rnd(5, 7), vz: Math.sin(a) * sp, grav: 22, life: WEAPONS.bananaS.fuse + rnd(0, 0.4), bounce: true, w: 'bananaS' }); }
     this.ev('boom', +x.toFixed(2), +y.toFixed(2), +z.toFixed(2), R, pr.type);
     for (const t of this.targets()) {
       const dx = t.x - x, dy = t.y + (t.hy || 0) + 0.9 - y, dz = t.z - z, dist = Math.hypot(dx, dy, dz);
@@ -357,7 +372,71 @@ export class ShooterSim {
       const L = dist || 1;
       this.damage(t, dmg, owner, { w: pr.w, dir: { x: dx / L, y: 0.4, z: dz / L }, knock: (W && W.knock) || 7 * k });
       if (W && W.freeze) t.freezeUntil = this.t + W.freeze;
+      if (W && W.mark) t.markUntil = this.t + W.mark;
+      if (W && W.slow) t.slowUntil = this.t + W.slow;
+      if (pr.type === 'sticky' && !t.mon && !t.bot) this.io.sendTo(t.id, { t: 'paint' });
     }
+  }
+  // ослепляющая: сильнее, если смотришь на вспышку
+  flash(x, y, z, owner) {
+    this.ev('boom', +x.toFixed(2), +y.toFixed(2), +z.toFixed(2), 2, 'flash');
+    for (const t of this.ps.values()) {
+      if (!t.alive || t.left) continue;
+      const eye = { x: t.x, y: t.y + PH.EYE, z: t.z }, dx = x - eye.x, dy = y - eye.y, dz = z - eye.z, d = Math.hypot(dx, dy, dz);
+      if (d > 16 || !los(this.map, eye, { x, y, z })) continue;
+      const fwd = { x: -Math.sin(t.yaw) * Math.cos(t.pitch), y: Math.sin(t.pitch), z: -Math.cos(t.yaw) * Math.cos(t.pitch) };
+      const dot = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / (d || 1);
+      const k = +((dot > 0.3 ? 1 : 0.35) * (1 - d / 18)).toFixed(2);
+      if (k < 0.1) continue;
+      if (t.bot) { t.ai.react = 2.6 * k; t.ai.target = null; t.ai.blindT = this.t + 2.6 * k; }
+      else this.io.sendTo(t.id, { t: 'flash', k });
+    }
+    for (const m of this.mons.values()) if (m.alive && Math.hypot(m.x - x, m.z - z) < 10) m.freezeUntil = this.t + 1.5;
+  }
+  // ---------- сундуки с монетами ----------
+  chestTick(dt) {
+    const m = this.map;
+    const want = this.mode === 'pve' ? 2 : 3;
+    this.chestT -= dt;
+    if (this.chestT <= 0 && this.chests.length < want + 1) {
+      this.chestT = 25;
+      const secret = !this.chests.some(c => c.secret) && Math.random() < 0.6;
+      const at = secret ? this.secretSpot() : this.groundSpot();
+      if (at) this.chests.push({ id: ++this.chestId, x: at.x, y: at.y, z: at.z, secret: !!secret });
+    }
+    for (let i = this.chests.length - 1; i >= 0; i--) {
+      const c = this.chests[i];
+      for (const p of this.ps.values()) {
+        if (!p.alive || p.left || Math.hypot(p.x - c.x, p.z - c.z) > 1.1 || Math.abs(p.y - c.y) > 1.2) continue;
+        this.chests.splice(i, 1);
+        const money = c.secret ? 800 : 400;
+        p.money = Math.min(MONEY.max, p.money + money); p.chests++; p.pts++;
+        this.ev('chest', p.id, c.secret ? 1 : 0, +c.x.toFixed(2), +c.y.toFixed(2), +c.z.toFixed(2));
+        break;
+      }
+    }
+  }
+  groundSpot() {
+    const { nx, nz, grid } = this.map.nav;
+    for (let k = 0; k < 60; k++) {
+      const i = Math.random() * nx * nz | 0; if (!grid[i]) continue;
+      const x = -this.map.W + i % nx + 0.5, z = -this.map.D + Math.floor(i / nx) + 0.5;
+      if ([...this.ps.values()].some(p => p.alive && Math.hypot(p.x - x, p.z - z) < 8)) continue;
+      if (this.chests.some(c => Math.hypot(c.x - x, c.z - z) < 10)) continue;
+      return { x, y: 0, z };
+    }
+    return null;
+  }
+  // секретный сундук — наверху: на контейнере, крыше или мостике
+  secretSpot() {
+    const tops = this.map.boxes.filter(b => b.vis !== 'floor' && !b.dyn && b.solid !== false && !b.pass && b.y + b.h > 1.5 && b.y + b.h < 9 && b.w >= 1.6 && b.d >= 1.6 && /container|roof|catwalk|tower|platform|deck|balcony|crane|stairs|ledge/.test(b.vis || ''));
+    for (let k = 0; k < 30 && tops.length; k++) {
+      const b = pick(tops), y = b.y + b.h, x = b.x + rnd(-b.w / 2 + 0.6, b.w / 2 - 0.6), z = b.z + rnd(-b.d / 2 + 0.6, b.d / 2 - 0.6);
+      if (Math.abs(x) > this.map.W - 1 || Math.abs(z) > this.map.D - 1) continue;
+      const above = this.map.boxes.some(o => o !== b && o.vis !== 'floor' && o.solid !== false && o.y >= y - 0.05 && o.y < y + 2 && Math.abs(x - o.x) < o.w / 2 + 0.5 && Math.abs(z - o.z) < o.d / 2 + 0.5);
+      if (!above) return { x, y, z };
+    }
+    return this.groundSpot();
   }
   damage(t, amount, src, o = {}) {
     if (!t.alive || this.over) return;
@@ -366,6 +445,7 @@ export class ShooterSim {
     let dmg = Math.round(amount);
     if (!t.mon && t.armor > 0) { const ab = Math.min(t.armor, Math.round(dmg * 0.5)); t.armor -= ab; dmg -= ab; }
     t.hp -= dmg;
+    if (src && src !== t && !src.mon && this.enemies(src, t)) src.hits = (src.hits || 0) + 1;
     this.ev('hit', t.id, Math.round(amount), o.head ? 1 : 0, src ? src.id : '', +t.x.toFixed(2), +(t.y + (o.head ? 1.55 : 1.1) * (t.scale || 1)).toFixed(2), +t.z.toFixed(2));
     if (o.knock && o.dir) this.knock(t, o.dir.x * o.knock, Math.max(2, (o.dir.y || 0.3) * o.knock), o.dir.z * o.knock);
     if (t.hp <= 0) this.kill(t, src, o);
@@ -439,7 +519,7 @@ export class ShooterSim {
     const opts = ['smg', 'shotgun', 'rifle', 'paint', 'snow', 'plasma', 'sniper', 'railgun'].filter(w => WEAPONS[w].price <= p.money - (lvl > 0 ? 300 : 0));
     if (opts.length && !p.slot1) this.buy(p, pick(opts.slice(-4)));
     if (p.money >= 650 && Math.random() < 0.6) this.buy(p, 'armor');
-    if (p.money >= 300 && Math.random() < 0.5) this.buy(p, 'grenade');
+    if (p.money >= 300 && Math.random() < 0.5) this.buy(p, pick(['grenade', 'grenade', 'smoke', 'flash', 'sticky']));
   }
   botThink(p, dt) {
     const ai = p.ai, lvl = this.opts.botLevel, eye = { x: p.x, y: p.y + PH.EYE, z: p.z };
@@ -449,7 +529,7 @@ export class ShooterSim {
     for (const t of this.targets()) {
       if (!this.enemies(p, t)) continue;
       const d = Math.hypot(t.x - p.x, t.z - p.z);
-      if (d < bd && los(this.map, eye, { x: t.x, y: t.y + 1.2 * (t.scale || 1), z: t.z })) { bd = d; target = t; }
+      if (d < bd && (!ai.blindT || this.t > ai.blindT) && this.see(eye, { x: t.x, y: t.y + 1.2 * (t.scale || 1), z: t.z })) { bd = d; target = t; }
     }
     if (target !== ai.target) { ai.target = target; ai.react = [0.7, 0.45, 0.25][lvl] + rnd(0, 0.2); }
     ai.react -= dt;
@@ -684,23 +764,32 @@ export class ShooterSim {
         const h = rayPlayer({ x: ox, y: oy, z: oz }, d, t.hy ? { x: t.x, y: t.y + t.hy, z: t.z } : t, hitT ?? L, (t.scale || 1) * 1.15);
         if (h && (hitT == null || h.t < hitT)) { hitT = h.t; victim = t; }
       }
-      if (pr.type === 'grenade') {
-        if (hitT != null && !victim) { // отскок
+      if (pr.stuckTo) { const st = this.ps.get(pr.stuckTo) || this.mons.get(pr.stuckTo); if (st && st.alive) { pr.x = st.x; pr.y = st.y + 1; pr.z = st.z; } pr.vx = pr.vy = pr.vz = 0; }
+      if (pr.sticky && !pr.stuck && hitT != null) { // липкая: прилипает к стене или к игроку
+        pr.stuck = true; pr.grav = 0; pr.x = ox + d.x * Math.max(0, hitT - 0.05); pr.y = oy + d.y * Math.max(0, hitT - 0.05); pr.z = oz + d.z * Math.max(0, hitT - 0.05); pr.vx = pr.vy = pr.vz = 0;
+        if (victim) pr.stuckTo = victim.id;
+        this.ev('bounce', +pr.x.toFixed(1), +pr.z.toFixed(1));
+      }
+      if (pr.bounce) {
+        if (hitT != null && !victim && !pr.stuck) { // отскок
           pr.x = ox + d.x * Math.max(0, hitT - 0.05); pr.y = oy + d.y * Math.max(0, hitT - 0.05); pr.z = oz + d.z * Math.max(0, hitT - 0.05);
           if (wh.axis === 1) { pr.vy = -pr.vy * 0.45; pr.vx *= 0.7; pr.vz *= 0.7; } else if (wh.axis === 0) pr.vx = -pr.vx * 0.5; else pr.vz = -pr.vz * 0.5;
           if (Math.abs(pr.vy) > 2) this.ev('bounce', +pr.x.toFixed(1), +pr.z.toFixed(1));
         }
         if (pr.life <= 0) { this.projs.splice(i, 1); this.explode(pr, pr.x, pr.y + 0.2, pr.z); }
+        if (pr.stuck) { pr.vx = pr.vy = pr.vz = 0; pr.grav = 0; }
         continue;
       }
       if (hitT != null || pr.life <= 0) {
         this.projs.splice(i, 1);
         const t = hitT ?? L, hx = ox + d.x * t, hy = oy + d.y * t, hz = oz + d.z * t;
-        if (pr.type === 'plasma' || pr.type === 'snow') this.explode(pr, hx, hy, hz);
+        if (pr.type === 'plasma' || pr.type === 'snow' || pr.type === 'bubble') this.explode(pr, hx, hy, hz);
         else if (victim) this.damage(victim, pr.dmg || 15, owner, { w: pr.type, dir: d, knock: pr.type === 'bossorb' ? 6 : 2 });
         else this.ev('puff', +hx.toFixed(2), +hy.toFixed(2), +hz.toFixed(2), pr.type);
       }
     }
+    if (this.smokes.length) this.smokes = this.smokes.filter(s => s.until > this.t);
+    if (playing) this.chestTick(dt);
     if (playing && this.flags) this.flagTick(dt);
     if (playing) this.checkRound();
     this.sendT += dt; this.meT += dt;
@@ -718,6 +807,7 @@ export class ShooterSim {
     for (const m of this.mons.values()) e.push([m.id, 'm:' + m.type, +m.x.toFixed(2), +(m.y + (m.hy || 0)).toFixed(2), +m.z.toFixed(2), +m.yaw.toFixed(2), 0, (Math.hypot(m.vx, m.vz) > 0.5 ? 1 : 0) | (m.animN << 4), Math.max(0, Math.round(m.hp)), (m.alive ? 0 : FL.dead) | (m.markUntil > this.t ? FL.mark : 0), m.maxhp]);
     const s = { t: 's2', tm: +this.t.toFixed(2), ph: this.phase, tl: Math.max(0, +this.phaseT.toFixed(1)), rd: this.round, e, br: this.phase === 'buy' ? [this.buyReady.size, [...this.ps.values()].filter(p => !p.bot && !p.left && p.alive).length] : 0,
       p: this.projs.map(p => [p.id, p.type, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +p.vx.toFixed(1), +p.vy.toFixed(1), +p.vz.toFixed(1), p.grav || 0]), fx: this.fx };
+    s.ch = this.chests.map(c => [c.id, +c.x.toFixed(2), +c.y.toFixed(2), +c.z.toFixed(2), c.secret ? 1 : 0]);
     if (this.team) s.ts = this.teamScore;
     if (!this.team && this.rounds) s.rs = [...this.score];
     if (this.flags) s.fl = this.flags.map(f => [f.team, +f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2), f.carrier || '']);
@@ -729,7 +819,7 @@ export class ShooterSim {
   sendPrivate() {
     for (const p of this.ps.values()) {
       if (p.bot || p.left) continue;
-      this.io.sendTo(p.id, { t: 'me2', hp: Math.max(0, p.hp), armor: p.armor, money: p.money, slot1: p.slot1, slot2: p.slot2, nades: p.nades, medkit: p.medkit, cur: p.cur,
+      this.io.sendTo(p.id, { t: 'me2', hp: Math.max(0, p.hp), armor: p.armor, money: p.money, slot1: p.slot1, slot2: p.slot2, nades: p.nades, nadeType: p.nadeType, medkit: p.medkit, cur: p.cur,
         ammo: p.ammo, reload: p.reloadUntil > this.t ? +(p.reloadUntil - this.t).toFixed(1) : 0, slow: p.slowUntil > this.t ? 1 : 0, freeze: p.freezeUntil > this.t ? 1 : 0,
         alive: p.alive, resp: p.alive ? 0 : +Math.max(0, p.respawnT).toFixed(1), buy: this.canBuy(p) ? 1 : 0, rounds: this.rounds });
     }
