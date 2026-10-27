@@ -948,3 +948,23 @@ body.ios #rotate .btn{display:none}
 #paintfx.on{animation:paintFade 3.5s ease-in forwards}
 #paintfx i{position:absolute;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;opacity:.85;filter:blur(1px)}
 @keyframes paintFade{0%{opacity:1}70%{opacity:.9}100%{opacity:0}}
+#am-reveal{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(40,10,30,.88),rgba(5,3,15,.96));padding:16px}
+#am-reveal.show{display:flex;animation:rvIn .5s ease-out}
+@keyframes rvIn{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:none}}
+.rv{text-align:center;max-width:640px;width:100%}
+.rv-title{font:900 30px Rubik,sans-serif;margin-bottom:10px}
+.rv.crew .rv-title{color:#5ee07a}.rv.imp .rv-title{color:#ff4d5e}.rv.jest .rv-title{color:#ffd166}
+.rv-sub{color:var(--muted);font-weight:700;margin:6px 0}
+.rv-sub svg{width:18px;height:18px;vertical-align:-3px}
+.rv-imps{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:8px 0 12px}
+.rv-imp{display:flex;flex-direction:column;align-items:center;gap:2px;animation:rvPop .6s .3s both}
+.rv-imp img{width:96px;height:96px;object-fit:contain;filter:drop-shadow(0 0 16px rgba(255,60,80,.7))}
+.rv-imp b{font-size:20px;color:#ff6b78}
+.rv-imp small svg{width:14px;height:14px}
+@keyframes rvPop{from{opacity:0;transform:translateY(20px) scale(.8)}to{opacity:1;transform:none}}
+.rv-log{display:flex;flex-direction:column;gap:4px;text-align:left;background:rgba(255,255,255,.06);border-radius:14px;padding:10px 14px;margin-top:8px;font-size:14.5px;font-weight:600}
+.rv-log div{display:flex;align-items:center;gap:8px;animation:rvPop .4s both}
+.rv-log i{font-style:normal;color:var(--muted);min-width:38px}
+.rv-log svg{width:16px;height:16px;flex:none}
+.rv-log .kill svg{color:#ff6b78}.rv-log .meet svg{color:#ffd166}.rv-log .eject svg{color:#4da3ff}
+@media (orientation:landscape) and (max-height:560px){.rv-title{font-size:22px}.rv-imp img{width:64px;height:64px}.rv-log{font-size:12.5px;padding:6px 10px}}

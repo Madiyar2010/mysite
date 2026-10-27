@@ -262,7 +262,7 @@ const AM_SET = {
   maxPlayers: [4, 5, 6, 7, 8, 10], impostors: [1, 2, 3], meetings: [0, 1, 2, 3], discuss: [0, 15, 30, 60], vote: [30, 60, 90, 120],
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
-  engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
+  engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], detective: [0, 1], guard: [0, 1], jester: [0, 1], amBots: [0, 1, 2, 3, 4, 5], bots: [0, 1, 2, 3, 4, 5, 6, 7],
   pveDiff: [0, 1, 2], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
 const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff', 'endless'];
@@ -378,7 +378,7 @@ function startMsg() { return { t: 'start', mode: H.mode, roster: H.roster, opts:
 // все нажали «Готов» — начинаем сами
 function checkAllReady() {
   const on = [...H.players.values()].filter(p => p.online), mode = MODES[H.mode];
-  const total = on.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 99 : H.opts.bots) : 0);
+  const total = on.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 99 : H.opts.bots) : (H.opts.amBots || 0));
   if (on.length >= 2 && on.every(p => p.ready) && total >= mode.min && !H.inGame) { Net.broadcast({ t: 'msg', text: 'Все готовы — начинаем!' }); setTimeout(() => { if ([...H.players.values()].filter(p => p.online).every(p => p.ready)) hostStartGame(); }, 1200); }
 }
 const isTeamMode = m => m === 'tdm' || m === 'ctf';
@@ -414,11 +414,11 @@ function hostStartGame() {
   if (H.inGame) return;
   const mode = MODES[H.mode];
   const humans = [...H.players.values()].filter(p => p.online);
-  const total = humans.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 2 * H.opts.teamSize : H.opts.bots) : 0);
-  if (total < mode.min) { toast(mode.group === 'traitor' ? 'Для «Найди предателя» нужно минимум 3 игрока' : `Нужно минимум ${mode.min} игрока — добавь ботов!`); return; }
+  const total = humans.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 2 * H.opts.teamSize : H.opts.bots) : (H.opts.amBots || 0));
+  if (total < mode.min) { toast(mode.group === 'traitor' ? 'Для «Найди предателя» нужно минимум 3 игрока — можно добавить ботов' : `Нужно минимум ${mode.min} игрока — добавь ботов!`); return; }
   const roster = humans.map(rosterEntry);
   // размер команды: свободные места в каждой команде занимают боты
-  let nb = mode.group === 'arena' ? H.opts.bots : 0;
+  let nb = mode.group === 'arena' ? H.opts.bots : Math.max(0, Math.min(H.opts.amBots || 0, (H.opts.maxPlayers || 10) - humans.length));
   const fill = mode.group === 'arena' && isTeamMode(H.mode) && H.opts.teamSize > 0;
   if (fill) nb = Math.max(0, H.opts.teamSize - humans.filter(p => p.team === 0).length) + Math.max(0, H.opts.teamSize - humans.filter(p => p.team === 1).length);
   if (nb > 0) {
@@ -520,7 +520,12 @@ function amongSettings(o) {
       ${optRow(`${icon('engineer')} Инженер`, seg('engineer', [0, 1], o.engineer, ['Нет', 'Есть']))}
       ${optRow(`${icon('scientist')} Учёный`, seg('scientist', [0, 1], o.scientist, ['Нет', 'Есть']))}
       ${optRow(`${icon('angel')} Ангел-хранитель`, seg('angel', [0, 1], o.angel, ['Нет', 'Есть']))}
-      ${optRow(`${icon('shapeshifter')} Оборотень`, seg('shapeshifter', [0, 1], o.shapeshifter, ['Нет', 'Есть']))}
+      ${optRow(`${icon('shapeshifter')} Оборотень (хамелеон)`, seg('shapeshifter', [0, 1], o.shapeshifter, ['Нет', 'Есть']))}
+      ${optRow(`${icon('eye')} Детектив`, seg('detective', [0, 1], o.detective || 0, ['Нет', 'Есть']))}
+      ${optRow(`${icon('shield')} Стражник`, seg('guard', [0, 1], o.guard || 0, ['Нет', 'Есть']))}
+      ${optRow(`${icon('emote')} Шутник`, seg('jester', [0, 1], o.jester || 0, ['Нет', 'Есть']))}
+      ${optRow(`${icon('bot')} Боты`, seg('amBots', AM_SET.amBots, o.amBots || 0))}
+      <div class="muted small">Детектив видит следы. Стражник один раз ставит щит. Шутник побеждает, если его выгонят. Боты делают задания и голосуют.</div>
     </details>
     <details class="opt-group"><summary>${icon('task')} Задания</summary>
       ${optRow('Общие', seg('common', AM_SET.common, o.common))}
@@ -599,7 +604,7 @@ function renderLobby() {
   $('#lb-opts').innerHTML = opts;
   if (openGroups.size) $$('#lb-opts details').forEach(d => d.open = openGroups.has(d.querySelector('summary').textContent));
   $('#lb-opts').classList.toggle('readonly', !isHost);
-  const total = online.length + (mode.group === 'arena' ? L.opts.bots : 0);
+  const total = online.length + (mode.group === 'arena' ? L.opts.bots : (L.opts.amBots || 0));
   if (L.inGame) $('#lb-action').innerHTML = `<div class="wait">Идёт игра<span class="dots"></span></div>`;
   else {
     const mine = online.find(p => p.pid === me.pid) || {}, nr = online.filter(p => p.ready).length;
@@ -607,7 +612,7 @@ function renderLobby() {
     const info = `<div class="muted small rdy-info">Готовы ${nr} из ${online.length}. Когда готовы все — игра начнётся сама.</div>`;
     if (isHost) {
       const ok = total >= mode.min;
-      $('#lb-action').innerHTML = `<div class="row">${online.length > 1 ? rbtn : ''}<button class="btn gold big grow" id="btn-start" ${ok ? '' : 'disabled'}>${ok ? `${icon('play')} Играть` : mode.group === 'traitor' ? 'Нужно 3 игрока' : 'Добавь ботов'}</button></div>${online.length > 1 ? info : ''}`;
+      $('#lb-action').innerHTML = `<div class="row">${online.length > 1 ? rbtn : ''}<button class="btn gold big grow" id="btn-start" ${ok ? '' : 'disabled'}>${ok ? `${icon('play')} Играть` : mode.group === 'traitor' ? 'Нужно 3 игрока (или боты)' : 'Добавь ботов'}</button></div>${online.length > 1 ? info : ''}`;
       $('#btn-start').onclick = () => { $('#btn-start').disabled = true; ready.then(() => Net.toHost({ t: 'start' })); };
     } else $('#lb-action').innerHTML = `<div class="row">${rbtn}</div>${info}`;
     const rb = $('#btn-ready'); if (rb) rb.onclick = () => { vibrate(10); Sound.play('select', { vol: 0.5 }); Net.toHost({ t: 'lready', v: !mine.ready }); };
@@ -784,7 +789,7 @@ $('#gift-opts').addEventListener('click', e => {
 });
 
 // ---------- итоги ----------
-const SUBN = { sheriff: 'Шериф', engineer: 'Инженер', scientist: 'Учёный', angel: 'Ангел', shapeshifter: 'Оборотень' };
+const SUBN = { sheriff: 'Шериф', engineer: 'Инженер', scientist: 'Учёный', angel: 'Ангел', shapeshifter: 'Оборотень', detective: 'Детектив', guard: 'Стражник', jester: 'Шутник' };
 function showResults(res) {
   stopGame();
   show('s-results');

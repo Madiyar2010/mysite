@@ -1,7 +1,8 @@
 // Клиент «Найди предателя» (Among Us): отображение, интерфейс, кнопки.
 import { $, $$, esc, clamp, PHRASES } from './util.js';
 import { icon } from './icons.js';
-import { Avatar } from './render.js';
+import * as THREE from 'three';
+import { Avatar, trailTexture } from './render.js';
 import { TASKS, SAB, castRay, lineOfSight, roomAtPos, T, applyMapText } from './amap.js';
 import { BASE, FLAG, DEFAULT_OPTS } from './among-sim.js';
 import { Input } from './input.js';
@@ -15,8 +16,14 @@ const SUBS = {
   engineer: { name: 'Инженер', icon: 'engineer', desc: 'Можешь прыгать в люки, как предатель (до 15 секунд).' },
   scientist: { name: 'Учёный', icon: 'scientist', desc: 'В любой момент смотришь, кто жив, а кто нет (кнопка сверху).' },
   angel: { name: 'Ангел-хранитель', icon: 'angel', desc: 'Когда станешь призраком — сможешь защищать игроков от выбивания.' },
-  shapeshifter: { name: 'Оборотень', icon: 'shapeshifter', desc: 'Можешь на 20 секунд превратиться в другого игрока.' }
+  shapeshifter: { name: 'Оборотень', icon: 'shapeshifter', desc: 'Можешь на 20 секунд превратиться в другого игрока.' },
+  detective: { name: 'Детектив', icon: 'eye', desc: 'Видишь свежие следы всех игроков. Цвет следа — как цвет имени.' },
+  guard: { name: 'Стражник', icon: 'shield', desc: 'Один раз за игру ставишь щит на игрока: он переживёт одно нападение.' },
+  jester: { name: 'Шутник', icon: 'emote', desc: 'Ты сам за себя! Победишь, если на собрании выгонят тебя. Веди себя подозрительно.' }
 };
+// цвет следов для детектива
+const FOOT = ['#ff6b78', '#4da3ff', '#5ee07a', '#ffd166', '#b46bff', '#ff9a3d', '#3dd6d0', '#ff7ad9', '#ffffff', '#a0e05e'];
+const footColor = (roster, pid) => FOOT[[...roster.keys()].indexOf(pid) % FOOT.length] || '#fff';
 export function amBanner(html, cls = '', ms = 2600) {
   const b = $('#am-banner'); const d = document.createElement('div'); d.className = 'bn ' + cls; d.innerHTML = html; b.appendChild(d);
   setTimeout(() => d.classList.add('out'), ms); setTimeout(() => d.remove(), ms + 500);
@@ -52,7 +59,7 @@ export class AmongClient {
     on('#am-ventbtn', () => this.ventAction());
     on('#am-sabbtn', () => this.openMap(true));
     on('#am-shift', () => this.pv.shift ? this.ctx.send({ t: 'shift' }) : this.pick('Превратиться в…', true, id => this.ctx.send({ t: 'shift', target: id })));
-    on('#am-protect', () => this.pick('Кого защитить?', false, id => this.ctx.send({ t: 'protect', target: id })));
+    on('#am-protect', () => this.pick(this.sub === 'guard' ? 'Кому дать щит?' : 'Кого защитить?', this.sub === 'guard', id => this.ctx.send({ t: 'protect', target: id })));
     on('#am-emo', () => this.ctx.send({ t: 'emo', v: Math.random() < 0.5 ? 1 : 0 }));
     on('#am-mini', () => this.overlay === 'map' ? this.closeOverlay() : this.openMap(false));
     on('#am-map', () => this.overlay === 'map' ? this.closeOverlay() : this.openMap(false));
@@ -90,6 +97,7 @@ export class AmongClient {
       case 'taskok': this.tasks = m.tasks; this.renderTasks(); break;
       case 'killed': this.killedScreen(m); break;
       case 'toast': amBanner(esc(m.text), 'small'); break;
+      case 'reveal': this.reveal(m); break;
       case 'meet': this.openMeeting(m); break;
       case 'votenow': this.meetStage = 'vote'; this.meetEnds = performance.now() + m.left * 1000; Sound.play('j_start', { vol: 0.5 }); this.renderMeeting(); break;
       case 'voted': this.voted.add(m.pid); Sound.play('pop', { vol: 0.6 }); this.renderMeeting(); break;
@@ -103,7 +111,7 @@ export class AmongClient {
     const r = this.info(asPid || pid), real = this.info(pid);
     const mate = this.role === 'impostor' && (this.mates.includes(pid) || pid === this.me) && this.role === 'impostor';
     return { model: ghost ? 'grave/character-ghost' : r.model, hat: ghost ? 'halo' : r.hat, aura: ghost ? 'none' : r.aura, pet: ghost ? 'none' : r.pet, pack: ghost ? 'none' : r.pack, trail: ghost ? 'none' : r.trail, name: ghost ? real.name : r.name,
-      me: pid === this.me, scale: 1.3, ring: pid === this.me ? '#ffd166' : null, nameColor: mate && !ghost ? '#ff4d5e' : '#fff' };
+      me: pid === this.me, scale: 1.3, ring: pid === this.me ? '#ffd166' : null, nameColor: mate && !ghost ? '#ff4d5e' : this.sub === 'detective' && !ghost ? footColor(this.roster, asPid || pid) : '#fff' };
   }
   restyle() { for (const [id, a] of this.view.ents) a.dispose(); this.view.ents.clear(); this.appearance.clear(); }
   state(s) {
@@ -129,6 +137,7 @@ export class AmongClient {
       if (fl & FLAG.scan) scanning = true;
     }
     v.scanning = scanning;
+    if (this.sub === 'detective' && this.alive && s.ph === 'play') this.trackSteps(s);
     for (const id of [...v.ents.keys()]) if (!seen.has(id)) v.removeEnt(id);
     const bseen = new Set();
     for (const [pid, x, z, rot] of s.b) {
@@ -171,7 +180,21 @@ export class AmongClient {
   }
 
   // ---------- кадр: обзор, видимость, стрелки ----------
+  // следы для детектива: каждые полсекунды — отпечаток там, где прошёл игрок
+  trackSteps(s) {
+    const now = performance.now() / 1000; this.steps = this.steps || []; this.stepAt = this.stepAt || new Map();
+    for (const [id, x, z, rot, anim, fl] of s.e) {
+      if (id === this.me || !(fl & FLAG.alive) || (fl & FLAG.vent)) continue;
+      const last = this.stepAt.get(id);
+      if (last && (now - last.t < 0.45 || Math.hypot(last.x - x, last.z - z) < 0.6)) continue;
+      const side = last ? -last.side : 1; this.stepAt.set(id, { t: now, x, z, side });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: trailTexture('steps'), color: footColor(this.roster, id), transparent: true, depthWrite: false, opacity: 0.85 }));
+      m.rotation.x = -Math.PI / 2; m.rotation.z = rot + Math.PI; m.position.set(x + Math.cos(rot) * 0.16 * side, 0.05, z - Math.sin(rot) * 0.16 * side);
+      this.view.scene.add(m); this.steps.push({ m, t: 0 });
+    }
+  }
   frame(dt) {
+    if (this.steps) for (let i = this.steps.length - 1; i >= 0; i--) { const st = this.steps[i]; st.t += dt; if (st.t > 9) { st.m.removeFromParent(); st.m.geometry.dispose(); st.m.material.dispose(); this.steps.splice(i, 1); } else st.m.material.opacity = 0.85 * (1 - st.t / 9); }
     const v = this.view, me = v.ents.get(this.me), c = this.canvas, g = this.g;
     if (c.width !== innerWidth || c.height !== innerHeight) { c.width = innerWidth; c.height = innerHeight; }
     g.clearRect(0, 0, c.width, c.height);
@@ -316,7 +339,8 @@ export class AmongClient {
     set('#am-ventbtn', venter, play && (this.pv.vent || (nearVent && !(this.sub === 'engineer' && this.pv.ventCd > 0))), this.pv.vent ? 'Выйти' : this.sub === 'engineer' && this.pv.ventCd > 0 ? Math.ceil(this.pv.ventCd) + 'с' : 'Люк');
     set('#am-sabbtn', this.role === 'impostor', play, s.scd > 0 ? Math.ceil(s.scd) + 'с' : 'Саботаж');
     set('#am-shift', this.sub === 'shapeshifter' && this.alive, play && (this.pv.shift || this.pv.shiftCd <= 0), this.pv.shift ? Math.ceil(this.pv.shiftT) + 'с' : this.pv.shiftCd > 0 ? Math.ceil(this.pv.shiftCd) + 'с' : 'Облик');
-    set('#am-protect', this.sub === 'angel' && !this.alive, play && this.pv.angelCd <= 0, this.pv.angelCd > 0 ? Math.ceil(this.pv.angelCd) + 'с' : 'Защита');
+    if (this.sub === 'guard') set('#am-protect', this.alive && !this.pv.guardUsed, play, 'Щит');
+    else set('#am-protect', this.sub === 'angel' && !this.alive, play && this.pv.angelCd <= 0, this.pv.angelCd > 0 ? Math.ceil(this.pv.angelCd) + 'с' : 'Защита');
     set('#am-emo', this.alive, play, 'Эмоция');
     $('#am-vitals').style.display = this.sub === 'scientist' ? '' : 'none';
     // интерфейс люка
@@ -375,7 +399,7 @@ export class AmongClient {
   // ---------- задания ----------
   renderTasks() {
     const comms = this.st && this.st.sab && this.st.sab.type === 'comms';
-    const list = comms ? `<li class="warn">${icon('comms')} Связь сломана — задания не видны</li>` : this.tasks.map(t => {
+    const list = this.sub === 'jester' ? `<li class="warn">${icon('emote')} Ты Шутник: добейся, чтобы тебя выгнали!</li>` : comms ? `<li class="warn">${icon('comms')} Связь сломана — задания не видны</li>` : this.tasks.map(t => {
       const d = TASKS[t.id], done = t.step >= t.steps.length;
       const st = !done && this.map.stations[t.steps[t.step]];
       const prog = t.steps.length > 1 ? ` (${Math.min(t.step, t.steps.length)}/${t.steps.length})` : '';
@@ -466,13 +490,27 @@ export class AmongClient {
   pick(title, includeSelf, fn) {
     const box = $('#am-pick');
     const alive = new Set((this.st ? this.st.e : []).filter(r => r[5] & FLAG.alive).map(r => r[0]));
-    box.innerHTML = `<div class="pick-card"><div class="row"><h3 class="grow">${title}</h3><button class="icon-btn" id="pick-x">${icon('close')}</button></div><div class="pick-grid">${[...this.roster.values()].filter(r => alive.has(r.pid) && r.pid !== this.me).map(r => `<button data-p="${r.pid}"><img src="${thumb(r.model)}"><span>${esc(r.name)}</span></button>`).join('')}</div></div>`;
+    box.innerHTML = `<div class="pick-card"><div class="row"><h3 class="grow">${title}</h3><button class="icon-btn" id="pick-x">${icon('close')}</button></div><div class="pick-grid">${[...this.roster.values()].filter(r => alive.has(r.pid) && (includeSelf || r.pid !== this.me)).map(r => `<button data-p="${r.pid}"><img src="${thumb(r.model)}"><span>${esc(r.name)}</span></button>`).join('')}</div></div>`;
     box.className = 'show';
     box.querySelector('#pick-x').onclick = () => box.className = '';
     box.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { fn(b.dataset.p); box.className = ''; });
   }
 
   // ---------- экраны ----------
+  // сценка в конце: кто был предателем и как шла игра
+  reveal(m) {
+    Tasks.close(true); this.closeOverlay(); Sound.siren(false);
+    $('#am-meeting').className = ''; $('#am-eject').className = '';
+    const el = $('#am-reveal'), crewWin = m.win === 'crew', jw = m.win === 'jester';
+    const imps = m.imps.map(([id, k]) => { const r = this.info(id); return `<div class="rv-imp"><img src="${thumb(r.model)}"><b>${esc(r.name)}</b><small>${icon('kill')} ${k}</small></div>`; }).join('');
+    const jr = m.jester && this.info(m.jester);
+    el.innerHTML = `<div class="rv ${crewWin ? 'crew' : jw ? 'jest' : 'imp'}"><div class="rv-title">${esc(m.text)}</div>
+      <div class="rv-sub">${m.imps.length > 1 ? 'Предателями были' : 'Предателем был'}</div><div class="rv-imps">${imps}</div>
+      ${jr ? `<div class="rv-sub small">${icon('emote')} Шутник: <b>${esc(jr.name)}</b></div>` : ''}
+      ${m.log && m.log.length ? `<div class="rv-log">${m.log.map(([t, text, k]) => `<div class="${k}"><i>${t}</i>${icon(k === 'kill' ? 'kill' : k === 'meet' ? 'meeting' : 'vote')} ${esc(text)}</div>`).join('')}</div>` : ''}</div>`;
+    el.className = 'show';
+    Sound.play(crewWin ? 'j_win' : 'j_impostor', { vol: 0.8 });
+  }
   intro() {
     const el = $('#am-intro'), imp = this.role === 'impostor';
     const team = imp ? [this.me, ...this.mates] : [...this.roster.keys()];

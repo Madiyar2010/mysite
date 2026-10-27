@@ -286,7 +286,7 @@ export function buildPack(id) {
 }
 // следы под ногами: картинки рисуются один раз
 const trailTex = {};
-function trailTexture(kind) {
+export function trailTexture(kind) {
   if (trailTex[kind]) return trailTex[kind];
   const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'); c.fillStyle = '#fff';
   if (kind === 'steps') { c.beginPath(); c.ellipse(32, 40, 13, 16, 0, 0, Math.PI * 2); c.fill(); for (const [x, y] of [[16, 18], [27, 11], [38, 11], [49, 18]]) { c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.fill(); } }
