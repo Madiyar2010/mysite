@@ -321,7 +321,7 @@ export function street() {
   const W = 34, D = 20;
   box(0, -1, 0, W * 2 + 2, 1, D * 2 + 2, 'floor');
   for (const s of [-1, 1]) {
-    box(0, 0, s * 5, 68, 0.15, 2, 'sidewalk');
+    box(-18.75, 0, s * 5, 30.5, 0.15, 2, 'sidewalk'); box(18.75, 0, s * 5, 30.5, 0.15, 2, 'sidewalk');
     box(0, 0, s * 19.6, 70, 3.2, 0.8, 'brickwall');
     box(s * 33.6, 0, 0, 0.8, 2.2, 38.4, 'barrier');
     K.floors.push({ x: 0, z: s * 16.8, w: 68, d: 5.6, tex: 'grass', k: 3 });
@@ -329,11 +329,29 @@ export function street() {
   // разметка
   for (let x = -30; x <= 30; x += 4) K.floors.push({ x, z: 0, w: 2, d: 0.18, tex: 'paint', k: 1 });
   for (const s of [-1, 1]) K.floors.push({ x: 0, z: s * 3.85, w: 68, d: 0.12, tex: 'paint', k: 1 });
+  // перекрёсток: поперечная улица по центру, «зебры»
+  for (const s of [-1, 1]) {
+    K.floors.push({ x: 0, z: s * 12.6, w: 7, d: 13.4, tex: 'asphalt', k: 4, y: 0.008 });
+    for (let z = 7; z <= 18; z += 4) K.floors.push({ x: 0, z: s * z, w: 0.18, d: 2, tex: 'paint', k: 1, y: 0.012 });
+    for (let i = -3; i <= 3; i++) K.floors.push({ x: s * 4.6, z: i * 1.05, w: 1.6, d: 0.55, tex: 'paint', k: 1, y: 0.012 });
+  }
   const house = (cx, s, kind) => {
     const zf = s * 6.6, zb = s * 14.4, hw = 4.5, H = 3.6, t = 0.35, zc = s * 10.5;
     const zmin = Math.min(zf, zb), zmax = Math.max(zf, zb);
     if (kind === 'solid') {
       box(cx, 0, zc, 9, 6.6, 7.8, 'facade', { roof: 'tiles', ridge: 'x', rh: 2.2 });
+      return;
+    }
+    if (kind === 'roof') {
+      // дом с плоской крышей: наверх ведёт пожарная лестница сбоку
+      const RH = 5, side = cx < 0 ? 1 : -1, ex = cx + side * 4.5; // лестница со стороны переулка
+      box(cx, 0, zc, 9, RH, 7.8, 'facade');
+      const z0 = Math.min(zf, zb) + 0.2, z1 = Math.max(zf, zb) - 0.2;
+      for (const zz of [z0, z1]) box(cx, RH, zz, 9, 0.7, 0.3, 'parapet');
+      box(cx - side * 4.35, RH, zc, 0.3, 0.7, 7.4, 'parapet');
+      box(ex - side * 0.15, RH, zc - s * 1.85, 0.3, 0.7, 3.7, 'parapet');
+      box(cx - side * 1.5, RH, zc - s * 1, 1.4, 1.0, 1.4, 'acunit'); box(cx + side * 1.8, RH, zc + s * 2, 1.2, 0.8, 1.2, 'acunit');
+      for (let i = 0; i < 12; i++) box(ex + side * 0.6, 0, zf + s * (0.55 + i * 0.5 + 0.25), 1.2, RH / 12 * (i + 1), 0.5, 'escape');
       return;
     }
     const sideWin = [{ c: zc, w: 1.8, bot: 1.0, top: 2.2 }];
@@ -365,13 +383,12 @@ export function street() {
   house(-8, 1, 'house'); house(8, -1, 'house');
   house(-24, -1, 'house'); house(24, 1, 'house');
   house(8, 1, 'shop'); house(-8, -1, 'shop');
-  house(-24, 1, 'solid'); house(24, -1, 'solid');
+  house(-24, 1, 'roof'); house(24, -1, 'roof');
   for (const s of [-1, 1]) {
     // переулки и задние дворы
-    box(s * 16, 0, s * 9, 2.2, 1.4, 1.3, 'dumpster'); box(s * 0.5, 0, s * 12, 1.2, 1.1, 1.2, 'crate'); box(s * -0.7, 0, s * 12.5, 1.2, 1.1, 1.2, 'crate'); box(s * 0, 1.1, s * 12.2, 1.2, 1.1, 1.2, 'crate');
+    box(s * 16, 0, s * 9, 2.2, 1.4, 1.3, 'dumpster');
     box(s * -16, 0, s * 12.5, 1.2, 1.1, 2.4, 'crate');
     box(s * 16, 0, s * 15.2, 0.15, 1.5, 3, 'woodfence'); box(s * -16, 0, s * 17.8, 0.15, 1.5, 2.8, 'woodfence');
-    box(s * 0, 0, s * 17.8, 0.15, 1.5, 2.8, 'woodfence');
     box(s * -8, 0, s * 17.3, 4.6, 2.3, 2.1, 'car', { model: 'ca/van', rot: PI / 2 });
     box(s * 26, 0, s * 17.2, 4.3, 1.6, 2.0, 'car', { model: 'ca/hatchback-sports', rot: -PI / 2 });
     dec('furn/trashcan', s * 13.2, s * 8, { h: 0.9 }); dec('furn/trashcan', s * -2.8, s * 8.2, { h: 0.9 });
@@ -387,6 +404,13 @@ export function street() {
     box(s * -4.5, 0, s * 5.4, 1.8, 0.6, 0.6, 'bench', { model: 'grave/bench', rot: s > 0 ? PI : 0 });
   }
   K.lights.push({ x: 0, y: 3.4, z: 5.2, color: '#ffd38a', i: 2.2, d: 12, lamp: 1 });
+  // автобусы на поперечной улице — укрытие
+  for (const s of [-1, 1]) box(0.6 * s, 0, s * 12.5, 2.6, 2.9, 9, 'bus');
+  // метро: зашёл в подземный переход с одной стороны — вышел на другой
+  const subway = [[-30, 17.2], [30, -17.2], [-30, -17.2], [30, 17.2]];
+  for (const [x, z] of subway) { const sz = Math.sign(z); box(x, 0, z + sz * 1.5, 3, 2.6, 0.3, 'kiosk'); box(x - 1.4, 0, z, 0.2, 2.6, 2.6, 'kiosk'); box(x + 1.4, 0, z, 0.2, 2.6, 2.6, 'kiosk'); box(x, 2.6, z, 3.2, 0.25, 3.2, 'kioskroof'); K.floors.push({ x, z, w: 2.6, d: 2.4, tex: 'subway', k: 2.4, y: 0.015 }); K.deco.push({ msign: true, x, z: z - sz * 1.62, y: 3.3 }); }
+  const exitAt = ([x, z]) => ({ x: x, z: z - Math.sign(z) * 2.6, yaw: Math.sign(z) > 0 ? 0 : Math.PI });
+  const portals = [[0, 1], [1, 0], [2, 3], [3, 2]].map(([a, b]) => ({ a: { x: subway[a][0], z: subway[a][1] }, b: exitAt(subway[b]) }));
   // машины, которые ездят по дороге
   const movers = [
     { type: 'ping', axis: 'x', c: -1.2, a: -22, b: 22, speed: 7, len: 4.6, wid: 2.1, h: 2.4, model: 'ca/delivery', dmg: 40, knock: 14, car: true },
@@ -394,7 +418,7 @@ export function street() {
   ];
   for (const m of movers) m.box = box(0, 0, 0, 1, m.h, 1, 'mover', { dyn: 'mover' });
   return {
-    id: 'street', name: 'Городская улица', W, D, WH: 12, boxes: K.B, gates: K.gates, movers, deco: K.deco, floors: K.floors, lights: K.lights,
+    id: 'street', name: 'Городская улица', W, D, WH: 12, boxes: K.B, gates: K.gates, movers, deco: K.deco, floors: K.floors, lights: K.lights, portals,
     spawnsTeam: teamSpawns(31.3), spawnsFFA: ffa([[-31, -2], [31, 2], [-31, 10], [31, -10], [-30, 17], [30, -17], [-16, 17], [16, -17], [-16, 10], [16, -10], [-8, 10.5], [8, -10.5], [0, 10], [0, -10], [-24, -10.5], [24, 10.5]]),
     flags: [{ team: 0, x: -31, z: 0 }, { team: 1, x: 31, z: 0 }],
     monsterSpawns: [[-30, -17], [30, -17], [-30, 17], [30, 17], [0, 17], [0, -17], [-16, 17], [16, -17]].map(([x, z]) => ({ x, z })),

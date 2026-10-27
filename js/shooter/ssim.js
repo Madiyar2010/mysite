@@ -184,7 +184,8 @@ export class ShooterSim {
       case 'pos': {
         if (!p.alive) return;
         const nx = +m.x || 0, ny = +m.y || 0, nz = +m.z || 0;
-        if (Math.hypot(nx - p.x, nz - p.z) > 6 && this.t - (p.lastPos || 0) < 1) return; // слишком большой скачок
+        const viaPortal = m.portal && this.map.portals && this.map.portals.some(pt => Math.hypot(p.x - pt.a.x, p.z - pt.a.z) < 3 && Math.hypot(nx - pt.b.x, nz - pt.b.z) < 2);
+        if (!viaPortal && Math.hypot(nx - p.x, nz - p.z) > 6 && this.t - (p.lastPos || 0) < 1) return; // слишком большой скачок
         p.x = clamp(nx, -this.map.W, this.map.W); p.y = clamp(ny, 0, 12); p.z = clamp(nz, -this.map.D, this.map.D);
         p.yaw = +m.yaw || 0; p.pitch = clamp(+m.pitch || 0, -1.5, 1.5); p.vx = +m.vx || 0; p.vz = +m.vz || 0; p.lastPos = this.t;
         if (m.anim != null) p.anim = m.anim | 0;

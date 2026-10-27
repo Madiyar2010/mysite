@@ -72,6 +72,8 @@ function paint(type, g) {
     case 'hull': { fill('#1d2230'); g.fillStyle = '#a3322b'; g.fillRect(0, 150, 256, 106); g.fillStyle = '#e8e2d0'; g.fillRect(0, 140, 256, 10); g.fillStyle = 'rgba(255,255,255,.08)'; for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 3, 256); noise(900, 0.18, '#000'); break; }
     case 'shipwhite': { fill('#e6e2d6'); g.fillStyle = '#c9c3b2'; for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 3, 256); g.fillStyle = '#7d8592'; for (let x = 12; x < 256; x += 32) { g.beginPath(); g.arc(x, 10, 3, 0, 7); g.fill(); } g.fillStyle = '#3d5a73'; g.fillRect(0, 238, 256, 18); noise(600, 0.1, '#6f6a5c'); break; }
     case 'crane': { fill('#e2a81f'); g.fillStyle = '#c48a12'; for (let i = -256; i < 512; i += 48) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 20, 0); g.lineTo(i + 276, 256); g.lineTo(i + 256, 256); g.fill(); } noise(700, 0.2, '#6b4a10', 4); break; }
+    case 'bus': { fill('#f2b31e'); g.fillStyle = '#2b3a55'; for (let x = 8; x < 256; x += 64) g.fillRect(x, 40, 50, 70); g.fillStyle = '#c4881a'; g.fillRect(0, 150, 256, 14); g.fillStyle = '#333'; g.fillRect(0, 230, 256, 26); break; }
+    case 'subway': { fill('#141820'); for (let y = 0; y < 256; y += 32) { g.fillStyle = shade('#3a4150', -y / 8); g.fillRect(0, y, 256, 26); g.fillStyle = '#f2c230'; g.fillRect(0, y, 256, 3); } break; }
     case 'ceiling': fill('#2b2f38'); g.strokeStyle = '#3c414c'; g.lineWidth = 8; g.strokeRect(0, 0, 256, 256); break;
   }
 }

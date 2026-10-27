@@ -59,6 +59,7 @@ const VIS = {
   gravewall: ['mossy', 2.2], gpost: ['mossy', 1.3], plat: ['flagstone', 2], gstairs: ['flagstone', 1], crypt: ['mossy', 2.2], cryptroof: ['slate', 2, '#fff', '#2a2d38'],
   sidewalk: ['sidewalk', 2], brickwall: ['brick', 2.5], barrier: ['barrier', 1.6], plaster: ['plaster', 3.6], shopwall: ['shopwall', 3.6], ceil: ['wood', 2, '#fff', '#6a5a48'], facade: ['facade', 3.2], counter: ['wood', 1.2], dumpster: ['dumpster', 1.4], woodfence: ['woodfence', 1.5],
   ironfence: ['ironfence', 1.3], bars: ['bars', 1.3],
+  parapet: ['brick', 2], acunit: ['metalwall', 1, '#c9d1dc'], escape: ['grate', 1], bus: ['bus', 3], kiosk: ['metalwall', 1.4, '#5fbf7a'], kioskroof: ['flatroof', 2],
   steps: ['steps', 1], tower2: ['stone', 2], hallfloor: ['flagstone', 2], shedwall: ['metalwall', 2.4, '#8a95a8'], fence2: ['metalwall', 2.4, '#5d6a7c'], lowcrate: ['crate', 1.2], hull: ['hull', 2.2], shipwall: ['shipwhite', 2.6], deckroof: ['grate', 1.2], crane: ['crane', 1.6], cabin: ['crane', 1.2], gangway: ['grate', 1], mast: ['shipwhite', 2]
 };
 export class ShooterView {
@@ -167,6 +168,7 @@ export class ShooterView {
     const deco = new Map();
     for (const d of m.deco || []) {
       if (d.rail) { const mat = std('#e0a91f', { metalness: 0.4 }); for (const h of [0.55, 1.05]) { const r = new THREE.Mesh(new THREE.BoxGeometry(d.w, 0.07, 0.07), mat); r.position.set(d.x, d.y + h, d.z); root.add(r); } for (let x = d.x - d.w / 2; x <= d.x + d.w / 2; x += 2) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.05, 0.06), mat); p.position.set(x, d.y + 0.52, d.z); root.add(p); } continue; }
+      if (d.msign) { const c = document.createElement('canvas'); c.width = c.height = 128; const g2 = c.getContext('2d'); g2.fillStyle = '#e63946'; g2.beginPath(); g2.arc(64, 64, 60, 0, 7); g2.fill(); g2.fillStyle = '#fff'; g2.font = 'bold 84px Rubik, sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('М', 64, 70); const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, side: THREE.DoubleSide })); sp.position.set(d.x, d.y, d.z); root.add(sp); continue; }
       if (d.bell) { const pts = [[0, 0], [0.55, 0], [0.5, 0.15], [0.35, 0.6], [0.3, 0.9], [0.12, 1], [0, 1]].map(([x, y]) => new THREE.Vector2(x, y)); const bell = new THREE.Mesh(new THREE.LatheGeometry(pts, 20), std('#c9a23a', { metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide })); bell.scale.setScalar(0.8); bell.position.set(d.x, d.y - 0.8, d.z); root.add(bell); this.bell = bell; continue; }
       if (d.hang) { const cab = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6), std('#222')); cab.position.set(d.x, d.y + 1.6, d.z); root.add(cab); if (A.has('in/shipping-container-b')) root.add(fitModel('in/shipping-container-b', { x: d.x, y: d.y - 2.6, z: d.z, w: 6, h: 2.6, d: 2.8 }, 0)); this.hangBox = root.children[root.children.length - 1]; continue; }
       if (!A.has(d.model)) continue; if (!deco.has(d.model)) deco.set(d.model, []); deco.get(d.model).push(d); }
