@@ -59,7 +59,7 @@ const VIS = {
   gravewall: ['mossy', 2.2], gpost: ['mossy', 1.3], plat: ['flagstone', 2], gstairs: ['flagstone', 1], crypt: ['mossy', 2.2], cryptroof: ['slate', 2, '#fff', '#2a2d38'],
   sidewalk: ['sidewalk', 2], brickwall: ['brick', 2.5], barrier: ['barrier', 1.6], plaster: ['plaster', 3.6], shopwall: ['shopwall', 3.6], ceil: ['wood', 2, '#fff', '#6a5a48'], facade: ['facade', 3.2], counter: ['wood', 1.2], dumpster: ['dumpster', 1.4], woodfence: ['woodfence', 1.5],
   ironfence: ['ironfence', 1.3], bars: ['bars', 1.3],
-  steps: ['steps', 1], shedwall: ['metalwall', 2.4, '#8a95a8'], fence2: ['metalwall', 2.4, '#5d6a7c'], lowcrate: ['crate', 1.2], hull: ['hull', 2.2], shipwall: ['shipwhite', 2.6], deckroof: ['grate', 1.2], crane: ['crane', 1.6], cabin: ['crane', 1.2], gangway: ['grate', 1], mast: ['shipwhite', 2]
+  steps: ['steps', 1], tower2: ['stone', 2], hallfloor: ['flagstone', 2], shedwall: ['metalwall', 2.4, '#8a95a8'], fence2: ['metalwall', 2.4, '#5d6a7c'], lowcrate: ['crate', 1.2], hull: ['hull', 2.2], shipwall: ['shipwhite', 2.6], deckroof: ['grate', 1.2], crane: ['crane', 1.6], cabin: ['crane', 1.2], gangway: ['grate', 1], mast: ['shipwhite', 2]
 };
 export class ShooterView {
   constructor({ map, myPid, metaOf }) {
@@ -142,7 +142,7 @@ export class ShooterView {
     const addBox = (b, type, k, color = '#fff', glow) => { const geo = boxGeo(b, k); geo.translate(b.x, b.y + b.h / 2, b.z); addGeo(type + color + (glow || ''), texMat(type, color, glow), geo); };
     for (const b of m.boxes) {
       if (b.vis === 'floor' || b.vis === 'none' || b.vis === 'mover' || b.vis === 'blade') continue;
-      if (b.dyn === 'gate') { const o = texBox({ ...b, y: 0 }, b.vis === 'portcullis' ? 'portcullis' : b.vis === 'bars' ? 'bars' : 'shutter', b.vis === 'shutter' ? 1.5 : 1.4, '#dfe6ee'); o.userData.h0 = b.h; root.add(o); this.dyn.gates.push(o); continue; }
+      if (b.dyn === 'gate') { const o = texBox({ ...b, y: 0 }, b.vis === 'portcullis' ? 'portcullis' : b.vis === 'bars' ? 'bars' : b.vis === 'drawbridge' ? 'wood' : 'shutter', b.vis === 'shutter' ? 1.5 : b.vis === 'drawbridge' ? 1 : 1.4, '#dfe6ee'); o.userData.h0 = b.h; root.add(o); this.dyn.gates.push(o); continue; }
       if (b.model && A.has(b.model)) { if (!models.has(b.model)) models.set(b.model, []); models.get(b.model).push(b); continue; }
       const v = VIS[b.vis];
       if (v) addBox(b, v[0], v[1], v[2], v[3]);

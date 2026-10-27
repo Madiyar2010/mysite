@@ -134,65 +134,88 @@ export function port() {
 }
 
 // ================= ЗАМОК =================
+// две половины через ров с подъёмными мостами; в центре тронный зал на втором этаже,
+// под ним — подземелье с маятниками; башни по краям, по стенам можно ходить
 export function castle() {
   const K = kit(), { box, wall, dec } = K;
-  const W = 30, D = 22;
+  const W = 34, D = 24;
   box(0, -1, 0, W * 2 + 2, 1, D * 2 + 2, 'floor');
+  K.floors.push({ x: 0, z: 0, w: 64, d: 44, tex: 'cobble', k: 3 });
+  K.floors.push({ x: 0, z: 0, w: 6, d: 43, tex: 'water', k: 4, y: 0.012 });
   for (const s of [-1, 1]) {
-    // северная и южная стены — по ним можно ходить
-    box(0, 0, s * 20.75, 60, 4.5, 2.5, 'stonewall');
-    for (let x = -24; x <= 24; x += 2) box(x, 4.5, s * 21.65, 1.1, 1.1, 0.7, 'merlon');
-    // западная и восточная — выше, это тыл баз
-    box(s * 28.75, 0, 0, 2.5, 6.5, 39, 'stonewall');
-    // угловые башни
-    for (const x of [-27.5, 27.5]) box(x, 0, s * 19.5, 5, 9, 5, 'tower');
-    // лестницы на стену
-    for (const sx of [-1, 1]) for (let i = 0; i < 10; i++) box(sx * (8.3 + i * 0.6), 0, s * 18.5, 0.6, 0.45 * (i + 1), 2, 'stairs');
+    box(0, 0, s * 22.75, 68, 4.5, 2.5, 'stonewall');
+    for (let x = -28; x <= 28; x += 2) box(x, 4.5, s * 23.65, 1.1, 1.1, 0.7, 'merlon');
+    box(s * 32.75, 0, 0, 2.5, 6.5, 43, 'stonewall');
+    for (const x of [-31, 31]) box(x, 0, s * 21.5, 5, 9, 5, 'tower');
+    for (const sx of [-1, 1]) for (let i = 0; i < 10; i++) box(sx * (10.3 + i * 0.6), 0, s * 20.5, 0.6, 0.45 * (i + 1), 2, 'stairs');
   }
-  // главный зал в центре: 4 входа, на западном и восточном — решётки, на северном и южном — маятники
-  const HX = 7, HZ = 6, HH = 5, door = { c: 0, w: 3, top: 3 };
-  wall('x', -HX - 0.4, HX + 0.4, -HZ, 0.8, HH, 'hallwall', [door]);
-  wall('x', -HX - 0.4, HX + 0.4, HZ, 0.8, HH, 'hallwall', [door]);
-  wall('z', -HZ + 0.4, HZ - 0.4, -HX, 0.8, HH, 'hallwall', [door]);
-  wall('z', -HZ + 0.4, HZ - 0.4, HX, 0.8, HH, 'hallwall', [door]);
-  box(0, HH, 0, HX * 2 + 1.6, 0.5, HZ * 2 + 1.6, 'roofslab', { roof: 'tiles', ridge: 'x', rh: 3 });
-  K.floors.push({ x: 0, z: 0, w: 56, d: 40, tex: 'cobble', k: 3 });
-  K.floors.push({ x: 0, z: 0, w: HX * 2, d: HZ * 2, tex: 'flagstone', k: 2 });
-  K.floors.push({ x: 0, z: 0, w: 2, d: HZ * 2 - 1, tex: 'carpet', k: 2 });
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(sx * 4.2, 0, sz * 3.4, 0.9, HH, 0.9, 'column');
-  box(0, 0, 0, 4.6, 0.85, 1.3, 'table');
-  dec('arena/trophy', 0, 0, { y: 0.85, h: 0.7 });
-  for (const sx of [-1, 1]) { dec('arena/banner', sx * 3, -HZ + 0.45, { h: 3.4, y: 0.6 }); dec('arena/banner', sx * 3, HZ - 0.45, { h: 3.4, y: 0.6, r: PI }); }
-  K.gates.push({ box: box(-HX, 0, 0, 0.3, 3, 3, 'portcullis', { dyn: 'gate' }), period: 22, openFor: 14, lift: 2.6, off: 0 });
-  K.gates.push({ box: box(HX, 0, 0, 0.3, 3, 3, 'portcullis', { dyn: 'gate' }), period: 22, openFor: 14, lift: 2.6, off: 11 });
-  const movers = [-1, 1].map((s, i) => ({ type: 'swing', axis: 'x', x: 0, z: s * HZ, amp: 1.5, period: 3.4, off: i * 1.7, wid: 1.0, len: 0.3, y: 0.15, h: 1.9, pivot: 2.95, dmg: 30, knock: 10, blade: true }));
+  // --- ров и два подъёмных моста (открываются по очереди) ---
+  for (const sx of [-1, 1]) {
+    wall('z', -21.5, -7.4, sx * 3, 0.3, 3, 'none', [{ c: -14, w: 4 }], { pass: true });
+    wall('z', 7.4, 21.5, sx * 3, 0.3, 3, 'none', [{ c: 14, w: 4 }], { pass: true });
+  }
+  for (const bz of [-14, 14]) {
+    K.floors.push({ x: 0, z: bz, w: 6.4, d: 4, tex: 'wood', k: 1.5, y: 0.02 });
+    box(0, 0, bz - 2.1, 6, 3, 0.2, 'none', { pass: true }); box(0, 0, bz + 2.1, 6, 3, 0.2, 'none', { pass: true });
+    K.deco.push({ rail: true, x: 0, z: bz - 2, w: 6, y: 0 }, { rail: true, x: 0, z: bz + 2, w: 6, y: 0 });
+    for (const sx of [-1, 1]) K.gates.push({ box: box(sx * 3.25, 0, bz, 0.4, 3.2, 4, 'drawbridge', { dyn: 'gate' }), period: 24, openFor: 15, lift: -3.25, off: bz < 0 ? 0 : 12 });
+  }
+  // --- центр: подземелье внизу ---
+  const HX = 8, HZ = 7, DH = 2.6;
+  wall('x', -HX - 0.4, HX + 0.4, -HZ, 0.8, DH, 'stonewall');
+  wall('x', -HX - 0.4, HX + 0.4, HZ, 0.8, DH, 'stonewall');
+  for (const sx of [-1, 1]) wall('z', -HZ + 0.4, HZ - 0.4, sx * HX, 0.8, DH, 'stonewall', [{ c: 0, w: 2.4, top: 2.2 }]);
+  for (const sz of [-1, 1]) wall('x', -HX + 0.4, HX - 0.4, sz * 2, 0.3, DH, 'bars', [], { pass: true });
+  K.floors.push({ x: 0, z: 0, w: 2 * HX, d: 2 * HZ, tex: 'flagstone', k: 1.5, y: 0.02 });
+  for (const sx of [-1, 1]) {
+    K.gates.push({ box: box(sx * HX, 0, 0, 0.3, 2.2, 2.4, 'portcullis', { dyn: 'gate' }), period: 20, openFor: 14, lift: 2.0, off: sx < 0 ? 0 : 10 });
+    for (const sz of [-1, 1]) dec('grave/coffin', sx * 4.5, sz * 4.6, { h: 0.7, r: PI / 2 });
+    dec('grave/candle-multiple', sx * 6.5, 3.2, { h: 0.5 }); dec('grave/candle-multiple', sx * 2, -4.5, { h: 0.5 });
+    K.lights.push({ x: sx * 4, y: 2.2, z: 0, color: '#ff9a3d', i: 3, d: 7, flicker: 1 });
+  }
+  const movers = [-1, 1].map((sx, i) => ({ type: 'swing', axis: 'z', x: sx * 2, z: 0, amp: 1.25, period: 3, off: i * 1.5, wid: 1.0, len: 0.3, y: 0.15, h: 1.9, pivot: 2.5, dmg: 30, knock: 10, blade: true }));
   for (const m of movers) m.box = box(0, 0, 0, 1, m.h, 1, 'blade', { dyn: 'mover', solid: false });
-  // двор
+  // --- тронный зал наверху ---
+  const FY = 3;
+  box(0, DH, 0, 2 * HX + 0.8, 0.4, 2 * HZ + 0.8, 'hallfloor');
+  wall('x', -HX - 0.4, HX + 0.4, -HZ, 0.8, 4.5, 'hallwall', [{ c: -4, w: 2.4, bot: 1, top: 2.8 }, { c: 4, w: 2.4, bot: 1, top: 2.8 }], { base: FY });
+  wall('x', -HX - 0.4, HX + 0.4, HZ, 0.8, 4.5, 'hallwall', [{ c: -4, w: 2.4, bot: 1, top: 2.8 }, { c: 4, w: 2.4, bot: 1, top: 2.8 }], { base: FY });
+  for (const sx of [-1, 1]) wall('z', -HZ + 0.4, HZ - 0.4, sx * HX, 0.8, 4.5, 'hallwall', [{ c: -4.5, w: 2.2, top: 2.9 }], { base: FY });
+  box(0, FY + 4.5, 0, 2 * HX + 1.6, 0.5, 2 * HZ + 1.6, 'roofslab', { roof: 'tiles', ridge: 'x', rh: 3 });
+  K.floors.push({ x: 0, z: 0, w: 2 * HX - 0.8, d: 2 * HZ - 0.8, tex: 'flagstone', k: 2, y: FY + 0.01 }, { x: 0, z: 0, w: 2, d: 2 * HZ - 1.4, tex: 'carpet', k: 2, y: FY + 0.02 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(sx * 4.6, FY, sz * 3.6, 0.9, 4.5, 0.9, 'column');
+  box(0, FY, 0, 4.6, 0.85, 1.3, 'table'); dec('arena/trophy', 0, 0, { y: FY + 0.85, h: 0.7 });
+  box(0, FY, 5.3, 3, 0.4, 1.4, 'pedestal'); dec('furn/chair', 0, 5.4, { y: FY + 0.4, h: 2, r: PI });
+  for (const sx of [-1, 1]) { dec('arena/banner', sx * 2.5, -HZ + 0.5, { h: 3.4, y: FY + 0.6 }); dec('arena/banner', sx * 2.5, HZ - 0.5, { h: 3.4, y: FY + 0.6, r: PI }); }
+  // лестницы к дверям зала снаружи
+  for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) box(sx * (HX + 0.4 + 0.275 + (6 - i) * 0.55), 0, -4.5, 0.55, FY / 7 * (i + 1), 2.2, 'stairs');
+  // --- половины замка ---
   for (const s of [-1, 1]) {
-    // укрепления у баз
-    box(s * 20.5, 0, -6.5, 0.9, 1.3, 4, 'lowwall'); box(s * 20.5, 0, 6.5, 0.9, 1.3, 4, 'lowwall');
-    box(s * 23.2, 0, -9.2, 4.6, 1.3, 0.9, 'lowwall'); box(s * 23.2, 0, 9.2, 4.6, 1.3, 0.9, 'lowwall');
-    dec('arena/banner', s * 27.4, -4, { h: 3.6, y: 1.6, r: -s * PI / 2 }); dec('arena/banner', s * 27.4, 4, { h: 3.6, y: 1.6, r: -s * PI / 2 });
-    dec('arena/weapon-rack', s * 27, -7.5, { h: 1.7, r: -s * PI / 2 });
-    // колодец, статуя, сено, развалины, ящики
-    box(s * 13, 0, -12, 2.4, 1.0, 2.4, 'well');
-    box(s * 12, 0, 0, 1.5, 3, 1.5, 'none');
-    dec('arena/statue', s * 12, 0, { h: 3.4, r: -s * PI / 2 });
+    box(s * 24.5, 0, -6.5, 0.9, 1.3, 4, 'lowwall'); box(s * 24.5, 0, 6.5, 0.9, 1.3, 4, 'lowwall');
+    box(s * 27.4, 0, -9.2, 4.6, 1.3, 0.9, 'lowwall'); box(s * 27.4, 0, 9.2, 4.6, 1.3, 0.9, 'lowwall');
+    dec('arena/banner', s * 31.4, -4, { h: 3.6, y: 1.6, r: -s * PI / 2 }); dec('arena/banner', s * 31.4, 4, { h: 3.6, y: 1.6, r: -s * PI / 2 });
+    dec('arena/weapon-rack', s * 31, -7.5, { h: 1.7, r: -s * PI / 2 });
+    // смотровая башня с лестницей — место для снайпера
+    box(s * 18, 0, -15, 4, 4.5, 4, 'tower2');
+    for (const [dx, dz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) box(s * 18 + dx, 4.5, -15 + dz, 0.8, 1.1, 0.8, 'merlon');
+    for (let i = 0; i < 10; i++) box(s * 18, 0, -13 + 0.25 + (9 - i) * 0.5, 1.6, 0.45 * (i + 1), 0.5, 'stairs');
+    // укрытия
+    box(s * 14.5, 0, 3.5, 1.5, 3, 1.5, 'none'); dec('arena/statue', s * 14.5, 3.5, { h: 3.4, r: -s * PI / 2 });
+    box(s * 12, 0, -9, 2.4, 1.0, 2.4, 'well');
     box(s * 15, 0, 11, 2.4, 1.3, 1.3, 'hay', { model: 'grave/hay-bale-bundled' });
     box(s * 16.8, 0, 12.8, 1.3, 1.1, 1.3, 'hay', { model: 'grave/hay-bale' });
-    box(s * 7, 0, 14, 5, 2.2, 0.8, 'ruin'); box(s * 9.1, 0, 12.3, 0.8, 2.2, 2.6, 'ruin');
-    box(s * 7, 0, -14, 5, 1.6, 0.8, 'ruin'); box(s * 4.9, 0, -15.3, 0.8, 1.6, 1.8, 'ruin');
-    box(s * 18, 0, -3, 1.2, 1.1, 1.2, 'crate'); box(s * 18, 0, -1.8, 1.2, 1.1, 1.2, 'crate'); box(s * 18, 1.1, -2.4, 1.2, 1.1, 1.2, 'crate');
-    box(s * 17, 0, 4.5, 1.2, 1.1, 2.4, 'crate');
-    box(s * 20, 0, -15, 0.6, 3, 0.6, 'none'); dec('arena/tree', s * 20, -15, { h: 5.5 });
-    box(s * 22, 0, 15, 0.6, 3, 0.6, 'none'); dec('arena/tree', s * 22, 15, { h: 5 });
-    dec('arena/column-damaged', s * 24, -14.5, { h: 2.6 }); box(s * 24, 0, -14.5, 1, 2.4, 1, 'none');
+    box(s * 8.5, 0, 16, 5, 2.2, 0.8, 'ruin'); box(s * 10.6, 0, 14.3, 0.8, 2.2, 2.6, 'ruin');
+    box(s * 21, 0, -3, 1.2, 1.1, 1.2, 'crate'); box(s * 21, 0, -1.8, 1.2, 1.1, 1.2, 'crate'); box(s * 21, 1.1, -2.4, 1.2, 1.1, 1.2, 'crate');
+    box(s * 20, 0, 4.5, 1.2, 1.1, 2.4, 'crate');
+    box(s * 25, 0, -16, 0.6, 3, 0.6, 'none'); dec('arena/tree', s * 25, -16, { h: 5.5 });
+    box(s * 25, 0, 16, 0.6, 3, 0.6, 'none'); dec('arena/tree', s * 25, 16, { h: 5 });
+    dec('arena/column-damaged', s * 7, -18, { h: 2.6 }); box(s * 7, 0, -18, 1, 2.4, 1, 'none');
   }
   return {
     id: 'castle', name: 'Замок', W, D, WH: 12, boxes: K.B, gates: K.gates, movers, deco: K.deco, floors: K.floors, lights: K.lights,
-    spawnsTeam: teamSpawns(25.3), spawnsFFA: ffa([[-24, -14], [24, 14], [-24, 14], [24, -14], [-10, -9], [10, 9], [0, -12], [0, 12], [-16, 6], [16, -6], [-2, 2.5], [2, -2.5], [-4, -17], [4, 17]]),
-    flags: [{ team: 0, x: -25, z: 0 }, { team: 1, x: 25, z: 0 }],
-    monsterSpawns: [[-24, -16], [24, -16], [-24, 16], [24, 16], [0, -14], [0, 14]].map(([x, z]) => ({ x, z })),
+    spawnsTeam: teamSpawns(28), spawnsFFA: ffa([[-28, -15], [28, 15], [-28, 15], [28, -15], [-15, -6], [15, 6], [-15, 6], [15, -6], [-21, 10], [21, -10], [-6, -14], [6, 14], [0, 0], [-22, -19], [22, 19]]),
+    flags: [{ team: 0, x: -28, z: 0 }, { team: 1, x: 28, z: 0 }],
+    monsterSpawns: [[-28, -18], [28, -18], [-28, 18], [28, 18], [-10, -18], [10, 18]].map(([x, z]) => ({ x, z })),
     theme: 'castle'
   };
 }
