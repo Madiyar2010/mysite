@@ -4,7 +4,7 @@
 //   node tests/smoke.js shooter [режим ffa|tdm|ctf|pve] [карта warehouse|castle|graveyard|street]
 //   node tests/smoke.js among [карта station|haunted|underwater]
 //   node tests/smoke.js lobby
-// Скриншоты — в папку tests/out (или OUT=папка). Код выхода 1, если на странице были ошибки.
+// TUTOR=1 — показывать обучение. Скриншоты — в папку tests/out (или OUT=папка). Код выхода 1, если на странице были ошибки.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const URL = process.env.URL || 'http://localhost:8765/';
@@ -16,6 +16,7 @@ const errors = [];
   const b = await chromium.launch({ proxy: process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypass: 'localhost' } : undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const mk = async (name, vp, mobile) => {
     const c = await b.newContext({ viewport: vp, isMobile: !!mobile, hasTouch: !!mobile, deviceScaleFactor: mobile ? 2 : 1 });
+    if (!process.env.TUTOR) await c.addInitScript(() => { try { localStorage.setItem('ha_tutor', 'true'); } catch (e) { } });
     const p = await c.newPage(); p.name = name;
     p.on('pageerror', e => errors.push(name + ': ' + e.message));
     p.on('console', m => { if (m.type() === 'error' && !/favicon|net::ERR/.test(m.text())) errors.push(name + ' console: ' + m.text().slice(0, 200)); });
@@ -28,7 +29,6 @@ const errors = [];
     await p.goto(URL + (code ? '?room=' + code + '&debug' : '?debug'));
     await p.fill('#in-name', name);
     await p.waitForSelector('#load.done', { state: 'attached', timeout: 120000 });
-    await p.evaluate(() => { try { localStorage.setItem('ha_tutor', '1'); } catch (e) { } });
     if (code) { await p.click('#btn-join'); } else await p.click('#btn-create');
     await p.waitForSelector('#s-lobby.active', { timeout: 60000 });
   };

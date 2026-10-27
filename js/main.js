@@ -541,6 +541,29 @@ function metaShoot(k) {
   return { model: r.model, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
     ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: ally && !mine, tint: teams && !mine ? TEAM_COLORS[r.team] : null, ally: teams && ally && !mine };
 }
+// обучение перед первой игрой в каждом режиме: на телефоне про кнопки, на компьютере про клавиши
+const TUTOR = {
+  shooter: {
+    touch: [['speed', 'Ходи левым пальцем', 'Поставь палец на левую половину экрана и веди его — герой побежит.'], ['eye', 'Смотри правым пальцем', 'Веди пальцем по правой половине экрана, чтобы поворачиваться.'], ['gun', 'Стреляй красной кнопкой', 'Наведи прицел на врага. Прицел сам немного «липнет» к врагу и может стрелять сам — это меняется в настройках.'], ['shop', 'Закупка', 'Перед боем выбери оружие и нажми «Готов!». Граната: держи кнопку — видно, куда упадёт, отпусти — бросок.']],
+    keys: [['speed', 'Ходи клавишами W A S D', 'Пробел — прыжок, C или Ctrl — присесть.'], ['eye', 'Смотри мышкой', 'Нажми на экран, чтобы захватить мышь. Esc — отпустить.'], ['gun', 'Стреляй левой кнопкой мыши', 'Правая кнопка или F — прицел. R — перезарядка, 1–4 — оружие, V — вид от 1-го или 3-го лица.'], ['shop', 'Закупка', 'B — открыть закупку, «Готов!» — в бой. G держать — граната с дугой полёта, отпустить — бросок.']]
+  },
+  traitor: {
+    touch: [['speed', 'Ходи левым пальцем', 'Поставь палец на экран слева и веди его.'], ['task', 'Делай задания', 'Список слева вверху. Подойди к заданию и нажми большую кнопку «Действие».'], ['impostor', 'Если ты предатель', 'Притворяйся, что делаешь задания. Кнопка «Выбить» — рядом с игроком, «Саботаж» — устроить поломку.'], ['report', 'Нашёл выбитого?', 'Нажми «Сообщить» — начнётся собрание. Обсудите и проголосуйте, кто предатель.']],
+    keys: [['speed', 'Ходи клавишами W A S D', 'Или стрелками.'], ['task', 'Делай задания', 'Подойди к заданию и нажми E. M — карта.'], ['impostor', 'Если ты предатель', 'F — выбить, G — саботаж, V — люк.'], ['report', 'Нашёл выбитого?', 'R — сообщить. На собрании обсудите и проголосуйте.']]
+  }
+};
+function showTutor(group) {
+  const key = 'tut_' + group; if (LS.get(key, false) || LS.get('tutor', false)) return Promise.resolve();
+  const slides = TUTOR[group][Input.touch ? 'touch' : 'keys'];
+  return new Promise(res => {
+    let i = 0;
+    const draw = () => { const [ic, t, x] = slides[i]; $('#tut-ic').innerHTML = icon(ic); $('#tut-title').textContent = t; $('#tut-text').textContent = x; $('#tut-dots').innerHTML = slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join(''); $('#tut-next').textContent = i === slides.length - 1 ? 'Понятно, играем!' : 'Дальше'; };
+    const done = () => { LS.set(key, true); $('#m-tutor').classList.remove('show'); res(); };
+    $('#tut-next').onclick = () => { Sound.play('click', { vol: 0.5 }); if (++i >= slides.length) done(); else draw(); };
+    $('#tut-skip').onclick = done;
+    draw(); $('#m-tutor').classList.add('show');
+  });
+}
 async function startGame(m) {
   loading('Готовим игру…');
   try { await ready; } catch (e) { }
@@ -569,6 +592,7 @@ async function startGame(m) {
   Input.active = group === 'traitor';
   loading(false);
   Net.toHost({ t: 'ready' });
+  showTutor(group === 'traitor' ? 'traitor' : 'shooter');
 }
 function stopGame() {
   if (S.game) { S.game.ctrl.dispose(); S.game = null; }
