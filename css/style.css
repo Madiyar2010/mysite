@@ -660,7 +660,10 @@ body:not(.touch) #am-actions .act.use{width:78px;height:78px}
 #sh-boss.show{display:flex}
 #sh-boss>div{width:100%;height:12px;border-radius:7px;background:rgba(0,0,0,.6);border:2px solid #000;overflow:hidden}
 #sh-boss i{display:block;height:100%;background:linear-gradient(90deg,#ff2e63,#ff8a3d)}
-#sh-rel{position:absolute;left:50%;top:58%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:800;font-size:13px;pointer-events:none;text-shadow:0 1px 3px #000}
+#sh-ring{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;pointer-events:none;z-index:3;transform:rotate(-90deg)}
+#sh-ring circle{fill:none;stroke-width:3.5;stroke:rgba(0,0,0,.45)}
+#sh-ring circle:last-child{stroke:#ffd166;stroke-dasharray:100;stroke-dashoffset:100;stroke-linecap:round;filter:drop-shadow(0 0 2px #000)}
+#sh-rel{position:absolute;left:50%;top:62%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:800;font-size:13px;pointer-events:none;text-shadow:0 1px 3px #000}
 #sh-rel div{width:120px;height:5px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden}
 #sh-rel i{display:block;height:100%;background:#fff}
 #sh-bl{position:absolute;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;z-index:3;pointer-events:none;width:min(260px,34vw)}

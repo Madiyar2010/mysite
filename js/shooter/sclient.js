@@ -371,6 +371,7 @@ export class ShooterClient {
     }
     this.view.alive = this.alive; this.view.moving = mv.moving && this.alive;
     this.view.reloading = this.reloadUntil && now < this.reloadUntil;
+    this.view.melee = !!(WEAPONS[this.cur] || {}).melee; this.view.crouch = !!this.crouch;
     // своя фигура
     const meA = this.view.ents.get(this.me);
     if (meA) {
@@ -613,7 +614,12 @@ export class ShooterClient {
     const c = $('#sh-cross'); c.style.setProperty('--g', gap + 'px'); c.style.display = this.scoped || W.melee ? 'none' : '';
     const rel = this.reloadUntil && performance.now() / 1000 < this.reloadUntil;
     $('#sh-rel').style.display = rel ? '' : 'none';
-    if (rel) { const W2 = WEAPONS[this.cur]; $('#sh-rel i').style.width = (100 - (this.reloadUntil - performance.now() / 1000) / W2.reload * 100) + '%'; }
+    if (rel) {
+      const W2 = WEAPONS[this.cur], f = clamp(1 - (this.reloadUntil - performance.now() / 1000) / W2.reload, 0, 1);
+      $('#sh-rel i').style.width = f * 100 + '%';
+      $('#sh-ring circle:last-child').style.strokeDashoffset = (1 - f) * 100;
+    }
+    $('#sh-ring').style.display = rel ? '' : 'none';
   }
   hud(s) {
     const pv = this.pv;

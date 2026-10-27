@@ -61,6 +61,7 @@ const errors = [];
       await phone.tap('#sh-buy-x').catch(() => { });
       await host.waitForTimeout(12000);
       for (let i = 0; i < 4; i++) { await phone.tap('#sh-fire').catch(() => { }); await phone.waitForTimeout(300); }
+      await phone.tap('#sh-reload').catch(() => { }); await phone.waitForTimeout(500); await shot(phone, 'reload');
     } else await host.waitForTimeout(9000);
     await shot(host, 'play'); await shot(phone, 'play');
   }

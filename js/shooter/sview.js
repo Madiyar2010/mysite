@@ -409,11 +409,20 @@ export class ShooterView {
     const vs = this.vmState;
     vs.kick = Math.max(0, vs.kick - dt * 8); vs.raise = Math.max(0, vs.raise - dt * 4);
     this.flash.material.opacity = Math.max(0, this.flash.material.opacity - dt * 25);
-    const bob = this.moving ? Math.sin(t * 10) * 0.012 : 0;
+    const bob = this.moving ? Math.sin(t * 10) * 0.012 : 0, breath = Math.sin(t * 1.6) * 0.004;
     const rel = this.reloading ? 1 : 0; vs.reload += (rel - vs.reload) * Math.min(1, dt * 10);
-    this.vm.position.set(0.2 + bob * 0.5, -0.19 + Math.abs(bob) - vs.raise * 0.25 - vs.reload * 0.12, -0.48 + vs.kick * 0.05);
+    // оружие чуть отстаёт при повороте и прыжке — ощущается «в руках»
+    let dy = (this.yaw - (vs.lastYaw ?? this.yaw)); dy = Math.atan2(Math.sin(dy), Math.cos(dy)); vs.lastYaw = this.yaw;
+    const dp = this.pitch - (vs.lastPitch ?? this.pitch); vs.lastPitch = this.pitch;
+    const k = Math.min(1, dt * 9);
+    vs.sx = (vs.sx || 0) + (clamp(dy * 1.6, -0.06, 0.06) - (vs.sx || 0)) * k;
+    vs.sy = (vs.sy || 0) + (clamp(-dp * 1.6, -0.05, 0.05) - (vs.sy || 0)) * k;
+    vs.cr = (vs.cr || 0) + ((this.crouch ? 1 : 0) - (vs.cr || 0)) * k;
+    const shake = vs.reload > 0.5 ? Math.sin(t * 22) * 0.02 * vs.reload : 0; // «вставляем магазин»
+    const sw = this.melee ? vs.kick : 0; // нож — взмах вбок
+    this.vm.position.set(0.2 + bob * 0.5 + vs.sx - sw * 0.12, -0.19 + Math.abs(bob) + breath + vs.sy - vs.raise * 0.25 - vs.reload * 0.12 - vs.cr * 0.02, -0.48 + (this.melee ? -sw * 0.08 : vs.kick * 0.05));
     this.vm.scale.setScalar(0.72);
-    this.vm.rotation.set(vs.kick * 0.12 - vs.reload * 0.6, 0.04, vs.reload * 0.3);
+    this.vm.rotation.set((this.melee ? -sw * 0.5 : vs.kick * 0.12) - vs.reload * 0.6 + shake, 0.04 + vs.sx * 2 + sw * 0.9, vs.reload * 0.3 - vs.sx * 3 + vs.cr * 0.08);
     this.vm.visible = (this.camMode === 'fps' && !this.scoped && this.alive);
   }
   render(renderer) {
