@@ -49,6 +49,7 @@ const THEMES = {
   warehouse: { bg: '#1c2130', fog: ['#1c2130', 40, 95], hemi: ['#dfe8ff', '#4a4038', 1.0], sun: ['#fff3dc', 1.7, [-12, 30, 8]], floor: 'concrete', floorK: 4, stairs: 'steps' },
   castle: { sky: ['#3f86d8', '#a9d3f5', '#f4e6c8'], fog: ['#cfe0ee', 50, 120], hemi: ['#eef5ff', '#6b5a40', 1.0], sun: ['#fff1d6', 1.9, [-18, 34, 14]], floor: 'grass', floorK: 3, stairs: 'stone', clouds: true },
   graveyard: { sky: ['#03050f', '#0d1530', '#1f2a55'], stars: true, moon: [40, 45, -70], fog: ['#161e3c', 12, 52], hemi: ['#8f9fe6', '#2a2232', 0.85], sun: ['#b4c4ff', 1.05, [16, 30, -14]], floor: 'darkgrass', floorK: 3, stairs: 'flagstone', night: true },
+  port: { sky: ['#020512', '#0b1630', '#1b2b55'], stars: true, moon: [-50, 40, 60], fog: ['#101c38', 18, 75], hemi: ['#9fb0e6', '#2a2232', 0.9], sun: ['#b9c8ff', 1.0, [-20, 30, 18]], floor: 'concrete', floorK: 4, stairs: 'steps', night: true },
   street: { sky: ['#2b2466', '#b75f86', '#ffbf7a'], fog: ['#c98f86', 40, 105], hemi: ['#ffe6cf', '#4a3a40', 0.95], sun: ['#ffbe85', 1.7, [-34, 20, 12]], floor: 'asphalt', floorK: 4, stairs: 'flagstone', clouds: true }
 };
 // какая текстура у какого блока: [текстура, метров на плитку, цвет]
@@ -57,7 +58,8 @@ const VIS = {
   stonewall: ['stone', 2.4], merlon: ['stone', 1.1], tower: ['stone', 2.4], hallwall: ['stone', 2.4], column: ['stone', 1.2], lowwall: ['stone', 1.4], ruin: ['stone', 1.4], pedestal: ['stone', 1], well: ['stone', 1.2], roofslab: ['wood', 2, '#fff', '#5a4a3a'], table: ['wood', 1.4],
   gravewall: ['mossy', 2.2], gpost: ['mossy', 1.3], plat: ['flagstone', 2], gstairs: ['flagstone', 1], crypt: ['mossy', 2.2], cryptroof: ['slate', 2, '#fff', '#2a2d38'],
   sidewalk: ['sidewalk', 2], brickwall: ['brick', 2.5], barrier: ['barrier', 1.6], plaster: ['plaster', 3.6], shopwall: ['shopwall', 3.6], ceil: ['wood', 2, '#fff', '#6a5a48'], facade: ['facade', 3.2], counter: ['wood', 1.2], dumpster: ['dumpster', 1.4], woodfence: ['woodfence', 1.5],
-  ironfence: ['ironfence', 1.3], bars: ['bars', 1.3]
+  ironfence: ['ironfence', 1.3], bars: ['bars', 1.3],
+  steps: ['steps', 1], shedwall: ['metalwall', 2.4, '#8a95a8'], fence2: ['metalwall', 2.4, '#5d6a7c'], lowcrate: ['crate', 1.2], hull: ['hull', 2.2], shipwall: ['shipwhite', 2.6], deckroof: ['grate', 1.2], crane: ['crane', 1.6], cabin: ['crane', 1.2], gangway: ['grate', 1], mast: ['shipwhite', 2]
 };
 export class ShooterView {
   constructor({ map, myPid, metaOf }) {
@@ -163,7 +165,10 @@ export class ShooterView {
     for (const [name, list] of models) { const o = instancedModels(name, list); if (o) root.add(o); }
     // декор (только вид)
     const deco = new Map();
-    for (const d of m.deco || []) { if (!A.has(d.model)) continue; if (!deco.has(d.model)) deco.set(d.model, []); deco.get(d.model).push(d); }
+    for (const d of m.deco || []) {
+      if (d.rail) { const mat = std('#e0a91f', { metalness: 0.4 }); for (const h of [0.55, 1.05]) { const r = new THREE.Mesh(new THREE.BoxGeometry(d.w, 0.07, 0.07), mat); r.position.set(d.x, d.y + h, d.z); root.add(r); } for (let x = d.x - d.w / 2; x <= d.x + d.w / 2; x += 2) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.05, 0.06), mat); p.position.set(x, d.y + 0.52, d.z); root.add(p); } continue; }
+      if (d.hang) { const cab = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6), std('#222')); cab.position.set(d.x, d.y + 1.6, d.z); root.add(cab); if (A.has('in/shipping-container-b')) root.add(fitModel('in/shipping-container-b', { x: d.x, y: d.y - 2.6, z: d.z, w: 6, h: 2.6, d: 2.8 }, 0)); this.hangBox = root.children[root.children.length - 1]; continue; }
+      if (!A.has(d.model)) continue; if (!deco.has(d.model)) deco.set(d.model, []); deco.get(d.model).push(d); }
     for (const [name, list] of deco) { const o = instancedModels(name, list); if (o) root.add(o); }
     // фонари и свечи
     this.lights = [];
@@ -340,6 +345,7 @@ export class ShooterView {
       if (light) light.visible = mv.moving && Math.floor(t * 3) % 2 === 0;
     }
     for (const l of this.lights) { if (!l.L.flicker) continue; const f = 0.8 + 0.2 * Math.sin(t * 9 + l.seed) * Math.sin(t * 13.7 + l.seed * 2); if (l.light) l.light.intensity = l.L.i * f; l.halo.material.opacity = 0.16 * f; }
+    if (this.hangBox) this.hangBox.rotation.y = Math.sin(t * 0.4) * 0.15;
     if (this.towerFlags) for (const f of this.towerFlags) f.rotation.y = Math.sin(t * 2 + f.position.x) * 0.25;
     if (this.skyMesh) this.skyMesh.position.copy(this.camera.position);
     if (this.convBoxes) for (const c of this.convBoxes) { const u = c.userData; c.position.x = u.x0 + ((c.position.x - u.x0 + dt * 1.2) % u.len); }

@@ -1,4 +1,4 @@
-// Карты шутера: Замок, Ночное кладбище, Городская улица.
+// Карты шутера: Порт ночью, Замок, Ночное кладбище, Городская улица.
 // Всё описывается прямоугольными блоками (коллизия) + декор (только вид).
 const PI = Math.PI;
 
@@ -8,10 +8,11 @@ function kit() {
   // стена вдоль оси x (или z) от a0 до a1 на линии c, с проёмами [{c, w, top, bot}]
   const wall = (axis, a0, a1, c, t, h, vis, gaps = [], extra = {}) => {
     if (a0 > a1) [a0, a1] = [a1, a0];
+    const base = extra.base || 0; // стена может стоять выше земли (на палубе, на крыше)
     const seg = (s0, s1, y0, y1) => {
       if (s1 - s0 < 0.01 || y1 - y0 < 0.01) return;
       const m = (s0 + s1) / 2, L = s1 - s0;
-      if (axis === 'x') box(m, y0, c, L, y1 - y0, t, vis, extra); else box(c, y0, m, t, y1 - y0, L, vis, extra);
+      if (axis === 'x') box(m, y0 + base, c, L, y1 - y0, t, vis, extra); else box(c, y0 + base, m, t, y1 - y0, L, vis, extra);
     };
     let s = a0;
     for (const g of [...gaps].sort((p, q) => p.c - q.c)) {
@@ -30,6 +31,107 @@ const teamSpawns = (x, dx = 1.4) => {
   return s;
 };
 const ffa = list => list.map(([x, z]) => ({ x, z, yaw: Math.atan2(x, z) }));
+
+// ================= ПОРТ НОЧЬЮ =================
+// контейнеры в два яруса, кран с кабиной для снайпера в центре, корабль у причала с каютой и мостиком
+export function port() {
+  const K = kit(), { box, wall, dec } = K;
+  const W = 36, D = 22;
+  box(0, -1, 0, W * 2 + 2, 1, D * 2 + 2, 'floor');
+  // склады-базы по краям и забор
+  for (const s of [-1, 1]) {
+    box(s * 35.6, 0, 0, 0.8, 4, 44, 'shedwall');
+    box(0, 0, -21.6, 72, 3.2, 0.8, 'fence2');
+    box(s * 29, 0, -8.5, 0.9, 1.3, 5, 'lowcrate'); box(s * 29, 0, 8.5, 0.9, 1.3, 4, 'lowcrate');
+  }
+  // вода и причал
+  K.floors.push({ x: 0, z: 18.3, w: 74, d: 11.4, tex: 'water', k: 6, y: 0.01 }, { x: 0, z: 12.15, w: 72, d: 0.3, tex: 'paint', k: 1 });
+  wall('x', -36, 36, 12.45, 0.3, 3, 'none', [{ c: -8, w: 2.4 }, { c: 8, w: 2.4 }], { pass: true });
+  // --- корабль ---
+  const DY = 2.2;
+  box(0, 0, 17.5, 44, DY, 7, 'hull');
+  for (const s of [-1, 1]) {
+    // трап с причала на палубу
+    for (let i = 0; i < 5; i++) box(s * 8, 0, 11.6 + i * 0.6, 2, 0.44 * (i + 1), 0.6, 'gangway');
+    box(s * 8 - 1.15, 0, 13.2, 0.1, 3, 1.7, 'none', { pass: true }); box(s * 8 + 1.15, 0, 13.2, 0.1, 3, 1.7, 'none', { pass: true });
+    // лестница на крышу каюты (мостик)
+    for (let i = 0; i < 6; i++) box(s * 5.95, DY, 15.0 + i * 0.55, 1.2, 0.48 * (i + 1), 0.55, 'steps');
+  }
+  // борта: невидимые стенки, чтобы не упасть в воду
+  wall('x', -22, 22, 14.1, 0.2, 2.6, 'none', [{ c: -8, w: 2.2 }, { c: 8, w: 2.2 }], { base: DY, pass: true });
+  box(0, DY, 20.95, 44, 2.6, 0.1, 'none', { pass: true });
+  for (const s of [-1, 1]) box(s * 21.9, DY, 17.5, 0.2, 2.6, 7, 'none', { pass: true });
+  K.deco.push({ rail: true, x: 0, z: 14.15, w: 44, y: DY }, { rail: true, x: 0, z: 20.9, w: 44, y: DY });
+  // каюта на палубе: дверь к причалу, окна по бокам
+  const cz0 = 15.6, cz1 = 20.2, ch = 2.6;
+  wall('x', -5, 5, cz0, 0.3, ch, 'shipwall', [{ c: 0, w: 1.6, top: 2.1 }, { c: -3, w: 1.4, bot: 1.0, top: 1.9 }, { c: 3, w: 1.4, bot: 1.0, top: 1.9 }], { base: DY });
+  wall('x', -5, 5, cz1, 0.3, ch, 'shipwall', [{ c: 0, w: 1.6, bot: 1.0, top: 1.9 }], { base: DY });
+  wall('z', cz0 + 0.15, cz1 - 0.15, -5, 0.3, ch, 'shipwall', [{ c: 17.9, w: 1.4, bot: 1.0, top: 1.9 }], { base: DY });
+  wall('z', cz0 + 0.15, cz1 - 0.15, 5, 0.3, ch, 'shipwall', [{ c: 17.9, w: 1.4, bot: 1.0, top: 1.9 }], { base: DY });
+  const RY = DY + ch;
+  box(0, RY, (cz0 + cz1) / 2, 10.6, 0.3, 4.9, 'deckroof');
+  K.floors.push({ x: 0, z: (cz0 + cz1) / 2, w: 9.6, d: 4.2, tex: 'parquet', k: 2, y: DY + 0.01 });
+  box(-3.6, DY, 19.4, 1.8, 0.9, 1, 'furn', { model: 'furn/bedSingle', rot: PI / 2 });
+  box(2.6, DY, 18.6, 1.4, 0.8, 1, 'furn', { model: 'furn/table' });
+  K.lights.push({ x: 0, y: DY + 2.3, z: 17.9, color: '#ffe0a0', i: 2.5, d: 8 });
+  // мостик-рубка на крыше каюты — место для снайпера
+  const BY = RY + 0.3;
+  wall('x', -3, 3, 16.6, 0.25, 1.9, 'shipwall', [{ c: 0, w: 4, bot: 0.9, top: 1.65 }], { base: BY });
+  wall('x', -3, 3, 19.4, 0.25, 1.9, 'shipwall', [{ c: 0, w: 3, bot: 0.9, top: 1.65 }], { base: BY });
+  for (const s of [-1, 1]) wall('z', 16.7, 19.3, s * 3, 0.25, 1.9, 'shipwall', [{ c: 18, w: 1.2, top: 1.75 }], { base: BY });
+  box(0, BY + 1.9, 18, 6.6, 0.2, 3.2, 'deckroof');
+  dec('st/computer', 0, 17.2, { y: BY, h: 0.9 });
+  box(0, BY + 2.1, 18.6, 0.5, 2.5, 0.5, 'mast');
+  // --- кран в центре: кабина наверху, лестница к ней ---
+  for (const x of [-4, 4]) for (const z of [-15, -5]) box(x, 0, z, 0.9, 10, 0.9, 'crane');
+  for (const z of [-15, -5]) box(0, 9.4, z, 9.8, 0.7, 0.7, 'crane');
+  box(0, 9.4, -10, 0.7, 0.7, 10, 'crane');
+  const PY = 7;
+  box(0, PY - 0.4, -10, 4, 0.4, 4, 'catwalk');
+  for (let i = 0; i < 15; i++) box(0, 0, -0.6 - i * 0.5 - 0.25, 1.6, (PY / 15) * (i + 1), 0.5, 'stairs');
+  wall('x', -2, 2, -11.9, 0.2, 2.2, 'cabin', [{ c: 0, w: 3.2, bot: 0.9, top: 1.9 }], { base: PY });
+  wall('x', -2, 2, -8.1, 0.2, 2.2, 'cabin', [{ c: 0, w: 1.2, top: 2 }], { base: PY });
+  for (const s of [-1, 1]) wall('z', -11.8, -8.2, s * 1.9, 0.2, 2.2, 'cabin', [{ c: -10, w: 2.4, bot: 0.9, top: 1.9 }], { base: PY });
+  box(0, PY + 2.2, -10, 4.4, 0.2, 4.4, 'deckroof');
+  K.lights.push({ x: 0, y: PY + 1.9, z: -10, color: '#ffb35c', i: 2, d: 7 });
+  // висящий контейнер на кране (только вид)
+  K.deco.push({ hang: true, x: 0, z: -13.6, y: 8.4 });
+  // --- контейнеры в два яруса и укрытия ---
+  const cont = ['in/shipping-container-a', 'in/shipping-container-b', 'in/shipping-container-c'];
+  for (const s of [-1, 1]) {
+    // большая стопка: на первый ярус — лестница с края, на второй — лестница по крыше первого
+    box(s * 14, 0, -15, 6.1, 2.6, 2.8, 'container', { model: cont[0], rot: PI / 2 });
+    box(s * 12.5, 2.6, -15, 3.05, 2.6, 2.8, 'container', { model: cont[1], rot: PI / 2 });
+    for (let i = 0; i < 6; i++) box(s * (17.05 + 0.25 + (5 - i) * 0.5), 0, -15, 0.5, 0.433 * (i + 1), 2.6, 'stairs');
+    for (let i = 0; i < 6; i++) box(s * (14.05 + 0.25 + (5 - i) * 0.45), 2.6, -15, 0.45, 0.433 * (i + 1), 2.4, 'stairs');
+    // стопка у воды
+    box(s * 22, 0, 4, 2.8, 2.6, 6.1, 'container', { model: cont[2], rot: 0 });
+    box(s * 22, 2.6, 5.5, 2.8, 2.6, 3.05, 'container', { model: cont[0], rot: 0 });
+    for (let i = 0; i < 6; i++) box(s * 22, 0, 0.95 - 0.25 - (5 - i) * 0.5, 2.6, 0.433 * (i + 1), 0.5, 'stairs');
+    for (let i = 0; i < 6; i++) box(s * 22, 2.6, 3.95 - 0.25 - (5 - i) * 0.4 + 0.0, 2.4, 0.433 * (i + 1), 0.4, 'stairs');
+    // укрытия в середине
+    box(s * 9, 0, 3, 6.1, 2.6, 2.8, 'container', { model: cont[1], rot: PI / 2 });
+    box(s * 6.5, 0, -4.5, 2.8, 2.6, 6.1, 'container', { model: cont[2], rot: 0 });
+    box(s * 16, 0, -3, 1.2, 1.1, 1.2, 'crate'); box(s * 16, 0, -1.8, 1.2, 1.1, 1.2, 'crate'); box(s * 16, 1.1, -2.4, 1.2, 1.1, 1.2, 'crate');
+    box(s * 12, 0, 9, 1.2, 1.1, 2.4, 'crate'); box(s * 27, 0, -16, 1.2, 1.1, 1.2, 'crate'); box(s * 27, 0, 15.5 - 6, 1.2, 1.1, 1.2, 'crate');
+    box(s * 30, 0, -17, 2, 2.2, 3, 'tank', { model: 'in/detail-tank', rot: PI / 2 });
+    // фонари вдоль причала
+    for (const x of [13, 26]) { box(s * x, 0, 11.3, 0.3, 3, 0.3, 'none'); dec('grave/lightpost-double', s * x, 11.3, { h: 3.8 }); K.lights.push({ x: s * x, y: 3.6, z: 11.3, color: '#ffb35c', i: 2.4, d: 13, lamp: 1 }); }
+  }
+  // погрузчики катаются между стопками
+  const movers = [
+    { type: 'ping', axis: 'z', c: -18.5, a: -11, b: 9, speed: 3, len: 3.4, wid: 2.2, h: 2.4, model: 'ca/tractor-shovel', dmg: 15 },
+    { type: 'ping', axis: 'z', c: 18.5, a: 9, b: -11, speed: 3, len: 3.4, wid: 2.2, h: 2.4, model: 'ca/tractor-shovel', dmg: 15 }
+  ];
+  for (const m of movers) m.box = box(0, 0, 0, 1, m.h, 1, 'mover', { dyn: 'mover' });
+  return {
+    id: 'port', name: 'Порт ночью', W, D, WH: 14, boxes: K.B, gates: K.gates, movers, deco: K.deco, floors: K.floors, lights: K.lights,
+    spawnsTeam: teamSpawns(32), spawnsFFA: ffa([[-31, -15], [31, 15 - 6], [-31, 9], [31, -9], [-12, -8], [12, -8], [-12, 7], [12, 7], [0, 2], [0, -18], [-25, 0], [25, 0], [-12, -19], [12, -19]]),
+    flags: [{ team: 0, x: -31, z: 0 }, { team: 1, x: 31, z: 0 }],
+    monsterSpawns: [[-30, -18], [30, -18], [-30, 9], [30, 9], [0, 4], [-12, -19], [12, -19]].map(([x, z]) => ({ x, z })),
+    theme: 'port'
+  };
+}
 
 // ================= ЗАМОК =================
 export function castle() {

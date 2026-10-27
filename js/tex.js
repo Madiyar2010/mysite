@@ -68,6 +68,10 @@ function paint(type, g) {
     case 'cafetile': for (let y = 0; y < 256; y += 64) for (let x = 0; x < 256; x += 64) { g.fillStyle = ((x + y) / 64) % 2 ? '#e9d7b4' : '#c9b48e'; g.fillRect(x, y, 64, 64); } g.strokeStyle = 'rgba(0,0,0,.15)'; g.lineWidth = 2; for (let i = 0; i <= 256; i += 64) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(256, i); g.stroke(); } break;
     case 'greentile': blocks(4, 4, '#a9d8b4', 12, '#6d9c78', 4, false); noise(600, 0.15, '#4b7a56'); break;
     case 'corridor': { fill('#7d8496'); g.fillStyle = '#8b92a5'; g.fillRect(16, 0, 224, 256); g.fillStyle = '#f2c230'; for (let y = 0; y < 256; y += 32) { g.fillRect(0, y, 10, 16); g.fillRect(246, y + 16, 10, 16); } g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < 256; y += 64) g.fillRect(16, y, 224, 3); noise(700, 0.12, '#4a5060'); break; }
+    case 'water': { fill('#0d2a45'); g.strokeStyle = 'rgba(120,190,255,.25)'; g.lineWidth = 3; for (let y = 10; y < 256; y += 22) { g.beginPath(); for (let x = 0; x <= 256; x += 16) g.lineTo(x, y + Math.sin(x / 20 + y) * 4); g.stroke(); } noise(400, 0.2, '#3d6f9f'); break; }
+    case 'hull': { fill('#1d2230'); g.fillStyle = '#a3322b'; g.fillRect(0, 150, 256, 106); g.fillStyle = '#e8e2d0'; g.fillRect(0, 140, 256, 10); g.fillStyle = 'rgba(255,255,255,.08)'; for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 3, 256); noise(900, 0.18, '#000'); break; }
+    case 'shipwhite': { fill('#e6e2d6'); g.fillStyle = '#c9c3b2'; for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 3, 256); g.fillStyle = '#7d8592'; for (let x = 12; x < 256; x += 32) { g.beginPath(); g.arc(x, 10, 3, 0, 7); g.fill(); } g.fillStyle = '#3d5a73'; g.fillRect(0, 238, 256, 18); noise(600, 0.1, '#6f6a5c'); break; }
+    case 'crane': { fill('#e2a81f'); g.fillStyle = '#c48a12'; for (let i = -256; i < 512; i += 48) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 20, 0); g.lineTo(i + 276, 256); g.lineTo(i + 256, 256); g.fill(); } noise(700, 0.2, '#6b4a10', 4); break; }
     case 'ceiling': fill('#2b2f38'); g.strokeStyle = '#3c414c'; g.lineWidth = 8; g.strokeRect(0, 0, 256, 256); break;
   }
 }

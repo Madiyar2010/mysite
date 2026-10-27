@@ -3,5 +3,6 @@ const P = {"coin": "<path fill=\"currentColor\" d=\"M264.4 95.01c-35.6-.06-80.2 
 // нарисованы вручную (в наборе не было)
 P.target = '<path fill="currentColor" fill-rule="evenodd" d="M256 40a216 216 0 1 0 0 432a216 216 0 1 0 0-432zm0 44a172 172 0 1 1 0 344a172 172 0 1 1 0-344zm0 62a110 110 0 1 0 0 220a110 110 0 1 0 0-220zm0 44a66 66 0 1 1 0 132a66 66 0 1 1 0-132z"/><path fill="currentColor" d="M240 0h32v120h-32zM240 392h32v120h-32zM0 240h120v32H0zM392 240h120v32H392z"/><circle fill="currentColor" cx="256" cy="256" r="26"/>';
 P.wrench = '<path fill="currentColor" d="M424 40c-58 0-104 46-104 104c0 14 3 28 8 40L84 428c-18 18-18 46 0 64s46 18 64 0l244-244c12 5 26 8 40 8c58 0 104-46 104-104c0-15-3-29-9-42l-63 63l-54-12l-12-54l63-63c-13-6-27-9-42-9zM116 440a20 20 0 1 1 0 40a20 20 0 1 1 0-40z"/>';
+P.anchor = '<path fill="currentColor" d="M256 24a48 48 0 0 0-24 89.6V160h-72v40h72v228c-62-10-110-56-122-116l38 10l-58-92l-58 92l36-10c10 102 92 176 188 176s178-74 188-176l36 10l-58-92l-58 92l38-10c-12 60-60 106-122 116V200h72v-40h-72v-46.4A48 48 0 0 0 256 24zm0 32a16 16 0 1 1 0 32a16 16 0 0 1 0-32z"/>';
 export function icon(k, cls = '') { const b = P[k]; if (!b) return ''; return `<svg class="ic ${cls}" viewBox="0 0 512 512" aria-hidden="true">${b}</svg>`; }
 export const ICON_KEYS = Object.keys(P);
