@@ -1,6 +1,6 @@
 // Главный модуль: меню, лобби, магазин, хост и запуск игр.
 import * as A from './assets.js';
-import { R, ShowroomView, AmongView } from './render.js';
+import { R, ShowroomView, AmongView, hatThumb } from './render.js';
 import { Net } from './net.js';
 import { Input } from './input.js';
 import { AMAPS, AMAP_LIST, amapModels } from './amap.js';
@@ -212,7 +212,8 @@ function renderShop() {
   $('#shop-grid').innerHTML = items.map(it => {
     const has = owned.has(it.id) || it.price === 0, on = cur === it.id;
     const pv = S.preview && (S.preview.hat === it.id || S.preview.aura === it.id);
-    const pic = shopTab === 'auras' ? `<span class="swatch" style="background:${it.color === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : it.color || 'transparent'}"></span>` : icon(it.icon);
+    const th = shopTab === 'hats' && hatThumb(it.id);
+    const pic = shopTab === 'auras' ? `<span class="swatch ${it.color ? 'glow' : ''}" style="--c:${it.color === 'rainbow' ? '#fff' : it.color || 'transparent'};background:${it.color === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : it.color ? `radial-gradient(circle,#fff 0 12%,${it.color} 35%,transparent 72%)` : 'transparent'}"></span>` : th ? `<img class="hat3d" src="${th}" alt="">` : icon(it.icon);
     return `<button class="item ${on ? 'on' : ''} ${has ? '' : 'locked'} ${pv && !on ? 'preview' : ''}" data-id="${it.id}"><span class="ii">${pic}</span><b>${it.name}</b><span class="pr ${has ? 'own' : ''}">${on ? icon('check') + ' Надето' : has ? 'Надеть' : icon('coin') + ' ' + it.price}</span></button>`;
   }).join('');
 }

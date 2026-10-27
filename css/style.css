@@ -370,7 +370,11 @@ i[data-ic]{display:inline-flex;font-style:normal}
 .act.use span .ic{width:38px;height:38px}
 .trophy .ic{width:76px;height:76px;color:var(--gold)}
 .spin .ic{width:64px;height:64px;color:var(--gold)}
-.swatch{width:34px;height:34px;border-radius:50%;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
+.item .ii img.hat3d{width:72px;height:72px;display:block;margin:-6px auto -8px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+.item.locked .ii img.hat3d{filter:drop-shadow(0 4px 6px rgba(0,0,0,.45)) saturate(.75)}
+.swatch.glow{width:56px;height:56px;margin:2px auto -2px;box-shadow:0 0 18px var(--c);animation:auraPulse 2s ease-in-out infinite}
+@keyframes auraPulse{50%{transform:scale(1.08)}}
+.swatch{display:block;margin:0 auto;width:34px;height:34px;border-radius:50%;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
 
 /* ======================= ГОРИЗОНТАЛЬНЫЙ ЭКРАН ======================= */
 #rotate{position:fixed;inset:0;z-index:100;background:#120e30;display:none;align-items:center;justify-content:center;text-align:center;padding:24px}

@@ -120,24 +120,103 @@ function floorMesh(type, w, d, rep = 4) {
 function std(color, extra = {}) { return new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...extra }); }
 export function buildHat(id) {
   const g = new THREE.Group();
-  const add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  const add = (geo, mat, x = 0, y = 0, z = 0, par = g) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; par.add(m); return m; };
+  const dome = (r, c) => new THREE.SphereGeometry(r, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
   switch (id) {
-    case 'cap': add(new THREE.SphereGeometry(0.55, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#e63946'), 0, 0, 0); add(new THREE.BoxGeometry(0.9, 0.06, 0.5), std('#c1121f'), 0, 0.02, 0.6); break;
-    case 'party': { const c = add(new THREE.ConeGeometry(0.42, 1.0, 16), std('#ffb703'), 0, 0.5, 0); add(new THREE.SphereGeometry(0.13, 8, 8), std('#fb5607'), 0, 1.02, 0); add(new THREE.TorusGeometry(0.33, 0.05, 6, 16), std('#3a86ff'), 0, 0.28, 0).rotation.x = Math.PI / 2; break; }
-    case 'tophat': add(new THREE.CylinderGeometry(0.42, 0.42, 0.85, 20), std('#1d1d24'), 0, 0.45, 0); add(new THREE.CylinderGeometry(0.72, 0.72, 0.06, 24), std('#1d1d24'), 0, 0.04, 0); add(new THREE.CylinderGeometry(0.43, 0.43, 0.14, 20), std('#d62828'), 0, 0.16, 0); break;
-    case 'viking': { add(new THREE.SphereGeometry(0.58, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#9aa0a6', { metalness: 0.5 }), 0, -0.05, 0);
-      for (const s of [-1, 1]) { const h = add(new THREE.ConeGeometry(0.13, 0.75, 10), std('#f1e3c3'), s * 0.6, 0.35, 0); h.rotation.z = -s * 0.9; } break; }
-    case 'wizard': { add(new THREE.CylinderGeometry(0.85, 0.85, 0.06, 24), std('#5a189a'), 0, 0.03, 0); const c = add(new THREE.ConeGeometry(0.5, 1.3, 16), std('#7b2cbf'), 0, 0.68, 0); c.rotation.z = 0.15;
-      add(new THREE.OctahedronGeometry(0.12), std('#ffd60a', { emissive: '#ffb703', emissiveIntensity: 0.6 }), 0.15, 0.7, 0.42); break; }
-    case 'crown': { const gold = std('#ffd34d', { metalness: 0.8, roughness: 0.3, emissive: '#6b4b00', emissiveIntensity: 0.3 });
-      add(new THREE.CylinderGeometry(0.48, 0.48, 0.3, 20, 1, true), gold, 0, 0.15, 0).material.side = THREE.DoubleSide;
-      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(new THREE.ConeGeometry(0.1, 0.28, 6), gold, Math.cos(a) * 0.45, 0.42, Math.sin(a) * 0.45); }
-      for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.5; add(new THREE.SphereGeometry(0.07, 8, 8), std(['#e63946', '#3a86ff', '#2ec4b6'][i], { emissive: '#222' }), Math.cos(a) * 0.49, 0.15, Math.sin(a) * 0.49); } break; }
-    case 'halo': { const h = add(new THREE.TorusGeometry(0.45, 0.06, 8, 32), new THREE.MeshBasicMaterial({ color: '#fff3b0' }), 0, 0.55, 0); h.rotation.x = Math.PI / 2; h.castShadow = false; g.userData.spin = h; g.userData.bob = h; break; }
-    case 'propeller': { add(new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#3a86ff'), 0, 0, 0); add(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6), std('#333'), 0, 0.6, 0);
-      const p = new THREE.Group(); p.position.y = 0.76; g.add(p); for (const c of ['#ff006e', '#ffbe0b']) { const b = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.03, 0.14), std(c)); b.rotation.y = c === '#ff006e' ? 0 : Math.PI / 2; p.add(b); } g.userData.spin = p; break; }
+    case 'cap': { // кепка с козырьком, пуговкой и звездой
+      const red = std('#e63946'), dark = std('#a4161a');
+      add(dome(0.55), red, 0, 0, 0);
+      for (let i = 0; i < 6; i++) { const l = add(new THREE.TorusGeometry(0.55, 0.012, 4, 24, Math.PI / 2), dark, 0, 0, 0); l.rotation.set(0, i / 6 * Math.PI * 2, Math.PI / 2); }
+      add(new THREE.SphereGeometry(0.07, 10, 8), dark, 0, 0.55, 0);
+      const v = add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 24, 1, false, -Math.PI / 2, Math.PI), dark, 0, 0.03, 0.18); v.scale.set(1, 1, 1.1);
+      add(new THREE.CylinderGeometry(0.56, 0.56, 0.08, 24, 1, true), std('#fff', { side: THREE.DoubleSide }), 0, 0.06, 0);
+      const st = add(new THREE.OctahedronGeometry(0.13, 0), std('#ffd60a', { emissive: '#7a5b00', emissiveIntensity: 0.5 }), 0, 0.3, 0.47); st.scale.set(1, 1, 0.3); break; }
+    case 'party': { // колпак в полоску с помпоном
+      const cols = ['#ffb703', '#3a86ff', '#ff006e', '#8ac926'];
+      for (let i = 0; i < 4; i++) { const h0 = i * 0.25, r0 = 0.42 * (1 - h0), r1 = 0.42 * (1 - h0 - 0.25); add(new THREE.CylinderGeometry(Math.max(0.001, r1), r0, 0.25, 18), std(cols[i]), 0, h0 + 0.125, 0); }
+      const pom = add(new THREE.IcosahedronGeometry(0.15, 1), std('#ffffff', { roughness: 1 }), 0, 1.04, 0);
+      add(new THREE.TorusGeometry(0.42, 0.06, 6, 20), std('#ffffff', { roughness: 1 }), 0, 0.02, 0).rotation.x = Math.PI / 2; break; }
+    case 'tophat': { // цилиндр с лентой, пряжкой и цветком
+      const blk = std('#1d1d24', { roughness: 0.4 });
+      add(new THREE.CylinderGeometry(0.44, 0.4, 0.85, 24), blk, 0, 0.45, 0);
+      add(new THREE.CylinderGeometry(0.75, 0.75, 0.05, 28), blk, 0, 0.04, 0);
+      add(new THREE.TorusGeometry(0.73, 0.04, 6, 28), blk, 0, 0.07, 0).rotation.x = Math.PI / 2;
+      add(new THREE.CylinderGeometry(0.415, 0.415, 0.16, 24), std('#d62828'), 0, 0.17, 0);
+      add(new THREE.BoxGeometry(0.16, 0.14, 0.03), std('#ffd34d', { metalness: 0.8, roughness: 0.3 }), 0, 0.17, 0.42);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; add(new THREE.SphereGeometry(0.06, 8, 6), std('#ffffff'), 0.3 + Math.cos(a) * 0.07, 0.2 + Math.sin(a) * 0.07, 0.33); }
+      add(new THREE.SphereGeometry(0.05, 8, 6), std('#ffd60a'), 0.3, 0.2, 0.37); break; }
+    case 'viking': { // шлем с заклёпками и рогами
+      const steel = std('#9aa0a6', { metalness: 0.6, roughness: 0.35 }), band = std('#7a5230');
+      add(dome(0.58), steel, 0, -0.05, 0);
+      add(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 24, 1, true), band, 0, 0.0, 0).material.side = THREE.DoubleSide;
+      add(new THREE.BoxGeometry(0.09, 0.08, 1.2), band, 0, 0.46, 0).rotation.x = 0;
+      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add(new THREE.SphereGeometry(0.04, 6, 6), std('#ffd34d', { metalness: 0.8 }), Math.cos(a) * 0.6, 0.0, Math.sin(a) * 0.6); }
+      for (const s2 of [-1, 1]) { // рог — изогнутая трубка с острым кончиком
+        const cv = new THREE.QuadraticBezierCurve3(new THREE.Vector3(s2 * 0.45, 0.12, 0), new THREE.Vector3(s2 * 0.95, 0.2, 0), new THREE.Vector3(s2 * 0.9, 0.62, 0));
+        add(new THREE.TubeGeometry(cv, 12, 0.085, 8), std('#f1e3c3'));
+        const tip = add(new THREE.ConeGeometry(0.085, 0.24, 8), std('#d9c7a0'), s2 * 0.9, 0.62, 0);
+        const tg = cv.getTangent(1); tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tg); tip.position.addScaledVector(tg, 0.11);
+      } break; }
+    case 'wizard': { // шляпа мага со звёздами и луной
+      const pur = std('#7b2cbf'), dk = std('#5a189a');
+      add(new THREE.CylinderGeometry(0.88, 0.88, 0.05, 28), dk, 0, 0.03, 0);
+      add(new THREE.ConeGeometry(0.5, 1.0, 20), pur, 0, 0.53, 0);
+      const tip = add(new THREE.ConeGeometry(0.2, 0.5, 14), pur, 0.12, 1.08, 0); tip.rotation.z = -0.5;
+      add(new THREE.CylinderGeometry(0.51, 0.51, 0.12, 20), std('#ffd60a'), 0, 0.1, 0);
+      const gold = std('#ffd60a', { emissive: '#ffb703', emissiveIntensity: 0.7 });
+      for (const [x, y, z, sc] of [[0.18, 0.55, 0.36, 1], [-0.22, 0.85, 0.24, 0.7], [0.1, 1.05, 0.15, 0.55]]) add(new THREE.OctahedronGeometry(0.1 * sc), gold, x, y, z);
+      const moon = add(new THREE.TorusGeometry(0.09, 0.035, 6, 14, Math.PI * 1.3), gold, -0.25, 0.45, 0.4); moon.rotation.z = 0.6; break; }
+    case 'crown': {
+      const gold = std('#ffd34d', { metalness: 0.85, roughness: 0.25, emissive: '#6b4b00', emissiveIntensity: 0.3 });
+      add(new THREE.CylinderGeometry(0.5, 0.46, 0.32, 24, 1, true), gold, 0, 0.16, 0).material.side = THREE.DoubleSide;
+      add(new THREE.TorusGeometry(0.47, 0.035, 6, 28), gold, 0, 0.01, 0).rotation.x = Math.PI / 2;
+      add(new THREE.TorusGeometry(0.5, 0.03, 6, 28), gold, 0, 0.32, 0).rotation.x = Math.PI / 2;
+      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add(new THREE.ConeGeometry(0.09, 0.3, 6), gold, Math.cos(a) * 0.48, 0.47, Math.sin(a) * 0.48); add(new THREE.SphereGeometry(0.045, 8, 6), std('#fff8e1', { metalness: 0.3, roughness: 0.2 }), Math.cos(a) * 0.48, 0.64, Math.sin(a) * 0.48); }
+      const gems = ['#e63946', '#3a86ff', '#2ec4b6', '#b36bff'];
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 2; const gm = add(new THREE.OctahedronGeometry(0.075), std(gems[i], { emissive: gems[i], emissiveIntensity: 0.35, roughness: 0.15 }), Math.cos(a) * 0.5, 0.16, Math.sin(a) * 0.5); gm.scale.set(1, 1.3, 0.6); gm.lookAt(0, 0.16, 0); } break; }
+    case 'halo': {
+      const ring = new THREE.Group(); ring.position.y = 0.55; g.add(ring);
+      const h = add(new THREE.TorusGeometry(0.45, 0.06, 10, 36), new THREE.MeshBasicMaterial({ color: '#fff3b0' }), 0, 0, 0, ring); h.rotation.x = Math.PI / 2; h.castShadow = false;
+      const glow = add(new THREE.TorusGeometry(0.45, 0.14, 8, 36), new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0, 0, ring); glow.rotation.x = Math.PI / 2; glow.castShadow = false;
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; const sp = add(new THREE.OctahedronGeometry(0.05), new THREE.MeshBasicMaterial({ color: '#ffffff' }), Math.cos(a) * 0.45, 0.04, Math.sin(a) * 0.45, ring); sp.castShadow = false; }
+      g.userData.spin = ring; g.userData.bob = ring; break; }
+    case 'propeller': {
+      const q = [std('#3a86ff'), std('#ffbe0b'), std('#ff006e'), std('#8ac926')];
+      for (let i = 0; i < 4; i++) add(new THREE.SphereGeometry(0.5, 10, 8, i * Math.PI / 2, Math.PI / 2, 0, Math.PI / 2), q[i], 0, 0, 0);
+      add(new THREE.CylinderGeometry(0.51, 0.51, 0.06, 24, 1, true), std('#ffffff', { side: THREE.DoubleSide }), 0, 0.03, 0);
+      add(new THREE.CylinderGeometry(0.04, 0.05, 0.3, 8), std('#555', { metalness: 0.6 }), 0, 0.6, 0);
+      const p = new THREE.Group(); p.position.y = 0.76; g.add(p);
+      add(new THREE.SphereGeometry(0.07, 10, 8), std('#ff006e'), 0, 0, 0, p);
+      for (let i = 0; i < 3; i++) { const bl = add(new THREE.BoxGeometry(0.55, 0.025, 0.16), std(['#ff006e', '#ffbe0b', '#3a86ff'][i]), 0, 0, 0, p); const a = i / 3 * Math.PI * 2; bl.position.set(Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3); bl.rotation.set(0.25, -a, 0); }
+      g.userData.spin = p; break; }
   }
   return g;
+}
+
+// картинка вещи для магазина: рисуем 3D-модель один раз в маленькую картинку
+const thumbCache = {};
+export function hatThumb(id) {
+  if (thumbCache[id]) return thumbCache[id];
+  const r = R.renderer; if (!r || id === 'none') return null;
+  try {
+    const S = 128, rt = new THREE.WebGLRenderTarget(S, S, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
+    const sc = new THREE.Scene();
+    sc.add(new THREE.HemisphereLight('#ffffff', '#5a4b8a', 1.6));
+    const dl = new THREE.DirectionalLight('#ffffff', 2.2); dl.position.set(2, 4, 3); sc.add(dl);
+    const hat = buildHat(id); sc.add(hat);
+    const box = new THREE.Box3().setFromObject(hat), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50), d = Math.max(sz.x, sz.y, sz.z) * 2.3;
+    cam.position.set(c.x + d * 0.35, c.y + d * 0.45, c.z + d * 0.85); cam.lookAt(c);
+    const prevT = r.getRenderTarget(), prevC = r.getClearColor(new THREE.Color()), prevA = r.getClearAlpha();
+    r.setRenderTarget(rt); r.setClearColor(0x000000, 0); r.clear(); r.render(sc, cam);
+    const px = new Uint8Array(S * S * 4); r.readRenderTargetPixels(rt, 0, 0, S, S, px);
+    r.setRenderTarget(prevT); r.setClearColor(prevC, prevA);
+    const cv = document.createElement('canvas'); cv.width = cv.height = S; const g2 = cv.getContext('2d'), im = g2.createImageData(S, S);
+    for (let y = 0; y < S; y++) im.data.set(px.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4); // картинка из видеокарты перевёрнута
+    g2.putImageData(im, 0, 0);
+    rt.dispose(); sc.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    return (thumbCache[id] = cv.toDataURL());
+  } catch (e) { return null; }
 }
 
 // ---------- оружие ----------
