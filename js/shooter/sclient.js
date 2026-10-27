@@ -23,6 +23,12 @@ export function keyName(code) {
   const N = { Space: 'Пробел', ShiftLeft: 'Shift', ShiftRight: 'Shift', ControlLeft: 'Ctrl', ControlRight: 'Ctrl', AltLeft: 'Alt', AltRight: 'Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Tab: 'Tab', Enter: 'Enter', CapsLock: 'Caps', Backquote: '`' };
   return N[code] || code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ');
 }
+// готовые наборы закупки: из каждой группы берётся первое, на что хватает денег
+const KITS = [
+  { id: 'sniper', name: 'Снайпер', icon: 'target', groups: [['sniper', 'railgun', 'paint'], ['armor']] },
+  { id: 'storm', name: 'Штурмовик', icon: 'rifle', groups: [['rifle', 'plasma', 'smg'], ['grenade'], ['armor']] },
+  { id: 'guard', name: 'Защитник', icon: 'shield', groups: [['shotgun', 'snow', 'water'], ['armor'], ['medkit']] }
+];
 const vib = p => { if (window.__prefs && !window.__prefs.vibe) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
 const thumb = m => `assets/thumbs/${m}.png`;
 const RECOIL = { pistol: 0.018, laser: 0.012, water: 0.003, smg: 0.012, rifle: 0.016, shotgun: 0.06, sniper: 0.07, plasma: 0.03, railgun: 0.06, paint: 0.01, snow: 0.025, knife: 0, grenade: 0 };
@@ -107,7 +113,7 @@ export class ShooterClient {
     btn('#sh-buyb', () => this.toggleBuy());
     on($('#sh-lock'), 'click', e => { if (e.target.closest('[data-act]')) return; lockMouse($('#s-shoot')); });
     on($('#sh-buy'), 'pointerdown', e => e.stopPropagation());
-    on($('#sh-buy'), 'click', e => { const b = e.target.closest('[data-item]'); if (b) this.buy(b.dataset.item); if (e.target.closest('#sh-buy-x')) this.toggleBuy(false); if (e.target.closest('#sh-buy-ready')) { this.buyReady(); this.toggleBuy(false); } });
+    on($('#sh-buy'), 'click', e => { const kb = e.target.closest('[data-kit]'); if (kb) { const k = kb.dataset.kit; this.buyList(k === 'last' ? (this.prevBuys || []).map(x => [x]) : KITS.find(x => x.id === k).groups); return; } const b = e.target.closest('[data-item]'); if (b) this.buy(b.dataset.item); if (e.target.closest('#sh-buy-x')) this.toggleBuy(false); if (e.target.closest('#sh-buy-ready')) { this.buyReady(); this.toggleBuy(false); } });
   }
   unbind() { for (const [el, ev, fn, o] of this.listeners) el.removeEventListener(ev, fn, o); }
   keyDown(e) {
@@ -425,7 +431,7 @@ export class ShooterClient {
       case 'me2': this.privateState(m); break;
       case 'spawn': this.setCrouch(false); Object.assign(this.p, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 }); this.yaw = m.yaw; this.pitch = 0; this.alive = true; $('#sh-dead').className = ''; this.specLabel(null); this.releaseAll(); this.toggleScope(false); this.reloadUntil = 0; break;
       case 'kb': this.p.vx += m.vx; this.p.vz += m.vz; this.p.vy = Math.max(this.p.vy, m.vy); this.p.ground = false; break;
-      case 'bought': Sound.play('drop'); vib(15); if (WEAPONS[m.item] && WEAPONS[m.item].slot === 1) { setTimeout(() => this.switchTo(m.item), 120); } break;
+      case 'bought': Sound.play('drop'); vib(15); this.roundBuys = this.roundBuys || []; this.roundBuys.push(m.item); LS.set('lastBuy', this.roundBuys); if (WEAPONS[m.item] && WEAPONS[m.item].slot === 1) { setTimeout(() => this.switchTo(m.item), 120); } break;
     }
   }
   privateState(m) {
@@ -492,7 +498,7 @@ export class ShooterClient {
   }
   phaseChange(from, to) {
     if (to === 'buy') this.wantBuy = true;
-    if (to === 'buy') this.isReady = false;
+    if (to === 'buy') { this.isReady = false; this.prevBuys = LS.get('lastBuy', []) || []; this.roundBuys = []; this.buyKey = null; }
     if (to === 'play') { if (this.buyOpen) this.toggleBuy(false); shBanner(`${icon('swords')} В бой!`, 'big', 1300); Sound.play('j_start', { vol: 0.6 }); }
   }
   pos3(x, y, z) { return { dx: x - this.p.x, dz: z - this.p.z }; }
@@ -632,16 +638,30 @@ export class ShooterClient {
     if (s.boss) { bb.classList.add('show'); bb.querySelector('i').style.width = (s.boss[0] / s.boss[1] * 100) + '%'; } else bb.classList.remove('show');
     if (!this.alive) { const r = $('#sh-resp'); if (r) r.textContent = this.opts.match === 'rounds' && this.mode !== 'pve' ? 'Ждём следующий раунд…' : pv.resp > 0 ? `Возрождение через ${Math.ceil(pv.resp)}` : ''; }
   }
+  buyList(groups) {
+    // покупаем по очереди, считая остаток денег у себя (хост всё равно проверит)
+    let money = this.pv.money, n = 0;
+    const has = id => id === this.pv.slot1 || id === this.pv.slot2 || (id === 'armor' && this.pv.armor >= 100) || (id === 'medkit' && this.pv.medkit > 0);
+    for (const g of groups) {
+      const id = g.find(x => { const it = WEAPONS[x] || GEAR[x]; return it && (has(x) || it.price <= money); });
+      if (!id || has(id)) continue;
+      const it = WEAPONS[id] || GEAR[id]; money -= it.price; n++;
+      setTimeout(() => this.ctx.send({ t: 'buy', item: id }), n * 120);
+    }
+    if (!n) { Sound.play('error'); shBanner('Не хватает денег или всё уже есть', 'small', 1400); }
+  }
   buyReady() { if (this.ph !== 'buy' || this.isReady) return; this.isReady = true; this.ctx.send({ t: 'bready' }); Sound.play('confirm', { vol: 0.5 }); }
   renderBuy() {
     const pv = this.pv;
-    const key = [pv.money, pv.slot1, pv.slot2, pv.armor, pv.nades, pv.medkit].join('|');
+    const key = [pv.money, pv.slot1, pv.slot2, pv.armor, pv.nades, pv.medkit, (this.prevBuys || []).length].join('|');
     if (key === this.buyKey && $('#sh-buy-list').firstChild) return;
     this.buyKey = key;
     const owned = new Set([pv.slot1, pv.slot2]);
     $('#sh-buy-money').textContent = '$' + pv.money;
     const bar = (v, max) => `<i style="width:${Math.min(100, v / max * 100)}%"></i>`;
-    $('#sh-buy-list').innerHTML = BUY_GROUPS.map(g => `<div class="bg"><h4>${g.name}</h4><div class="bitems">${g.items.map(id => {
+    const prev = (this.prevBuys || []).filter(x => WEAPONS[x] || GEAR[x]);
+    const kitRow = `<div class="bg"><h4>Быстро</h4><div class="kits">${prev.length ? `<button class="kit" data-kit="last">${icon('rotate')}<b>Как в прошлый раз</b><small>${prev.map(x => (WEAPONS[x] || GEAR[x]).name).slice(0, 3).join(', ')}</small></button>` : ''}${KITS.map(k => `<button class="kit" data-kit="${k.id}">${icon(k.icon)}<b>${k.name}</b><small>${k.groups.map(g => (WEAPONS[g[0]] || GEAR[g[0]]).name).join(' + ')}</small></button>`).join('')}</div></div>`;
+    $('#sh-buy-list').innerHTML = kitRow + BUY_GROUPS.map(g => `<div class="bg"><h4>${g.name}</h4><div class="bitems">${g.items.map(id => {
       const W = WEAPONS[id], G = GEAR[id], it = W || G, price = it.price;
       const own = owned.has(id) || (id === 'armor' && pv.armor >= 100) || (id === 'medkit' && pv.medkit > 0) || (id === 'grenade' && pv.nades >= 2);
       const poor = pv.money < price;

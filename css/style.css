@@ -871,3 +871,8 @@ body.ios #rotate .btn{display:none}
 /* присед над кнопкой огня, прицел над перезарядкой — не закрывают полоску здоровья */
 #sh-crouch{right:calc(max(26px,env(safe-area-inset-right)) + 16px);bottom:calc(max(30px,env(safe-area-inset-bottom)) + 108px)}
 #sh-aim{right:calc(max(26px,env(safe-area-inset-right)) + 100px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 150px)}
+
+.kits{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.kit{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;padding:8px 10px;border-radius:14px;background:linear-gradient(135deg,#3b2f8f,#2a2270);border:2px solid rgba(255,209,102,.45)}
+.kit svg{grid-row:span 2;width:30px;height:30px;color:#ffd166}
+.kit b{font-size:15px}.kit small{color:var(--muted);font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
