@@ -239,12 +239,22 @@ const AM_SET = {
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
-  match: ['rounds', 'timed'], rounds: [3, 5, 7], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
+  teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
-const AM_BOOL = ['confirm', 'anon', 'visualTasks'];
+const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff'];
 
+// последние настройки хоста сохраняются на устройстве
+function saveHostSet() { LS.set('hostSet', { mode: H.mode, opts: H.opts }); }
+function loadHostSet() {
+  const sv = LS.get('hostSet', null); if (!sv) return;
+  if (MODES[sv.mode]) H.mode = sv.mode;
+  for (const [k, v] of Object.entries(sv.opts || {})) {
+    if (k === 'map' ? AMAP_LIST.some(x => x.id === v && x.ready) : k === 'smap' ? SMAP_LIST.some(x => x.id === v && x.ready) : AM_BOOL.includes(k) ? typeof v === 'boolean' : AM_SET[k] && AM_SET[k].includes(v)) H.opts[k] = v;
+  }
+}
 function hostStart(code) {
   H.banned = new Set();
+  loadHostSet();
   H.players.clear(); H.inGame = false; H.sim = null;
   H.players.set(me.pid, { ...profile(), team: 0, online: true, pts: 0 });
   loading(false); keepAwake();
@@ -253,7 +263,7 @@ function hostStart(code) {
 }
 function lobbyMsg() {
   return { t: 'lobby', code: Net.code, hostId: me.pid, mode: H.mode, opts: H.opts, inGame: H.inGame,
-    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, color: p.color, adult: p.adult, team: p.team, online: p.online, pts: p.pts })) };
+    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, color: p.color, adult: p.adult, team: p.team, online: p.online, pts: p.pts, ready: !!p.ready, vote: p.vote || null })) };
 }
 function hostLobby(go) { const m = lobbyMsg(); if (go) m.go = 1; Net.broadcast(m); }
 function cleanProfile(m) {
@@ -286,13 +296,17 @@ Net.onHostMessage = (pid, m) => {
       hostLobby(false);
       break;
     }
-    case 'mode': if (pid === me.pid && MODES[m.mode] && !H.inGame) { H.mode = m.mode; hostLobby(false); } break;
+    case 'mode': if (pid === me.pid && MODES[m.mode] && !H.inGame) { H.mode = m.mode; saveHostSet(); hostLobby(false); } break;
+    case 'lready': { const p = H.players.get(pid); if (!p || H.inGame) return; p.ready = !!m.v; hostLobby(false); checkAllReady(); break; }
+    case 'vote': { const p = H.players.get(pid); if (!p || H.inGame) return; p.vote = p.vote || {}; if (m.k === 'mode' && MODES[m.v]) p.vote.mode = m.v; if ((m.k === 'map' || m.k === 'smap') && typeof m.v === 'string') p.vote.map = m.v; hostLobby(false); break; }
+    case 'lact': if (pid === me.pid && !H.inGame) lobbyAction(m.a); break;
     case 'opt': {
       if (pid !== me.pid || H.inGame) return;
       if (m.k === 'map') { if (AMAP_LIST.some(x => x.id === m.v && x.ready)) H.opts.map = m.v; }
       else if (m.k === 'smap') { if (SMAP_LIST.some(x => x.id === m.v && x.ready)) H.opts.smap = m.v; }
       else if (AM_BOOL.includes(m.k)) H.opts[m.k] = !!m.v;
       else if (AM_SET[m.k] && AM_SET[m.k].includes(m.v)) H.opts[m.k] = m.v;
+      saveHostSet();
       hostLobby(false);
       break;
     }
@@ -328,19 +342,58 @@ Net.onPeerLeft = pid => {
 };
 function rosterEntry(p) { return { pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, team: p.team }; }
 function startMsg() { return { t: 'start', mode: H.mode, roster: H.roster, opts: H.opts }; }
+// все нажали «Готов» — начинаем сами
+function checkAllReady() {
+  const on = [...H.players.values()].filter(p => p.online), mode = MODES[H.mode];
+  const total = on.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 99 : H.opts.bots) : 0);
+  if (on.length >= 2 && on.every(p => p.ready) && total >= mode.min && !H.inGame) { Net.broadcast({ t: 'msg', text: 'Все готовы — начинаем!' }); setTimeout(() => { if ([...H.players.values()].filter(p => p.online).every(p => p.ready)) hostStartGame(); }, 1200); }
+}
+const isTeamMode = m => m === 'tdm' || m === 'ctf';
+function topVote(key, allowed) {
+  const cnt = {};
+  for (const p of H.players.values()) if (p.online && p.vote && p.vote[key] && allowed(p.vote[key])) cnt[p.vote[key]] = (cnt[p.vote[key]] || 0) + 1;
+  const best = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  return best && best[0];
+}
+function lobbyAction(a) {
+  const on = [...H.players.values()].filter(p => p.online);
+  if (a === 'votes') {
+    const md = topVote('mode', v => MODES[v]); if (md) H.mode = md;
+    const grp = MODES[H.mode].group;
+    const mp = topVote('map', v => grp === 'traitor' ? AMAP_LIST.some(x => x.id === v && x.ready) : SMAP_LIST.some(x => x.id === v && x.ready));
+    if (mp) { if (grp === 'traitor') H.opts.map = mp; else H.opts.smap = mp; }
+    if (!md && !mp) Net.sendTo(me.pid, { t: 'msg', text: 'Пока никто не голосовал' });
+  } else if (a === 'random') {
+    const ok = Object.keys(MODES).filter(k => MODES[k].group === 'arena' || on.length >= MODES[k].min);
+    H.mode = pick(ok);
+    if (MODES[H.mode].group === 'traitor') H.opts.map = pick(AMAP_LIST.filter(x => x.ready)).id; else H.opts.smap = pick(SMAP_LIST.filter(x => x.ready)).id;
+    if (MODES[H.mode].group === 'arena' && on.length < 2 && !H.opts.bots && !H.opts.teamSize) H.opts.bots = 3;
+  } else if (a === 'shuffle' || a === 'fair') {
+    // «Честные команды»: сначала взрослые по разным командам, потом дети
+    const list = shuffle(on), adults = list.filter(p => p.adult), kids = list.filter(p => !p.adult);
+    const order = a === 'fair' ? adults.concat(kids) : list;
+    const cnt = [0, 0]; order.forEach(p => { const t = cnt[0] <= cnt[1] ? 0 : 1; p.team = t; cnt[t]++; });
+    if (a === 'fair' && adults.length >= 2) { /* взрослые уже чередуются */ }
+  }
+  saveHostSet(); hostLobby(false);
+}
 function hostStartGame() {
   if (H.inGame) return;
   const mode = MODES[H.mode];
   const humans = [...H.players.values()].filter(p => p.online);
-  const total = humans.length + (mode.group === 'arena' ? H.opts.bots : 0);
+  const total = humans.length + (mode.group === 'arena' ? (isTeamMode(H.mode) && H.opts.teamSize ? 2 * H.opts.teamSize : H.opts.bots) : 0);
   if (total < mode.min) { toast(mode.group === 'traitor' ? 'Для «Найди предателя» нужно минимум 3 игрока' : `Нужно минимум ${mode.min} игрока — добавь ботов!`); return; }
   const roster = humans.map(rosterEntry);
-  if (mode.group === 'arena' && H.opts.bots > 0) {
+  // размер команды: свободные места в каждой команде занимают боты
+  let nb = mode.group === 'arena' ? H.opts.bots : 0;
+  const fill = mode.group === 'arena' && isTeamMode(H.mode) && H.opts.teamSize > 0;
+  if (fill) nb = Math.max(0, H.opts.teamSize - humans.filter(p => p.team === 0).length) + Math.max(0, H.opts.teamSize - humans.filter(p => p.team === 1).length);
+  if (nb > 0) {
     const names = shuffle(BOT_NAMES);
-    for (let i = 0; i < H.opts.bots; i++) roster.push({ pid: 'bot' + i, name: names[i % names.length] + (i >= names.length ? ' ' + (i + 1) : ''), model: pick(A.HEROES), hat: pick(HATS).id, aura: 'none', bot: true, team: 0 });
+    for (let i = 0; i < nb; i++) roster.push({ pid: 'bot' + i, name: names[i % names.length] + (i >= names.length ? ' ' + (i + 1) : ''), model: pick(A.HEROES), hat: pick(HATS).id, aura: 'none', bot: true, team: 0 });
   }
   if (H.mode === 'tdm' || H.mode === 'ctf') {
-    for (const r of roster) if (r.bot) { const c0 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 0).length, c1 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 1).length; r.team = c0 <= c1 ? 0 : 1; r.assigned = true; }
+    for (const r of roster) if (r.bot) { const c0 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 0).length, c1 = roster.filter(x => !x.bot || x.assigned).filter(x => x.team === 1).length; r.team = fill ? (c0 < H.opts.teamSize ? 0 : 1) : (c0 <= c1 ? 0 : 1); r.assigned = true; }
     if (!roster.some(r => r.team === 0) || !roster.some(r => r.team === 1)) roster.forEach((r, i) => r.team = i % 2);
   }
   roster.forEach(r => delete r.assigned);
@@ -359,6 +412,7 @@ function hostEndGame(res) {
   if (H.sim) H.sim.stop();
   H.sim = null; H.inGame = false;
   for (const r of res.rows) { const p = H.players.get(r.pid); if (p) p.pts += r.coins || 0; }
+  for (const p of H.players.values()) p.ready = false;
   Net.broadcast({ t: 'end', res });
   hostLobby(false);
 }
@@ -376,6 +430,7 @@ Net.onMessage = m => {
     case 'roster': if (S.game) { S.roster = new Map(m.roster.map(r => [r.pid, r])); S.game.ctrl.roster = S.roster; } break;
     case 'end': showResults(m.res); break;
     case 'wait': toast('Сейчас идёт игра — подожди конца раунда', 4000); break;
+    case 'msg': if (!S.game) toast(m.text, 2500); else S.game.ctrl.onMsg(m); break;
     case 'full': toast('Комната заполнена', 4000); leaveRoom(); break;
     case 'kicked': S.kicked = true; leaveRoom(); toast('Хост убрал тебя из комнаты', 4500); break;
     default: if (S.game) S.game.ctrl.onMsg(m);
@@ -419,7 +474,7 @@ const optRow = (label, html) => `<div class="opt-row"><span>${label}</span>${htm
 function amongSettings(o) {
   const yes = (k, cur) => seg(k, [1, 0], cur ? 1 : 0, ['Да', 'Нет']);
   return `
-    <div class="opt-maps">${AMAP_LIST.map(m => `<button class="opt-map ${o.map === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-map="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}</button>`).join('')}</div>
+    <div class="opt-maps">${AMAP_LIST.map(m => `<button class="opt-map ${o.map === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-map="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
     <details class="opt-group" open><summary>${icon('users')} Игроки и роли</summary>
       ${optRow('Максимум игроков', seg('maxPlayers', AM_SET.maxPlayers, o.maxPlayers))}
       ${optRow('Предателей', seg('impostors', AM_SET.impostors, o.impostors))}
@@ -455,11 +510,13 @@ function shooterSettings(o, mode) {
   const timedOnly = mode === 'ctf' || mode === 'pve';
   const match = timedOnly ? 'timed' : o.match;
   return `
-    <div class="opt-maps four">${SMAP_LIST.map(m => `<button class="opt-map smap ${o.smap === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}</button>`).join('')}</div>
+    <div class="opt-maps four">${SMAP_LIST.map(m => `<button class="opt-map smap ${o.smap === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
     ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Волны монстров, закупка между волнами' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', seg('rounds', AM_SET.rounds, o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
-    ${optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}
-    ${o.bots ? optRow('Уровень ботов', seg('botLevel', AM_SET.botLevel, o.botLevel, ['Легко', 'Средне', 'Сложно'])) : ''}`;
+    ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
+    ${(mode === 'tdm' || mode === 'ctf') && o.teamSize ? `<div class="muted small">Свободные места в каждой команде займут боты</div>` : optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}
+    ${o.bots || ((mode === 'tdm' || mode === 'ctf') && o.teamSize) ? optRow('Уровень ботов', seg('botLevel', AM_SET.botLevel, o.botLevel, ['Легко', 'Средне', 'Сложно'])) : ''}
+    ${mode === 'tdm' || mode === 'ctf' ? optRow('Урон по своим', seg('ff', [0, 1], o.ff ? 1 : 0, ['Выкл', 'Вкл'])) : ''}`;
 }
 function renderLobby() {
   const L = S.lobby; if (!L) return;
@@ -480,16 +537,21 @@ function renderLobby() {
       <img src="${thumb(p.model)}" alt="">
       <div style="min-width:0"><div class="pn" style="color:${p.color || '#fff'}">${esc(p.name)}${p.adult ? ` <span class="adult-i" title="взрослый">${icon('crown')}</span>` : ''}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
       <div class="ps">${icon(CLASSES[p.cls].icon)} ${CLASSES[p.cls].name} · ${icon('star')} ${p.pts}</div></div>
+      ${p.ready && !L.inGame ? `<span class="rdy" title="готов">${icon('check')}</span>` : ''}
       ${isHost && p.pid !== me.pid ? `<span class="kick" data-kick="${p.pid}" title="Убрать из комнаты">${icon('close')}</span>` : ''}
     </button>`;
   if (teams) {
     const mine = (online.find(p => p.pid === me.pid) || {}).team;
     const col = t => { const list = online.filter(p => p.team === t); return `<div class="team-col" style="--tc:${TEAM_COLORS[t]}"><div class="tc-head"><b>${TEAM_NAMES[t]}</b><span>${list.length}</span></div>${list.map(card).join('')}${mine !== t && !L.inGame ? `<button class="btn sm tc-join" data-team="${t}">${icon('swap')} Перейти сюда</button>` : ''}</div>`; };
-    $('#lb-players').innerHTML = `<div class="teams2">${col(0)}${col(1)}</div>${isHost ? '<div class="muted small">Хост может перекинуть любого — нажми на игрока</div>' : ''}<div class="muted small">Боты сами делятся поровну</div>`;
+    $('#lb-players').innerHTML = `<div class="teams2">${col(0)}${col(1)}</div>${isHost && !L.inGame ? `<div class="lb-tools"><button class="btn ghost sm" data-lact="shuffle">${icon('swap')} Перемешать</button><button class="btn ghost sm" data-lact="fair">${icon('crown')} Честные команды</button></div><div class="muted small">«Честные» — взрослые в разных командах. Хост может перекинуть любого — нажми на игрока</div>` : ''}<div class="muted small">Боты сами делятся поровну</div>`;
   } else $('#lb-players').innerHTML = online.map(card).join('');
   $('#lb-mode-title').textContent = isHost ? 'Выбери режим' : 'Режим';
-  $('#lb-modes').innerHTML = Object.entries(MODES).map(([id, m]) => `
-    <button class="mode ${id === L.mode ? 'sel' : ''} ${m.group === 'traitor' ? 'traitor' : ''}" data-m="${id}"><span class="mi">${icon(m.icon)}</span><b>${m.name}</b><small>${m.desc}</small></button>`).join('');
+  // голоса: цветные точки игроков на режимах и картах
+  const dots = (key, v) => { const vs = online.filter(p => p.vote && p.vote[key] === v); return vs.length ? `<span class="votes">${vs.map(p => `<i style="background:${p.color || '#fff'}" title="${esc(p.name)}"></i>`).join('')}</span>` : ''; };
+  S.voteDots = dots;
+  const tools = isHost && !L.inGame ? `<div class="lb-tools"><button class="btn ghost sm" data-lact="votes">${icon('vote')} По голосам</button><button class="btn ghost sm" data-lact="random">${icon('question')} Случайная карта и режим</button></div>` : !isHost ? `<div class="muted small" style="margin-bottom:6px">Нажми на режим и карту, чтобы проголосовать. Выбирает хост.</div>` : '';
+  $('#lb-modes').innerHTML = tools + Object.entries(MODES).map(([id, m]) => `
+    <button class="mode ${id === L.mode ? 'sel' : ''} ${m.group === 'traitor' ? 'traitor' : ''}" data-m="${id}"><span class="mi">${icon(m.icon)}</span><b>${m.name}</b><small>${m.desc}</small>${dots('mode', id)}</button>`).join('');
   const openGroups = new Set([...$$('#lb-opts details[open] summary')].map(s => s.textContent));
   let opts = '';
   if (mode.group === 'arena') opts += shooterSettings(L.opts, L.mode);
@@ -499,16 +561,27 @@ function renderLobby() {
   $('#lb-opts').classList.toggle('readonly', !isHost);
   const total = online.length + (mode.group === 'arena' ? L.opts.bots : 0);
   if (L.inGame) $('#lb-action').innerHTML = `<div class="wait">Идёт игра<span class="dots"></span></div>`;
-  else if (isHost) {
-    const ok = total >= mode.min;
-    $('#lb-action').innerHTML = `<button class="btn gold big" id="btn-start" ${ok ? '' : 'disabled'}>${ok ? `${icon('play')} Играть: ${mode.name}` : mode.group === 'traitor' ? 'Нужно минимум 3 игрока' : 'Добавь ботов или друзей'}</button>`;
-    $('#btn-start').onclick = () => { $('#btn-start').disabled = true; ready.then(() => Net.toHost({ t: 'start' })); };
-  } else $('#lb-action').innerHTML = `<div class="wait">Хост выбирает режим и скоро начнёт<span class="dots"></span></div>`;
+  else {
+    const mine = online.find(p => p.pid === me.pid) || {}, nr = online.filter(p => p.ready).length;
+    const rbtn = `<button class="btn ${mine.ready ? 'teal' : 'ghost'} big" id="btn-ready">${icon('check')} ${mine.ready ? 'Я готов!' : 'Готов?'}</button>`;
+    const info = `<div class="muted small rdy-info">Готовы ${nr} из ${online.length}. Когда готовы все — игра начнётся сама.</div>`;
+    if (isHost) {
+      const ok = total >= mode.min;
+      $('#lb-action').innerHTML = `<div class="row">${online.length > 1 ? rbtn : ''}<button class="btn gold big grow" id="btn-start" ${ok ? '' : 'disabled'}>${ok ? `${icon('play')} Играть` : mode.group === 'traitor' ? 'Нужно 3 игрока' : 'Добавь ботов'}</button></div>${online.length > 1 ? info : ''}`;
+      $('#btn-start').onclick = () => { $('#btn-start').disabled = true; ready.then(() => Net.toHost({ t: 'start' })); };
+    } else $('#lb-action').innerHTML = `<div class="row">${rbtn}</div>${info}`;
+    const rb = $('#btn-ready'); if (rb) rb.onclick = () => { vibrate(10); Sound.play('select', { vol: 0.5 }); Net.toHost({ t: 'lready', v: !mine.ready }); };
+  }
   refreshShowroom();
 }
-$('#lb-modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; if (!Net.isHost) { toast('Режим выбирает хост'); return; } vibrate(10); Net.toHost({ t: 'mode', mode: b.dataset.m }); });
+$('#lb-modes').addEventListener('click', e => {
+  const t = e.target.closest('[data-lact]'); if (t) { Net.toHost({ t: 'lact', a: t.dataset.lact }); return; }
+  const b = e.target.closest('.mode'); if (!b) return; vibrate(10);
+  if (!Net.isHost) { Net.toHost({ t: 'vote', k: 'mode', v: b.dataset.m }); toast('Твой голос учтён'); return; }
+  Net.toHost({ t: 'mode', mode: b.dataset.m });
+});
 $('#lb-opts').addEventListener('click', e => {
-  if (!Net.isHost) return;
+  if (!Net.isHost) { const mp = e.target.closest('.opt-map'); if (mp && !mp.disabled) { Net.toHost({ t: 'vote', k: 'map', v: mp.dataset.smap || mp.dataset.map }); toast('Твой голос учтён'); } return; }
   const mp = e.target.closest('.opt-map'); if (mp) { if (mp.dataset.smap) Net.toHost({ t: 'opt', k: 'smap', v: mp.dataset.smap }); else Net.toHost({ t: 'opt', k: 'map', v: mp.dataset.map }); return; }
   const b = e.target.closest('.seg button'); if (!b) return;
   const k = b.closest('.seg').dataset.o, raw = b.dataset.v;
@@ -521,6 +594,7 @@ function askKick(pid) {
 }
 $('#lb-players').addEventListener('click', e => {
   const k = e.target.closest('[data-kick]'); if (k) { e.stopPropagation(); askKick(k.dataset.kick); return; }
+  const la = e.target.closest('[data-lact]'); if (la) { Net.toHost({ t: 'lact', a: la.dataset.lact }); return; }
   const j = e.target.closest('.tc-join'); if (j) { vibrate(10); Net.toHost({ t: 'team', pid: me.pid, to: +j.dataset.team }); return; }
   const b = e.target.closest('.pl'); if (!b || !S.lobby) return;
   const teams = S.lobby.mode === 'tdm' || S.lobby.mode === 'ctf';

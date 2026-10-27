@@ -10,7 +10,7 @@ export const S_MONSTERS = {
   ghost: { model: 'grave/character-ghost', name: 'Призрак', hp: 60, speed: 3.4, dmg: 14, range: 16, cd: 1.6, scale: 1.1, money: 150, ranged: true },
   boss: { model: 'grave/character-keeper', name: 'Хранитель склепа', hp: 2600, speed: 3.6, dmg: 35, range: 3, cd: 1.4, scale: 2.6, money: 1000, boss: true }
 };
-export const SHOOT_DEFAULTS = { smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
+export const SHOOT_DEFAULTS = { ff: false, teamSize: 0, smap: 'warehouse', match: 'timed', rounds: 5, roundTime: 90, timeLimit: 300, bots: 0, botLevel: 1 };
 const FL = { dead: 1, prot: 2, mark: 4, armor: 8, slow: 16, carry: 32, reload: 64, scoped: 128, crouch: 256 };
 const WIDX = Object.keys(WEAPONS);
 
@@ -54,6 +54,8 @@ export class ShooterSim {
     if (this.team) return a.team !== b.team;
     return true;
   }
+  // можно ли ранить: враги всегда, свои — только если хост включил «Урон по своим»
+  canHurt(a, b) { return this.enemies(a, b) || (!!this.opts.ff && this.team && a !== b && !a.mon && !b.mon); }
   // точка появления: подальше от врагов и там, где враг её не видит
   spawnPoint(p) {
     const m = this.map;
@@ -267,7 +269,7 @@ export class ShooterSim {
   claimOk(p, o, d, W, c) {
     if (!Array.isArray(c)) return null;
     const t = this.ps.get(c[0]) || this.mons.get(c[0]), dist = +c[2];
-    if (!t || !t.alive || t.left || !this.enemies(p, t) || !(dist > 0)) return null;
+    if (!t || !t.alive || t.left || !this.canHurt(p, t) || !(dist > 0)) return null;
     const range = W.range || 80, sc = t.scale || 1;
     if (dist > range + 2 || Math.hypot(t.x - o.x, t.z - o.z) > range + 4) return null;
     const P = { x: o.x + d.x * dist, y: o.y + d.y * dist, z: o.z + d.z * dist };
@@ -282,7 +284,7 @@ export class ShooterSim {
     const ok = this.claimOk(p, o, d, W, claim);
     if (ok) { hits.push(ok); if (!W.pierce) end = ok.h.t; }
     for (const t of this.targets()) {
-      if (!this.enemies(p, t) || (ok && ok.t === t)) continue;
+      if (!this.canHurt(p, t) || (ok && ok.t === t)) continue;
       const h = rayPlayer(o, d, t, end, t.scale || 1);
       if (h) hits.push({ t, h });
     }
@@ -300,7 +302,7 @@ export class ShooterSim {
   melee(p, o, d, W) {
     let best = null, bd = W.range;
     for (const t of this.targets()) {
-      if (!this.enemies(p, t)) continue;
+      if (!this.canHurt(p, t)) continue;
       const dx = t.x - p.x, dz = t.z - p.z, dist = Math.hypot(dx, dz);
       if (dist > W.range + 0.5 + (t.scale > 2 ? 1.5 : 0) || Math.abs(t.y - p.y) > 1.6) continue;
       const dot = (dx * d.x + dz * d.z) / (dist || 1) / (Math.hypot(d.x, d.z) || 1);
@@ -325,7 +327,7 @@ export class ShooterSim {
     for (const t of this.targets()) {
       const dx = t.x - x, dy = t.y + 0.9 - y, dz = t.z - z, dist = Math.hypot(dx, dy, dz);
       if (dist > R + 0.4) continue;
-      if (owner && !this.enemies(owner, t) && t !== owner) continue;
+      if (owner && !this.canHurt(owner, t) && t !== owner) continue;
       if (!los(this.map, { x, y: y + 0.2, z }, { x: t.x, y: t.y + 1, z: t.z })) continue;
       const k = 1 - Math.min(1, dist / (R + 0.4)) * 0.7;
       const dmg = (W ? W.dmg : 30) * k * (t === owner ? 0.4 : 1);
@@ -337,7 +339,7 @@ export class ShooterSim {
   damage(t, amount, src, o = {}) {
     if (!t.alive || this.over) return;
     if (!t.mon && t.protUntil > this.t) return;
-    if (src && src !== t && !this.enemies(src, t)) return;
+    if (src && src !== t && !this.canHurt(src, t)) return;
     let dmg = Math.round(amount);
     if (!t.mon && t.armor > 0) { const ab = Math.min(t.armor, Math.round(dmg * 0.5)); t.armor -= ab; dmg -= ab; }
     t.hp -= dmg;
@@ -362,7 +364,7 @@ export class ShooterSim {
     t.deaths++;
     this.dropFlag(t);
     this.ev('kill', src ? src.id : '', t.id, o.w || '', o.head ? 1 : 0);
-    if (src && src !== t && !src.mon) {
+    if (src && src !== t && !src.mon && this.enemies(src, t)) {
       src.kills++; src.pts++; src.money = Math.min(MONEY.max, src.money + MONEY.kill);
       this.roundKills.set(src.id, (this.roundKills.get(src.id) || 0) + 1);
       if (this.mode === 'tdm' && !this.rounds) this.teamScore[src.team]++;
@@ -620,7 +622,7 @@ export class ShooterSim {
       let hitT = wh.b ? wh.t : null, victim = null;
       const owner = this.ps.get(pr.owner) || this.mons.get(pr.owner);
       for (const t of this.targets()) {
-        if (t.id === pr.owner || (owner && !this.enemies(owner, t))) continue;
+        if (t.id === pr.owner || (owner && !this.canHurt(owner, t))) continue;
         const h = rayPlayer({ x: ox, y: oy, z: oz }, d, t, hitT ?? L, (t.scale || 1) * 1.15);
         if (h && (hitT == null || h.t < hitT)) { hitT = h.t; victim = t; }
       }

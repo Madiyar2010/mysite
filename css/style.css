@@ -625,7 +625,7 @@ body:not(.touch) #am-actions .act.use{width:78px;height:78px}
 .opt-group[open] summary::after{transform:rotate(180deg) translateY(3px)}
 .opt-group .opt-row{padding:5px 0;border-top:1px solid rgba(255,255,255,.06)}
 .opt-row>span{display:inline-flex;gap:6px;align-items:center}
-.opts.readonly .seg,.opts.readonly .opt-map{pointer-events:none}
+.opts.readonly .seg{pointer-events:none}
 .seg button{white-space:nowrap}
 @media (orientation:landscape) and (max-height:560px){.seg button{padding:6px 8px;font-size:13px}.opt-row>span{min-width:0;font-size:13px}}
 
@@ -849,3 +849,15 @@ body.ios:not(.standalone) .ios-only{display:flex}
 #rotate b{font-size:30px}
 #rotate .btn svg{width:22px;height:22px}
 body.ios #rotate .btn{display:none}
+
+/* лобби: готовность, голоса, инструменты хоста */
+.pl .rdy{position:absolute;bottom:4px;right:6px;width:22px;height:22px;border-radius:50%;background:#2ec27e;display:flex;align-items:center;justify-content:center}
+.pl .rdy svg{width:14px;height:14px;color:#fff}
+.votes{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
+.votes i{width:12px;height:12px;border-radius:50%;border:2px solid rgba(0,0,0,.35)}
+.lb-tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px;grid-column:1/-1}
+.rdy-info{text-align:center;margin-top:6px}
+#lb-action .row{gap:8px}
+#lb-action{background:linear-gradient(180deg,rgba(24,18,58,0),rgba(24,18,58,.97) 18%);padding-top:14px}
+#lb-action #btn-ready.ghost{background:#3a2f80;border-color:rgba(255,255,255,.25)}
+#lb-action #btn-start{white-space:normal;line-height:1.15}
