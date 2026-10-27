@@ -239,11 +239,13 @@ const AM_SET = {
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], bots: [0, 1, 2, 3, 4, 5, 6, 7],
-  teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
+  teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
 const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff'];
 
 // последние настройки хоста сохраняются на устройстве
+// в «Команда на команду» раунды до 13 или 7, в остальных — 3, 5 или 7
+function fixRounds() { if (H.mode === 'tdm') { if (![7, 13].includes(H.opts.rounds)) H.opts.rounds = 13; } else if (H.opts.rounds === 13) H.opts.rounds = 5; }
 function saveHostSet() { LS.set('hostSet', { mode: H.mode, opts: H.opts }); }
 function loadHostSet() {
   const sv = LS.get('hostSet', null); if (!sv) return;
@@ -254,7 +256,7 @@ function loadHostSet() {
 }
 function hostStart(code) {
   H.banned = new Set();
-  loadHostSet();
+  loadHostSet(); fixRounds();
   H.players.clear(); H.inGame = false; H.sim = null;
   H.players.set(me.pid, { ...profile(), team: 0, online: true, pts: 0 });
   loading(false); keepAwake();
@@ -296,7 +298,7 @@ Net.onHostMessage = (pid, m) => {
       hostLobby(false);
       break;
     }
-    case 'mode': if (pid === me.pid && MODES[m.mode] && !H.inGame) { H.mode = m.mode; saveHostSet(); hostLobby(false); } break;
+    case 'mode': if (pid === me.pid && MODES[m.mode] && !H.inGame) { H.mode = m.mode; fixRounds(); saveHostSet(); hostLobby(false); } break;
     case 'lready': { const p = H.players.get(pid); if (!p || H.inGame) return; p.ready = !!m.v; hostLobby(false); checkAllReady(); break; }
     case 'vote': { const p = H.players.get(pid); if (!p || H.inGame) return; p.vote = p.vote || {}; if (m.k === 'mode' && MODES[m.v]) p.vote.mode = m.v; if ((m.k === 'map' || m.k === 'smap') && typeof m.v === 'string') p.vote.map = m.v; hostLobby(false); break; }
     case 'lact': if (pid === me.pid && !H.inGame) lobbyAction(m.a); break;
@@ -375,7 +377,7 @@ function lobbyAction(a) {
     const cnt = [0, 0]; order.forEach(p => { const t = cnt[0] <= cnt[1] ? 0 : 1; p.team = t; cnt[t]++; });
     if (a === 'fair' && adults.length >= 2) { /* взрослые уже чередуются */ }
   }
-  saveHostSet(); hostLobby(false);
+  fixRounds(); saveHostSet(); hostLobby(false);
 }
 function hostStartGame() {
   if (H.inGame) return;
@@ -512,7 +514,7 @@ function shooterSettings(o, mode) {
   return `
     <div class="opt-maps four">${SMAP_LIST.map(m => `<button class="opt-map smap ${o.smap === m.id ? 'sel' : ''} ${m.ready ? '' : 'locked'}" data-smap="${m.id}" ${m.ready ? '' : 'disabled'}>${icon(m.icon)}<b>${m.name}</b>${m.ready ? '' : '<small>скоро</small>'}${S.voteDots ? S.voteDots('map', m.id) : ''}</button>`).join('')}</div>
     ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Волны монстров, закупка между волнами' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
-    ${match === 'rounds' ? optRow('Побед для выигрыша', seg('rounds', AM_SET.rounds, o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
+    ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
     ${(mode === 'tdm' || mode === 'ctf') && o.teamSize ? `<div class="muted small">Свободные места в каждой команде займут боты</div>` : optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}
     ${o.bots || ((mode === 'tdm' || mode === 'ctf') && o.teamSize) ? optRow('Уровень ботов', seg('botLevel', AM_SET.botLevel, o.botLevel, ['Легко', 'Средне', 'Сложно'])) : ''}

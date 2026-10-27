@@ -861,3 +861,13 @@ body.ios #rotate .btn{display:none}
 #lb-action{background:linear-gradient(180deg,rgba(24,18,58,0),rgba(24,18,58,.97) 18%);padding-top:14px}
 #lb-action #btn-ready.ghost{background:#3a2f80;border-color:rgba(255,255,255,.25)}
 #lb-action #btn-start{white-space:normal;line-height:1.15}
+/* крупный счёт команд по центру сверху */
+#sh-score:has(.ts){position:absolute;left:50%;transform:translateX(-50%);top:0}
+#sh-score .ts{font-size:30px;min-width:66px;padding:4px 14px;border-radius:16px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+#sh-score .ts.mine{box-shadow:0 0 0 3px #fff,0 3px 0 rgba(0,0,0,.35)}
+#sh-score .ts-mid{font-size:14px;background:rgba(10,8,25,.7);padding:3px 8px;border-radius:999px}
+#sh-buyt{top:calc(max(8px,env(safe-area-inset-top)) + 58px)}
+@media (max-height:560px){#sh-score .ts{font-size:24px;min-width:54px;padding:2px 10px}}
+/* присед над кнопкой огня, прицел над перезарядкой — не закрывают полоску здоровья */
+#sh-crouch{right:calc(max(26px,env(safe-area-inset-right)) + 16px);bottom:calc(max(30px,env(safe-area-inset-bottom)) + 108px)}
+#sh-aim{right:calc(max(26px,env(safe-area-inset-right)) + 100px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 150px)}
