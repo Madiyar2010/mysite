@@ -24,7 +24,7 @@ let myPid;
 try { myPid = localStorage.getItem('ha_pid') || sessionStorage.getItem('ha_pid'); if (!myPid) myPid = rid(); localStorage.setItem('ha_pid', myPid); } catch (e) { myPid = rid(); }
 const me = {
   pid: myPid, name: LS.get('name', ''), model: LS.get('model', pick(A.HEROES)), cls: LS.get('cls', 'knight'),
-  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none'), pet: LS.get('pet', 'none'), pack: LS.get('pack', 'none'), trail: LS.get('trail', 'none'), skin: LS.get('skin', 'none'), color: LS.get('color', '#ffd166'), adult: LS.get('adult', false)
+  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none'), pet: LS.get('pet', 'none'), pack: LS.get('pack', 'none'), trail: LS.get('trail', 'none'), skin: LS.get('skin', 'none'), dance: LS.get('dance', 'none'), color: LS.get('color', '#ffd166'), adult: LS.get('adult', false)
 };
 const prefs = window.__prefs = { vibe: LS.get('vibe', true) };
 Net.myPid = myPid;
@@ -109,6 +109,7 @@ ready.catch(e => { console.error(e); $('#load span').textContent = 'Не уда�
 const SHOW_GUNS = ['rifle', 'plasma', 'paint', 'sniper', 'smg', 'snow', 'railgun', 'water'];
 function refreshShowroom() {
   if (R.view !== showroom) return;
+  showroom.dancing = S.screen === 's-results' ? !!S.won : S.screen === 's-shop' && shopTab === 'dances';
   const wide = innerWidth > 820 || innerWidth > innerHeight;
   const panelTop = { 's-lobby': 0.30, 's-shop': 0.42 }[S.screen] ?? 0.38;
   if (wide) showroom.setShift(innerWidth > innerHeight * 1.6 ? 0.2 : 0.19, 0); else showroom.setShift(0, 0.5 - panelTop / 2 - 0.09);
@@ -263,7 +264,7 @@ const AM_SET = {
   speed: [0.75, 1, 1.25, 1.5], crewVision: [0.5, 0.75, 1, 1.5], impVision: [1, 1.5, 2], killCd: [10, 20, 25, 30, 45], killDist: [0, 1, 2],
   common: [0, 1, 2], long: [0, 1, 2, 3], short: [1, 2, 3, 4, 5], taskBar: ['always', 'meetings', 'never'],
   engineer: [0, 1], scientist: [0, 1], sheriff: [0, 1], angel: [0, 1], shapeshifter: [0, 1], detective: [0, 1], guard: [0, 1], jester: [0, 1], amBots: [0, 1, 2, 3, 4, 5], bots: [0, 1, 2, 3, 4, 5, 6, 7],
-  pveDiff: [0, 1, 2], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
+  pveDiff: [0, 1, 2], mapSize: ['big', 'small'], teamSize: [0, 2, 3, 4, 5], match: ['rounds', 'timed'], rounds: [3, 5, 7, 13], roundTime: [60, 90, 120], timeLimit: [180, 300, 600], botLevel: [0, 1, 2]
 };
 const AM_BOOL = ['confirm', 'anon', 'visualTasks', 'ff', 'endless', 'voice'];
 
@@ -431,7 +432,7 @@ function hostStartGame() {
   }
   roster.forEach(r => delete r.assigned);
   // «Монстры» — всегда на Арене, остальные режимы — не на Арене
-  H.gameOpts = { ...H.opts, smap: H.mode === 'pve' ? 'arena' : (H.opts.smap === 'arena' ? 'warehouse' : H.opts.smap) };
+  H.gameOpts = { ...H.opts, smap: H.mode === 'pve' ? 'arena' : (H.opts.smap === 'arena' ? 'warehouse' : H.opts.smap) + (H.opts.mapSize === 'small' ? '_s' : '') };
   H.roster = roster; H.inGame = true;
   H.pending = { ready: new Set(), to: setTimeout(launchSim, 15000) };
   Net.broadcast(startMsg());
@@ -559,6 +560,7 @@ function shooterSettings(o, mode) {
     ${mode === 'pve' ? optRow(`${icon('skull')} Сложность`, seg('pveDiff', [0, 1, 2], o.pveDiff ?? 1, ['Лёгкая', 'Обычная', 'Трудная'])) + optRow(`${icon('hourglass')} Бесконечно`, seg('endless', [0, 1], o.endless ? 1 : 0, ['Выкл', 'Вкл'])) + `<div class="muted small">${o.endless ? `Волны без конца, каждые 6 — босс и монстры сильнее. За волну +1 жизнь команде. Рекорд на этом устройстве: волна ${(LS.get('endlessBest', {}) || {})[o.pveDiff ?? 1] || 0}.` : '6 волн и босс.'} Жизни команды: ${[15, 8, 3][o.pveDiff ?? 1]}. Подойди к павшему и постой 3 секунды — поднимешь его.</div>` : ''}
     ${timedOnly ? `<div class="muted small">${mode === 'pve' ? 'Между волнами — закупка' : mode === 'gun' ? 'Оружие по очереди: пистолет-пулемёт, автомат, дробовик, плазмомёт, снайперка, рельсотрон, лазерный пистолет, пейнтбол, пистолет и последним — нож. Закупки нет. Если время выйдет — побеждает тот, кто прошёл дальше.' : 'Захват флага идёт на время с возрождением'}</div>` : optRow('Как идёт игра', seg('match', AM_SET.match, match, ['Раунды (без возрождения)', 'На время (с возрождением)']))}
     ${match === 'rounds' ? optRow('Побед для выигрыша', mode === 'tdm' ? seg('rounds', [13, 7], o.rounds, ['13 (обычно)', '7 (быстро)']) : seg('rounds', [3, 5, 7], o.rounds)) + optRow('Время раунда, сек', seg('roundTime', AM_SET.roundTime, o.roundTime)) : mode === 'pve' ? '' : optRow('Время матча', seg('timeLimit', AM_SET.timeLimit, o.timeLimit, ['3 мин', '5 мин', '10 мин']))}
+    ${mode !== 'pve' ? optRow(`${icon('map')} Размер карты`, seg('mapSize', ['big', 'small'], o.mapSize || 'big', ['Обычная', 'Маленькая (2–3 игрока)'])) : ''}
     ${mode === 'tdm' || mode === 'ctf' ? optRow(`${icon('users')} Размер команды`, seg('teamSize', AM_SET.teamSize, o.teamSize, ['Сам', '2×2', '3×3', '4×4', '5×5'])) : ''}
     ${(mode === 'tdm' || mode === 'ctf') && o.teamSize ? `<div class="muted small">Свободные места в каждой команде займут боты</div>` : optRow(`${icon('bot')} Боты`, seg('bots', AM_SET.bots, o.bots))}
     ${o.bots || ((mode === 'tdm' || mode === 'ctf') && o.teamSize) ? optRow('Уровень ботов', seg('botLevel', AM_SET.botLevel, o.botLevel, ['Легко', 'Средне', 'Сложно'])) : ''}
@@ -720,7 +722,7 @@ async function startGame(m) {
     shBanner(`${icon(MODES[m.mode].icon)} ${MODES[m.mode].name}`, 'big', 2500);
   }
   // своя музыка под карту
-  S.music = group === 'traitor' ? ({ haunted: 'spooky', underwater: 'deep' }[m.opts.map] || 'tense') : ({ island: 'sunny', winter: 'snowy', toys: 'musicbox', moon: 'space', graveyard: 'spooky' }[m.opts.smap] || 'battle');
+  S.music = group === 'traitor' ? ({ haunted: 'spooky', underwater: 'deep' }[m.opts.map] || 'tense') : ({ island: 'sunny', winter: 'snowy', toys: 'musicbox', moon: 'space', graveyard: 'spooky' }[String(m.opts.smap).replace('_s', '')] || 'battle');
   Sound.playMusic(S.music); window.__music = S.music;
   document.body.dataset.game = group === 'traitor' ? 'traitor' : 'shooter';
   Input.active = group === 'traitor';
@@ -799,6 +801,7 @@ function showResults(res) {
   stopGame();
   show('s-results');
   const mine = res.rows.find(r => r.pid === me.pid);
+  S.won = !!(mine && mine.win); refreshShowroom();
   if (mine && mine.coins) { Wallet.add(mine.coins); updateCoins(); }
   const fresh = mine ? countProgress(mine, res) : [];
   $('#res-title').textContent = res.winText;

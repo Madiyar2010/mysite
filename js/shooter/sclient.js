@@ -362,6 +362,7 @@ export class ShooterClient {
       if (this.cur === 'knife') mul *= 1.12;
       if (this.crouch) mul *= 0.5;
       movePlayer(this.map, this.p, { mx: mv.mx, mz: mv.mz, jump: this.jumpReq && !frozen, speedMul: mul }, dt);
+      if (this.p.padT && this.p.padT !== this.lastPad) { this.lastPad = this.p.padT; Sound.play('bounce', { vol: 0.9, rate: 1.5 }); Sound.play('jump', { vol: 0.4 }); }
       // метро: вошёл в подземный переход — вышел из другого
       if (this.map.portals && !frozen && now - (this.portT || 0) > 2) for (const pt of this.map.portals) {
         if (Math.hypot(this.p.x - pt.a.x, this.p.z - pt.a.z) < 0.9 && this.p.y < 0.5) { Object.assign(this.p, { x: pt.b.x, z: pt.b.z, vx: 0, vz: 0 }); this.yaw = pt.b.yaw; this.portT = now; Sound.play('vent', { vol: 0.6 }); shBanner(`${icon('compass')} Метро!`, 'small', 900); this.ctx.send({ t: 'pos', x: +this.p.x.toFixed(2), y: 0, z: +this.p.z.toFixed(2), yaw: this.yaw, pitch: this.pitch, vx: 0, vz: 0, portal: 1 }); break; }

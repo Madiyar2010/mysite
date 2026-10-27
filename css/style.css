@@ -972,3 +972,9 @@ body.ios #rotate .btn{display:none}
 #amm-talk.on{background:linear-gradient(#ff8a8a,#ff4d5e);box-shadow:0 0 0 4px rgba(255,77,94,.35);transform:scale(1.04)}
 .mp .talk{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#3ee0c0;display:flex;align-items:center;justify-content:center;animation:pulse 1s infinite}
 .mp .talk svg{width:14px;height:14px;color:#10202a}
+@media (orientation:landscape) and (max-height:560px){
+  .tabs.wrap{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .tabs.wrap::-webkit-scrollbar{display:none}
+  .tabs.wrap button{flex:0 0 auto;padding:8px 12px}
+  #s-shop .panel>p.muted.small{display:none}
+}

@@ -103,6 +103,8 @@ export function movePlayer(map, p, inp, dt) {
   p.vx += Math.max(-acc * dt, Math.min(acc * dt, ax - p.vx));
   p.vz += Math.max(-acc * dt, Math.min(acc * dt, az - p.vz));
   if (inp.jump && p.ground) { p.vy = PH.JUMP * (map.jumpK || 1); p.ground = false; }
+  // батуты и прыжковые площадки: встал — подбросило
+  if (map.pads && p.ground) for (const pd of map.pads) if (Math.abs(p.y - pd.y) < 0.15 && Math.abs(p.x - pd.x) < pd.w / 2 && Math.abs(p.z - pd.z) < pd.d / 2) { p.vy = pd.v; p.ground = false; p.padT = performance.now(); break; }
   p.vy -= PH.G * (map.grav || 1) * dt;
   const boxes = map.boxes, R = PH.R, H = PH.H;
   const overlapsXZ = (b, x, z) => Math.abs(x - b.x) < b.w / 2 + R && Math.abs(z - b.z) < b.d / 2 + R;
@@ -272,6 +274,32 @@ export function reachableTops(map) {
   return map.tops;
 }
 export const SMAPS = { warehouse: warehouse(), port: port(), castle: castle(), graveyard: graveyard(), street: street(), arena: arena(), island: island(), winter: winter(), toys: toys(), moon: moon() };
+// уменьшенный вариант карты для 2–3 игроков: центральная часть и забор по краю
+function smallMap(m) {
+  const f = 0.62, W = Math.round(m.W * f), D = Math.round(m.D * f);
+  const inside = (x, z, pad = 0) => Math.abs(x) < W - pad && Math.abs(z) < D - pad;
+  const boxes = m.boxes.filter(b => b.vis === 'floor' || (!b.dyn && Math.abs(b.x) + b.w / 2 < W + 0.01 && Math.abs(b.z) + b.d / 2 < D + 0.01));
+  const fence = m.theme === 'toys' ? 'kidwall' : m.theme === 'warehouse' ? 'wall' : m.theme === 'moon' ? 'moonpanel' : m.theme === 'winter' ? 'woodfence' : 'barrier';
+  const H = m.theme === 'toys' ? 14 : m.theme === 'warehouse' ? m.WH : 1.4;
+  boxes.push({ x: 0, y: 0, z: -D - 0.3, w: 2 * W + 1.2, h: H, d: 0.6, vis: fence }, { x: 0, y: 0, z: D + 0.3, w: 2 * W + 1.2, h: H, d: 0.6, vis: fence },
+    { x: -W - 0.3, y: 0, z: 0, w: 0.6, h: H, d: 2 * D, vis: fence }, { x: W + 0.3, y: 0, z: 0, w: 0.6, h: H, d: 2 * D, vis: fence });
+  const sc = p => ({ ...p, x: Math.max(-W + 1.5, Math.min(W - 1.5, p.x * f)), z: Math.max(-D + 1.5, Math.min(D - 1.5, p.z * f)) });
+  const free = p => !boxes.some(b => b.vis !== 'floor' && b.y < 1.6 && Math.abs(p.x - b.x) < b.w / 2 + 0.5 && Math.abs(p.z - b.z) < b.d / 2 + 0.5);
+  const spots = list => { const out = list.map(sc).filter(free); return out.length ? out : list.map(sc); };
+  const sm = {
+    ...m, id: m.id + '_s', base: m.id, name: m.name + ' (маленькая)', W, D, small: true, boxes,
+    gates: (m.gates || []).filter(g => inside(g.box.x, g.box.z)), movers: (m.movers || []).filter(mv => mv.type === 'swing' ? inside(mv.x, mv.z) : inside(mv.axis === 'z' ? mv.c : mv.a, mv.axis === 'z' ? mv.a : mv.c) && inside(mv.axis === 'z' ? mv.c : mv.b, mv.axis === 'z' ? mv.b : mv.c)),
+    deco: (m.deco || []).filter(d => inside(d.x, d.z)), floors: (m.floors || []).filter(fl => fl.w > 2 * m.W || Math.abs(fl.x) - fl.w / 2 < W && Math.abs(fl.z) - fl.d / 2 < D).map(fl => { if (fl.w > 2 * m.W + 2) return fl; const x0 = Math.max(-W, fl.x - fl.w / 2), x1 = Math.min(W, fl.x + fl.w / 2), z0 = Math.max(-D, fl.z - fl.d / 2), z1 = Math.min(D, fl.z + fl.d / 2); return { ...fl, x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 }; }).filter(fl => fl.w > 0.2 && fl.d > 0.2), lights: (m.lights || []).filter(l => inside(l.x, l.z)),
+    portals: (m.portals || []).filter(p => inside(p.a.x, p.a.z, 1) && inside(p.b.x, p.b.z, 1)), pads: (m.pads || []).filter(p => inside(p.x, p.z, 1)),
+    spawnsTeam: { 0: spots(m.spawnsTeam[0]), 1: spots(m.spawnsTeam[1]) }, spawnsFFA: spots(m.spawnsFFA),
+    flags: m.flags.map(fl => { let p = sc(fl); for (let k = 0; k < 20 && !free(p); k++) p = { ...p, x: p.x * 0.92 }; return p; }), monsterSpawns: m.monsterSpawns.map(sc), hazard: m.hazard ? { ...m.hazard, spawns: m.hazard.spawns.filter(g => inside(g.x, g.z, 1)) } : null, tops: null, nav: null
+  };
+  if (sm.hazard && !sm.hazard.spawns.length) sm.hazard = null;
+  for (const g of sm.gates) if (!sm.boxes.includes(g.box)) sm.boxes.push(g.box);
+  for (const mv of sm.movers) if (!sm.boxes.includes(mv.box)) sm.boxes.push(mv.box);
+  return sm;
+}
+for (const id of Object.keys(SMAPS)) if (id !== 'arena') SMAPS[id + '_s'] = smallMap(SMAPS[id]);
 for (const m of Object.values(SMAPS)) buildNav(m);
 export const SMAP_LIST = [
   { id: 'port', name: 'Порт ночью', icon: 'anchor', ready: true },
@@ -286,11 +314,11 @@ export const SMAP_LIST = [
   { id: 'arena', name: 'Арена', icon: 'swords', ready: true, pve: true }
 ];
 export function smapModels(map) {
-  const s = new Set(map.id === 'warehouse' ? ['fa/conveyor-long', 'fa/box-small', 'ca/cone'] : []);
+  const s = new Set((map.base || map.id) === 'warehouse' ? ['fa/conveyor-long', 'fa/box-small', 'ca/cone'] : []);
   if (map.hazard) s.add('grave/character-skeleton');
   for (const b of map.boxes) if (b.model) s.add(b.model);
   for (const m of map.movers) if (m.model) s.add(m.model);
   for (const d of map.deco || []) if (d.model) s.add(d.model);
-  if (map.id === 'port') ['in/shipping-container-b', 'ca/cone'].forEach(x => s.add(x));
+  if ((map.base || map.id) === 'port') ['in/shipping-container-b', 'ca/cone'].forEach(x => s.add(x));
   return [...s];
 }

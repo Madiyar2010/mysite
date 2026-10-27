@@ -187,7 +187,7 @@ export class ShooterView {
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.d), std('#fff', { map: t, polygonOffset: true, polygonOffsetFactor: -1 - i * 0.01, polygonOffsetUnits: -1 }));
       pl.rotation.x = -Math.PI / 2; pl.position.set(f.x, (f.y || 0.004) + i * 0.0004, f.z); pl.receiveShadow = true; root.add(pl);
     });
-    if (m.id === 'warehouse') this.buildWarehouse(root);
+    if ((m.base || m.id) === 'warehouse') this.buildWarehouse(root);
     this.dyn = { gates: [] };
     // статичные блоки склеиваем по материалу — меньше вызовов отрисовки
     const groups = new Map(), models = new Map();
@@ -229,10 +229,11 @@ export class ShooterView {
       if (d.dome) { const m = new THREE.Mesh(new THREE.SphereGeometry(d.r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#9fd8ff', transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.3, emissive: '#2b6fb0', emissiveIntensity: 0.3, depthWrite: false })); m.position.set(d.x, d.y, d.z); root.add(m); const r = new THREE.Mesh(new THREE.TorusGeometry(d.r, 0.08, 8, 32), std('#e9ecf2', { metalness: 0.5 })); r.rotation.x = Math.PI / 2; r.position.set(d.x, d.y, d.z); root.add(r); continue; }
       if (d.crater) { const m = new THREE.Mesh(new THREE.RingGeometry(d.r * 0.55, d.r, 28), new THREE.MeshStandardMaterial({ color: '#6e6e74', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); m.rotation.x = -Math.PI / 2; m.position.set(d.x, 0.02, d.z); root.add(m); const c = new THREE.Mesh(new THREE.CircleGeometry(d.r * 0.55, 24), new THREE.MeshStandardMaterial({ color: '#7f7f85', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); c.rotation.x = -Math.PI / 2; c.position.set(d.x, 0.015, d.z); root.add(c); continue; }
       if (d.rocket) { this.rocket(root, d); continue; }
+      if (d.pad) { const g = new THREE.Group(); const base = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(d.w, d.d) / 2, Math.min(d.w, d.d) / 2 + 0.1, 0.18, 24), std('#2b2f38', { metalness: 0.5 })); base.position.y = 0.09; g.add(base); const top = new THREE.Mesh(new THREE.CircleGeometry(Math.min(d.w, d.d) / 2 - 0.15, 24), new THREE.MeshBasicMaterial({ color: d.c, transparent: true, opacity: 0.8 })); top.rotation.x = -Math.PI / 2; top.position.y = 0.19; g.add(top); const ring = new THREE.Mesh(new THREE.TorusGeometry(Math.min(d.w, d.d) / 2 - 0.3, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: '#ffffff' })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.3; g.add(ring); g.position.set(d.x, d.y || 0, d.z); root.add(g); (this.padRings = this.padRings || []).push(ring); continue; }
       if (!A.has(d.model)) continue; if (!deco.has(d.model)) deco.set(d.model, []); deco.get(d.model).push(d); }
     for (const [name, list] of deco) { const o = instancedModels(name, list); if (o) root.add(o); }
     // светлячки над кладбищем
-    if (m.id === 'graveyard') {
+    if ((m.base || m.id) === 'graveyard') {
       const n = 140, pts = [];
       for (let i = 0; i < n; i++) pts.push((Math.random() - 0.5) * m.W * 2, 0.4 + Math.random() * 2.4, (Math.random() - 0.5) * m.D * 2);
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
@@ -457,6 +458,7 @@ export class ShooterView {
     for (const l of this.lights) { if (!l.L.flicker) continue; const f = 0.8 + 0.2 * Math.sin(t * 9 + l.seed) * Math.sin(t * 13.7 + l.seed * 2); if (l.light) l.light.intensity = l.L.i * f; l.halo.material.opacity = 0.16 * f; }
     if (this.bell) this.bell.rotation.z = Math.sin(t * 1.3) * 0.12;
     if (this.flies) { const pa = this.flies.geometry.attributes.position, bs = this.flies.userData.base; for (let i = 0; i < pa.count; i++) { pa.setXYZ(i, bs[i * 3] + Math.sin(t * 0.5 + i) * 0.8, bs[i * 3 + 1] + Math.sin(t * 1.3 + i * 2) * 0.3, bs[i * 3 + 2] + Math.cos(t * 0.4 + i) * 0.8); } pa.needsUpdate = true; this.flies.material.opacity = 0.6 + Math.sin(t * 3) * 0.3; }
+    if (this.padRings) for (const r of this.padRings) { const k = (t * 1.2) % 1; r.position.y = 0.25 + k * 1.2; r.material.opacity = 1 - k; r.material.transparent = true; }
     if (this.snowPts) { const pa = this.snowPts.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { let y = pa.getY(i) - dt * 1.4; if (y < 0) y += 14; pa.setY(i, y); pa.setX(i, pa.getX(i) + Math.sin(t + i) * dt * 0.3); } pa.needsUpdate = true; }
     if (this.hangBox) this.hangBox.rotation.y = Math.sin(t * 0.4) * 0.15;
     if (this.towerFlags) for (const f of this.towerFlags) f.rotation.y = Math.sin(t * 2 + f.position.x) * 0.25;

@@ -100,6 +100,15 @@ export const SKINS = [
   { id: 'ice', name: 'Ледяная', icon: 'brush', price: 110, color: '#8fe8ff' },
   { id: 'diamond', name: 'Алмаз', icon: 'brush', price: 0, color: '#b8f4ff', earn: 'games30' }
 ];
+// танцы победы: герой танцует в итогах, если победил, и в магазине
+export const DANCES = [
+  { id: 'none', name: 'Без танца', icon: 'close', price: 0 },
+  { id: 'hop', name: 'Прыжки', icon: 'speed', price: 80 },
+  { id: 'spin', name: 'Вертушка', icon: 'rotate', price: 120 },
+  { id: 'cheer', name: 'Ура!', icon: 'trophy', price: 150 },
+  { id: 'flip', name: 'Сальто', icon: 'star', price: 250 },
+  { id: 'disco', name: 'Диско', icon: 'music', price: 0, earn: 'wins10' }
+];
 // редкие вещи: за что дают
 export const EARN = {
   wins10: { text: '10 побед за неделю', ok: st => (st.weekWins || 0) >= 10 },
@@ -107,9 +116,9 @@ export const EARN = {
   quests7: { text: 'Выполнить 7 заданий дня', ok: st => (st.quests || 0) >= 7 },
   games30: { text: 'Сыграть 30 матчей', ok: st => (st.games || 0) >= 30 }
 };
-export const SHOP_TABS = { hats: { key: 'hat', items: () => HATS, name: 'Шапки', icon: 'hat' }, auras: { key: 'aura', items: () => AURAS, name: 'Ауры', icon: 'aura' }, pets: { key: 'pet', items: () => PETS, name: 'Питомцы', icon: 'paw' }, packs: { key: 'pack', items: () => PACKS, name: 'Рюкзаки', icon: 'backpack' }, trails: { key: 'trail', items: () => TRAILS, name: 'Следы', icon: 'paw' }, skins: { key: 'skin', items: () => SKINS, name: 'Раскраски', icon: 'brush' } };
-export const LOOK_KEYS = ['hat', 'aura', 'pet', 'pack', 'trail', 'skin'];
-export const lookList = k => ({ hat: HATS, aura: AURAS, pet: PETS, pack: PACKS, trail: TRAILS, skin: SKINS }[k]);
+export const SHOP_TABS = { hats: { key: 'hat', items: () => HATS, name: 'Шапки', icon: 'hat' }, auras: { key: 'aura', items: () => AURAS, name: 'Ауры', icon: 'aura' }, pets: { key: 'pet', items: () => PETS, name: 'Питомцы', icon: 'paw' }, packs: { key: 'pack', items: () => PACKS, name: 'Рюкзаки', icon: 'backpack' }, trails: { key: 'trail', items: () => TRAILS, name: 'Следы', icon: 'paw' }, skins: { key: 'skin', items: () => SKINS, name: 'Раскраски', icon: 'brush' }, dances: { key: 'dance', items: () => DANCES, name: 'Танцы', icon: 'music' } };
+export const LOOK_KEYS = ['hat', 'aura', 'pet', 'pack', 'trail', 'skin', 'dance'];
+export const lookList = k => ({ hat: HATS, aura: AURAS, pet: PETS, pack: PACKS, trail: TRAILS, skin: SKINS, dance: DANCES }[k]);
 
 export const PHRASES = ['Это не я!', 'Я делал задание', 'Я видел тело', 'Кто был рядом?', 'Подозрительно…', 'Он врёт!', 'Видел, как кто-то вылез из люка', 'Пропустим голосование', 'Голосую против', 'Видел, как кто-то убегал', 'Давайте подумаем', 'Я вам верю', 'Да', 'Нет', 'Где тело?', 'Кто созвал?'];
 

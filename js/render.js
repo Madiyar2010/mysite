@@ -503,6 +503,16 @@ export class Avatar {
       }
     }
     const now = performance.now() / 1000;
+    // танец победы
+    const dn = this.opts.dance;
+    if (dn && dn !== 'none' && view && view.dancing) {
+      const t = now * 1.0;
+      if (dn === 'hop') this.root.position.y = this.y + Math.abs(Math.sin(t * 6)) * 0.45;
+      else if (dn === 'spin') { this.root.rotation.y = this.rot + t * 7; this.root.position.y = this.y + Math.abs(Math.sin(t * 3.5)) * 0.15; }
+      else if (dn === 'cheer') { if (!this.action || !this.action.isRunning() || this.anim !== 7) this.play(7, true); this.root.position.y = this.y + Math.max(0, Math.sin(t * 5)) * 0.3; }
+      else if (dn === 'flip') { const k = (t % 1.6) / 1.6; this.root.position.y = this.y + Math.sin(Math.min(1, k * 1.6) * Math.PI) * 0.9; this.root.rotation.x = k < 0.625 ? k / 0.625 * Math.PI * 2 : 0; }
+      else if (dn === 'disco') { this.root.rotation.y = this.rot + Math.sin(t * 4) * 0.8; this.root.position.y = this.y + Math.abs(Math.sin(t * 8)) * 0.2; if (this.mats) for (const m of this.mats) if (m.emissive) { m.emissive.setHSL((t * 0.6) % 1, 1, 0.35); m.emissiveIntensity = 0.5; } }
+    } else if (dn && dn !== 'none' && this.root.rotation.x) this.root.rotation.x = 0;
     if (this.pet) {
       this.petPh += dt;
       this.petWrap.position.y = (1.25 + Math.sin(this.petPh * 2.4) * 0.12) * (this.opts.scale || 1);

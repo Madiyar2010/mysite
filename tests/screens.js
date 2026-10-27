@@ -12,7 +12,7 @@ const errors = [];
     const c = await b.newContext({ viewport: vp, isMobile: mob, hasTouch: mob, deviceScaleFactor: mob ? 2 : 1 });
     await c.addInitScript(() => { try {
       localStorage.setItem('ha_a2hs', 'true'); localStorage.setItem('ha_name', '"Тест"'); localStorage.setItem('ha_coins', '500');
-      localStorage.setItem('ha_owned', '["none","chick","school","steps","gold"]'); localStorage.setItem('ha_pet', '"chick"'); localStorage.setItem('ha_pack', '"school"'); localStorage.setItem('ha_trail', '"steps"'); localStorage.setItem('ha_skin', '"gold"');
+      localStorage.setItem('ha_owned', '["none","chick","school","steps","gold"]'); localStorage.setItem('ha_pet', '"chick"'); localStorage.setItem('ha_pack', '"school"'); localStorage.setItem('ha_trail', '"steps"'); localStorage.setItem('ha_skin', '"gold"'); localStorage.setItem('ha_dance', '"flip"');
       localStorage.setItem('ha_family', JSON.stringify({ a1: { name: 'Мама', color: '#ff6b78', week: '', weekWins: 3, wins: 12, games: 30, endless: { 1: 9 }, t: 1 } }));
     } catch (e) { } });
     const p = await c.newPage();
@@ -26,7 +26,7 @@ const errors = [];
     await p.click('.tile[data-act=daily]'); await p.waitForTimeout(400); await shot('daily'); await p.click('#m-daily [data-close]');
     await p.click('.tile[data-act=family]'); await p.waitForTimeout(400); await shot('family'); await p.click('#m-family [data-close]');
     await p.click('.tile[data-act=fitting]'); await p.waitForTimeout(600);
-    for (const tab of ['hats', 'pets', 'packs', 'trails', 'skins']) { await p.click(`#shop-tabs [data-tab=${tab}]`); await p.waitForTimeout(700); await shot('shop_' + tab); }
+    for (const tab of ['hats', 'pets', 'packs', 'trails', 'skins', 'dances']) { await p.click(`#shop-tabs [data-tab=${tab}]`); await p.waitForTimeout(700); await shot('shop_' + tab); }
     await p.mouse.move(300, vp.height / 2); await p.mouse.down(); await p.mouse.move(380, vp.height / 2, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(300); await shot('shop_rotated');
     await c.close();
   }

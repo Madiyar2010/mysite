@@ -150,10 +150,12 @@ export function toys() {
   // машинка и мяч
   box(-12, 0, 13, 2.2, 1.8, 4, 'car', { model: 'ca/taxi', rot: 0 });
   box(15, 0, 9, 4, 1.8, 2.2, 'car', { model: 'ca/police', rot: PI / 2 });
+  K.deco.push({ pad: true, x: -6, z: -14, w: 2.4, d: 2.4, y: 0, c: '#ff7ad9' });
   K.deco.push({ ball: true, x: 5, z: -13, r: 1.2 }); box(5, 0, -13, 2, 2.2, 2, 'none');
   K.deco.push({ ball: true, x: -18, z: 15, r: 0.9, c: '#4da3ff' }); box(-18, 0, 15, 1.5, 1.8, 1.5, 'none');
   K.lights.push({ x: 0, y: 11, z: 0, color: '#fff1d0', i: 2.4, d: 30 });
   return {
+    pads: [{ x: -17, z: -10.4, y: 3.0, w: 7, d: 5.5, v: 13 }, { x: -6, z: -14, y: 0, w: 2.4, d: 2.4, v: 11 }],
     id: 'toys', name: 'Игрушечная комната', W, D, WH, boxes: K.B, gates: K.gates, movers: [], deco: K.deco, floors: K.floors, lights: K.lights,
     spawnsTeam: teamSpawns(22.5), spawnsFFA: ffa([[-14, -2], [14, 3], [-8, -16], [8, 13], [0, 0], [-20, 15], [20, -16], [-2, 10], [22, 6], [-22, -3]]),
     flags: [{ team: 0, x: -22, z: 0 }, { team: 1, x: 22, z: 0 }],
@@ -198,10 +200,12 @@ export function moon() {
   dec('sp/satelliteDish', 21, 16, { h: 3 }); box(21, 0, 16, 1.4, 2, 1.4, 'none');
   for (const [x, z, w, h, d] of [[-13, 3, 2.4, 1.3, 1.6], [13, -3, 2.4, 1.3, 1.6], [-4, -17, 3, 1.6, 1.4], [5, 17, 3, 1.6, 1.4], [-26, -12, 2, 1.4, 2.6], [26, 12, 2, 1.4, 2.6], [-15, 17, 1.6, 1.1, 1.6], [15, -18, 1.6, 1.1, 1.6]]) box(x, 0, z, w, h, d, 'moonrock');
   for (const [x, z] of [[-6, -16], [7, 15], [-24, 15], [24, -9], [12, 3]]) dec('sp/rock_crystals', x, z, { h: 1.4 });
+  for (const [x, z] of [[-12, 0], [12, 0], [0, -8], [0, 8]]) K.deco.push({ pad: true, x, z, w: 2.2, d: 2.2, y: 0, c: '#3df5ff' });
   for (const [x, z, r] of [[-12, -4, 2.5], [12, 5, 2], [-3, 9, 1.8], [4, -8, 2.2], [-22, 9, 1.6], [24, -4, 1.5], [-17, -12, 2], [15, 13, 2.2]]) K.deco.push({ crater: true, x, z, r });
   return {
+    pads: [{ x: -12, z: 0, y: 0, w: 2.2, d: 2.2, v: 10 }, { x: 12, z: 0, y: 0, w: 2.2, d: 2.2, v: 10 }, { x: 0, z: -8, y: 0, w: 2.2, d: 2.2, v: 10 }, { x: 0, z: 8, y: 0, w: 2.2, d: 2.2, v: 10 }],
     id: 'moon', name: 'Лунная база', W, D, WH: 14, boxes: K.B, gates: K.gates, movers: [], deco: K.deco, floors: K.floors, lights: K.lights, grav: 0.4, jumpK: 0.82,
-    spawnsTeam: { 0: [0, 1, 2, 3, 4, 5].map(i => ({ x: -21 - (i % 2) * 1.6, z: -3.6 + i * 1.44, yaw: -PI / 2 })), 1: [0, 1, 2, 3, 4, 5].map(i => ({ x: 21 + (i % 2) * 1.6, z: -3.6 + i * 1.44, yaw: PI / 2 })) }, spawnsFFA: ffa([[-12, -14], [12, 14], [-12, 14], [12, -14], [0, -8], [0, 8], [-27, 0], [27, 0], [-7, 3], [7, -3], [-20, 10], [20, -10]]),
+    spawnsTeam: { 0: [0, 1, 2, 3, 4, 5].map(i => ({ x: -21 - (i % 2) * 1.6, z: -3.6 + i * 1.44, yaw: -PI / 2 })), 1: [0, 1, 2, 3, 4, 5].map(i => ({ x: 21 + (i % 2) * 1.6, z: -3.6 + i * 1.44, yaw: PI / 2 })) }, spawnsFFA: ffa([[-12, -14], [12, 14], [-12, 14], [12, -14], [4, -8], [-4, 8], [-27, 0], [27, 0], [-7, 3], [7, -3], [-20, 10], [20, -10]]),
     flags: [{ team: 0, x: -21, z: 0 }, { team: 1, x: 21, z: 0 }],
     monsterSpawns: [[-28, -20], [28, -20], [-28, 20], [28, 20]].map(([x, z]) => ({ x, z })),
     theme: 'moon'
