@@ -264,7 +264,8 @@ export class ShooterView {
     this.vmGunId = id;
     if (this.vmGun) this.vmGun.removeFromParent();
     const W = WEAPONS[id];
-    const g = makeGun(id, W); g.traverse(o => { if (o.isMesh) { o.castShadow = false; } });
+    let skin = 'none'; try { skin = JSON.parse(localStorage.getItem('ha_skin')) || 'none'; } catch (e) { }
+    const g = makeGun(id, W, skin); g.traverse(o => { if (o.isMesh) { o.castShadow = false; } });
     this.vmGun = g; this.vm.add(g);
     this.vmState.raise = 1;
     this.flash.position.set(0, 0.03, -(g.userData.len || 0.5) * 0.55 - 0.05);

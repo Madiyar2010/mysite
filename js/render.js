@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { texMat, boxGeo, canvasTex } from './tex.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import * as A from './assets.js';
-import { CLASSES, AURAS, TEAM_COLORS, clamp, rnd, esc } from './util.js';
+import { CLASSES, AURAS, TEAM_COLORS, PETS, PACKS, TRAILS, SKINS, clamp, rnd, esc } from './util.js';
 
 // ---------- общий рендерер ----------
 export const R = {
@@ -35,14 +35,19 @@ export const R = {
       fpsT += raw; fpsN++;
       if (fpsT < 4) return;
       const fps = fpsN / fpsT; fpsT = fpsN = 0;
-      if (fps >= 26) { slow = 0; return; }
+      if (fps >= (this.saver ? 22 : 26)) { slow = 0; return; }
       if (++slow < 2) return; slow = 0;
       if (this.quality === 'high') { this.setQuality('low'); this.onAuto && this.onAuto('Игра тормозила — включили режим «Быстро»'); }
       else if (this.scale > 0.5) { this.scale = Math.max(0.5, this.scale - 0.15); this.applyQuality(); }
     };
+    // экономия батареи: не больше 30 кадров в секунду и меньше точек на экране
+    try { this.saver = JSON.parse(localStorage.getItem('ha_saver')) === true; } catch (e) { this.saver = false; }
+    let acc = 0;
     const loop = () => {
       requestAnimationFrame(loop);
-      const raw = this.clock.getDelta(), dt = Math.min(0.05, raw);
+      let raw = this.clock.getDelta();
+      if (this.saver) { acc += raw; if (acc < 1 / 31) return; raw = acc; acc = 0; }
+      const dt = Math.min(0.05, raw);
       if (raw < 1) watchFps(raw);
       if (this.view) {
         this.view.update(dt);
@@ -56,10 +61,11 @@ export const R = {
   },
   applyQuality() {
     const hi = this.quality === 'high';
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, hi ? 1.5 : 1) * (this.scale || 1));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, hi && !this.saver ? 1.5 : 1) * (this.scale || 1) * (this.saver ? 0.8 : 1));
     this.renderer.shadowMap.enabled = hi;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   },
+  setSaver(on) { this.saver = on; localStorage.setItem('ha_saver', JSON.stringify(on)); this.applyQuality(); },
   setQuality(q) { this.quality = q; localStorage.setItem('ha_quality', JSON.stringify(q)); this.applyQuality(); if (this.view && this.view.onQuality) this.view.onQuality(); },
   resize() {
     const w = innerWidth, h = innerHeight;
@@ -193,17 +199,126 @@ export function buildHat(id) {
   return g;
 }
 
+// ---------- питомец: летает рядом с героем ----------
+function eyes(par, r, y, z, gap = 0.45) {
+  const w = std('#ffffff'), b = std('#1a1a22');
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), w); e.position.set(sx * r * gap * 2.2, y, z); par.add(e); const p2 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 8, 6), b); p2.position.set(sx * r * gap * 2.2, y, z + r * 0.6); par.add(p2); }
+}
+export function buildPet(id) {
+  const g = new THREE.Group(), it = PETS.find(x => x.id === id); if (!it || id === 'none') return null;
+  const add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  switch (id) {
+    case 'chick': {
+      add(new THREE.SphereGeometry(0.22, 16, 12), std('#ffd23f'), 0, 0, 0).scale.set(1, 0.95, 1.05);
+      add(new THREE.SphereGeometry(0.15, 14, 10), std('#ffdd55'), 0, 0.22, 0.06);
+      const bk = add(new THREE.ConeGeometry(0.05, 0.12, 8), std('#ff8c1a'), 0, 0.2, 0.22); bk.rotation.x = Math.PI / 2;
+      for (const sx of [-1, 1]) { const w = add(new THREE.SphereGeometry(0.1, 10, 8), std('#ffc21a'), sx * 0.2, 0.02, -0.02); w.scale.set(0.4, 0.8, 1); g.userData['wing' + sx] = w; }
+      add(new THREE.ConeGeometry(0.04, 0.1, 6), std('#ff8c1a'), 0, 0.38, 0.04);
+      eyes(g, 0.035, 0.27, 0.17); break; }
+    case 'slime': {
+      add(new THREE.SphereGeometry(0.24, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), std('#5ee07a', { transparent: true, opacity: 0.8, roughness: 0.15, emissive: '#1d6b30', emissiveIntensity: 0.4 }), 0, -0.05, 0).scale.set(1, 0.9, 1);
+      add(new THREE.SphereGeometry(0.07, 10, 8), std('#2fa84f'), 0.05, -0.02, 0);
+      eyes(g, 0.045, 0.1, 0.17); break; }
+    case 'robot': {
+      add(new THREE.SphereGeometry(0.22, 18, 14), std('#c3d0dc', { metalness: 0.6, roughness: 0.3 }));
+      const band = add(new THREE.TorusGeometry(0.2, 0.05, 8, 24, Math.PI * 0.7), std('#3df5ff', { emissive: '#3df5ff', emissiveIntensity: 1.2 }), 0, 0.03, 0.04); band.rotation.z = Math.PI * 0.15 + Math.PI; band.rotation.x = 0.1;
+      add(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 6), std('#555'), 0, 0.3, 0);
+      add(new THREE.SphereGeometry(0.04, 8, 6), std('#ff4d5e', { emissive: '#ff4d5e', emissiveIntensity: 1 }), 0, 0.4, 0);
+      for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12), std('#7d8a96', { metalness: 0.6 }), sx * 0.22, 0, 0).rotation.z = Math.PI / 2;
+      break; }
+    case 'ghosty': {
+      const m = std('#eef4ff', { transparent: true, opacity: 0.85, emissive: '#8fa8ff', emissiveIntensity: 0.25 });
+      add(new THREE.SphereGeometry(0.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), m, 0, 0.06, 0);
+      add(new THREE.CylinderGeometry(0.2, 0.24, 0.2, 16, 1, true), m, 0, -0.04, 0).material.side = THREE.DoubleSide;
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const c = add(new THREE.ConeGeometry(0.06, 0.12, 6), m, Math.cos(a) * 0.19, -0.19, Math.sin(a) * 0.19); c.rotation.x = Math.PI; }
+      eyes(g, 0.04, 0.1, 0.16); break; }
+    case 'dragon': {
+      const red = std('#ff5d3d', { emissive: '#7a1400', emissiveIntensity: 0.3 }), bel = std('#ffd28a');
+      add(new THREE.SphereGeometry(0.2, 16, 12), red, 0, 0, 0).scale.set(1, 0.9, 1.15);
+      add(new THREE.SphereGeometry(0.12, 12, 10), bel, 0, -0.03, 0.12).scale.set(1, 1, 0.6);
+      add(new THREE.SphereGeometry(0.15, 14, 10), red, 0, 0.2, 0.15);
+      add(new THREE.SphereGeometry(0.08, 10, 8), bel, 0, 0.16, 0.28).scale.set(1, 0.7, 0.8);
+      for (const sx of [-1, 1]) {
+        add(new THREE.ConeGeometry(0.03, 0.12, 6), std('#ffe9b0'), sx * 0.07, 0.36, 0.1).rotation.z = -sx * 0.3;
+        const w = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.32, 3), std('#c41e3a', { side: THREE.DoubleSide })); w.position.set(sx * 0.2, 0.08, -0.05); w.rotation.set(0, 0, sx * 1.9); w.scale.set(1, 1, 0.15); g.add(w); g.userData['wing' + sx] = w;
+      }
+      const t = add(new THREE.ConeGeometry(0.06, 0.3, 8), red, 0, -0.06, -0.28); t.rotation.x = -Math.PI / 2 - 0.4;
+      eyes(g, 0.035, 0.26, 0.26); break; }
+  }
+  return g;
+}
+// ---------- рюкзак на спине ----------
+export function buildPack(id) {
+  const g = new THREE.Group(); if (!id || id === 'none') return null;
+  const add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  switch (id) {
+    case 'school': {
+      const b = std('#3a86ff'), d = std('#1f5fcf');
+      add(new THREE.BoxGeometry(0.62, 0.72, 0.3), b, 0, 0, -0.15);
+      add(new THREE.BoxGeometry(0.64, 0.3, 0.32), d, 0, 0.22, -0.15);
+      add(new THREE.BoxGeometry(0.4, 0.26, 0.08), d, 0, -0.14, -0.33);
+      add(new THREE.BoxGeometry(0.1, 0.06, 0.03), std('#ffd34d', { metalness: 0.7 }), 0, 0.08, -0.32);
+      break; }
+    case 'rocket': {
+      const r = std('#e63946'), w = std('#eef2f6', { metalness: 0.4, roughness: 0.3 });
+      for (const sx of [-1, 1]) {
+        add(new THREE.CylinderGeometry(0.13, 0.13, 0.6, 14), w, sx * 0.17, 0, -0.18);
+        add(new THREE.ConeGeometry(0.13, 0.22, 14), r, sx * 0.17, 0.41, -0.18);
+        add(new THREE.CylinderGeometry(0.1, 0.13, 0.08, 12), std('#444', { metalness: 0.7 }), sx * 0.17, -0.34, -0.18);
+        const f = add(new THREE.ConeGeometry(0.09, 0.32, 10), new THREE.MeshBasicMaterial({ color: '#ffb02e', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), sx * 0.17, -0.55, -0.18); f.rotation.x = Math.PI; f.castShadow = false;
+        (g.userData.flames = g.userData.flames || []).push(f);
+      }
+      add(new THREE.BoxGeometry(0.2, 0.3, 0.08), r, 0, 0, -0.06); break; }
+    case 'wings': {
+      const m = std('#ffffff', { emissive: '#bcd6ff', emissiveIntensity: 0.35, side: THREE.DoubleSide });
+      for (const sx of [-1, 1]) {
+        const piv = new THREE.Group(); piv.position.set(sx * 0.1, 0.12, -0.16); g.add(piv);
+        for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.3 - i * 0.06, 12, 8), m); f.scale.set(1.3, 0.45, 0.1); f.position.set(sx * (0.32 + i * 0.12), 0.08 - i * 0.14, 0); f.rotation.z = sx * (0.35 + i * 0.25); f.castShadow = true; piv.add(f); }
+        g.userData['wing' + sx] = piv;
+      } break; }
+    case 'cape': {
+      const geo = new THREE.PlaneGeometry(0.8, 1.15, 6, 8); geo.translate(0, -0.575, 0);
+      const c = new THREE.Mesh(geo, std('#d62828', { side: THREE.DoubleSide, emissive: '#3a0000', emissiveIntensity: 0.3 })); c.position.set(0, 0.36, -0.2); c.castShadow = true; g.add(c);
+      const trim = add(new THREE.BoxGeometry(0.84, 0.08, 0.06), std('#ffd34d', { metalness: 0.8, roughness: 0.3 }), 0, 0.36, -0.17);
+      g.userData.cape = c; c.userData.base = geo.attributes.position.array.slice(); break; }
+  }
+  return g;
+}
+// следы под ногами: картинки рисуются один раз
+const trailTex = {};
+function trailTexture(kind) {
+  if (trailTex[kind]) return trailTex[kind];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'); c.fillStyle = '#fff';
+  if (kind === 'steps') { c.beginPath(); c.ellipse(32, 40, 13, 16, 0, 0, Math.PI * 2); c.fill(); for (const [x, y] of [[16, 18], [27, 11], [38, 11], [49, 18]]) { c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.fill(); } }
+  else if (kind === 'stars') { c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 12 : 30, a = i / 10 * Math.PI * 2 - Math.PI / 2; c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } c.fill(); }
+  else if (kind === 'hearts') { c.beginPath(); c.moveTo(32, 56); c.bezierCurveTo(2, 34, 10, 6, 32, 20); c.bezierCurveTo(54, 6, 62, 34, 32, 56); c.fill(); }
+  else { const gr = c.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, '#fff'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return (trailTex[kind] = t);
+}
+// раскраска оружия
+function skinGun(g, skin) {
+  const it = SKINS.find(x => x.id === skin); if (!it || !it.color) return;
+  g.traverse(o => {
+    if (!o.isMesh) return;
+    const m = o.material; if (skin !== 'camo') m.map = null; m.color = skin === 'camo' ? new THREE.Color(m.color || '#fff').lerp(new THREE.Color(it.color), 0.55) : new THREE.Color(it.color); m.needsUpdate = true;
+    if (skin === 'gold') { m.metalness = 0.85; m.roughness = 0.22; m.emissive = new THREE.Color('#5a3b00'); m.emissiveIntensity = 0.35; }
+    if (skin === 'diamond' || skin === 'ice') { m.metalness = 0.3; m.roughness = 0.08; m.emissive = new THREE.Color(it.color); m.emissiveIntensity = skin === 'diamond' ? 0.45 : 0.2; }
+    if (skin === 'candy') { m.roughness = 0.3; m.emissive = new THREE.Color('#5a0040'); m.emissiveIntensity = 0.25; }
+  });
+}
+
 // картинка вещи для магазина: рисуем 3D-модель один раз в маленькую картинку
 const thumbCache = {};
-export function hatThumb(id) {
-  if (thumbCache[id]) return thumbCache[id];
+export function hatThumb(id, kind = 'hat') {
+  const ck = kind + ':' + id;
+  if (thumbCache[ck]) return thumbCache[ck];
   const r = R.renderer; if (!r || id === 'none') return null;
   try {
     const S = 128, rt = new THREE.WebGLRenderTarget(S, S, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
     const sc = new THREE.Scene();
     sc.add(new THREE.HemisphereLight('#ffffff', '#5a4b8a', 1.6));
     const dl = new THREE.DirectionalLight('#ffffff', 2.2); dl.position.set(2, 4, 3); sc.add(dl);
-    const hat = buildHat(id); sc.add(hat);
+    const hat = kind === 'pet' ? buildPet(id) : kind === 'pack' ? buildPack(id) : buildHat(id); if (!hat) return null; if (kind === 'pack') hat.rotation.y = Math.PI * 0.8; sc.add(hat);
     const box = new THREE.Box3().setFromObject(hat), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
     const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50), d = Math.max(sz.x, sz.y, sz.z) * 2.3;
     cam.position.set(c.x + d * 0.35, c.y + d * 0.45, c.z + d * 0.85); cam.lookAt(c);
@@ -215,7 +330,7 @@ export function hatThumb(id) {
     for (let y = 0; y < S; y++) im.data.set(px.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4); // картинка из видеокарты перевёрнута
     g2.putImageData(im, 0, 0);
     rt.dispose(); sc.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
-    return (thumbCache[id] = cv.toDataURL());
+    return (thumbCache[ck] = cv.toDataURL());
   } catch (e) { return null; }
 }
 
@@ -297,6 +412,18 @@ export class Avatar {
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.04; this.root.add(glow); this.glow = glow;
       this.sparkT = 0;
     }
+    // питомец рядом
+    const sc = opts.scale || 1;
+    const pet = opts.pet && buildPet(opts.pet);
+    if (pet) { const pw = new THREE.Group(); pw.position.set(0.75 * sc, 1.25 * sc, -0.25 * sc); pet.scale.setScalar(1.1 * sc); pw.add(pet); this.root.add(pw); this.pet = pet; this.petWrap = pw; this.petPh = Math.random() * 6; }
+    // рюкзак на спине
+    const pack = opts.pack && ch.parts.torso && buildPack(opts.pack);
+    if (pack) {
+      const torso = ch.parts.torso, box = ownBox(torso), tw = box.max.x - box.min.x;
+      pack.scale.setScalar(tw * 0.95); pack.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2 + (box.max.y - box.min.y) * 0.1, box.min.z + tw * 0.08);
+      torso.add(pack); this.pack = pack;
+    }
+    if (opts.trail && opts.trail !== 'none') { this.trail = TRAILS.find(x => x.id === opts.trail); this.trailBits = []; this.trailD = 0; this.trailSide = 1; }
     // подпись
     if (opts.label !== false) {
       const el = document.createElement('div');
@@ -319,7 +446,7 @@ export class Avatar {
     const arm = this.ch.parts['arm-right']; if (!arm || this.gunId === id) return;
     if (this.weapon) { this.weapon.removeFromParent(); }
     this.gunId = id;
-    const g = makeGun(id, W), hand = this.handOffset(arm), s = this.ch.scale * (this.opts.scale || 1) / (this.opts.scale || 1);
+    const g = makeGun(id, W, this.opts.skin), hand = this.handOffset(arm), s = this.ch.scale * (this.opts.scale || 1) / (this.opts.scale || 1);
     const wrap = new THREE.Group(); wrap.add(g);
     wrap.position.copy(hand); wrap.scale.setScalar(1 / this.ch.scale);
     wrap.rotation.set(GUN_ROT[0], GUN_ROT[1], GUN_ROT[2]);
@@ -375,6 +502,40 @@ export class Avatar {
         if (this.sparkT <= 0) { this.sparkT = 0.12; const c = this.auraColor(); view.fx.particle(this.x + rnd(-0.4, 0.4), 0.2, this.z + rnd(-0.4, 0.4), 0, rnd(1, 2), 0, c === 'rainbow' ? `hsl(${Math.random() * 360},100%,60%)` : c, 0.7, 0.08); }
       }
     }
+    const now = performance.now() / 1000;
+    if (this.pet) {
+      this.petPh += dt;
+      this.petWrap.position.y = (1.25 + Math.sin(this.petPh * 2.4) * 0.12) * (this.opts.scale || 1);
+      this.pet.rotation.y = Math.sin(this.petPh * 0.8) * 0.5;
+      for (const sx of [-1, 1]) { const w = this.pet.userData['wing' + sx]; if (w) w.rotation.z = (this.opts.pet === 'dragon' ? sx * 1.9 : 0) + Math.sin(this.petPh * 14) * 0.5 * sx; }
+    }
+    if (this.pack) {
+      const u = this.pack.userData;
+      if (u.flames) for (const f of u.flames) f.scale.set(1, 0.7 + Math.random() * 0.6, 1);
+      for (const sx of [-1, 1]) if (u['wing' + sx]) u['wing' + sx].rotation.y = sx * (0.2 + Math.sin(now * 5) * 0.3);
+      if (u.cape) { const pa = u.cape.geometry.attributes.position, b = u.cape.userData.base; for (let i = 0; i < pa.count; i++) { const y = b[i * 3 + 1]; pa.array[i * 3 + 2] = b[i * 3 + 2] - Math.sin(now * 4 + y * 5 + b[i * 3] * 3) * 0.05 * -y - (-y) * 0.15; } pa.needsUpdate = true; }
+    }
+    if (this.trail && this.root.parent) {
+      const moved = this.lastX == null ? 0 : Math.hypot(this.x - this.lastX, this.z - this.lastZ);
+      this.lastX = this.x; this.lastZ = this.z;
+      this.trailD += Math.min(moved, 0.5);
+      if (this.trailD > 0.55 && this.root.visible && this.alpha > 0.5) {
+        this.trailD = 0; this.trailSide *= -1;
+        const kind = this.trail.id, rb = kind === 'rainbow';
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: trailTexture(kind), color: rb ? new THREE.Color().setHSL(now * 0.5 % 1, 1, 0.6) : this.trail.color, transparent: true, depthWrite: false, opacity: 0.9, blending: kind === 'steps' ? THREE.NormalBlending : THREE.AdditiveBlending }));
+        m.rotation.x = -Math.PI / 2; m.rotation.z = this.rot + Math.PI;
+        const ox = Math.cos(this.rot) * 0.14 * this.trailSide, oz = -Math.sin(this.rot) * 0.14 * this.trailSide;
+        m.position.set(this.x + (kind === 'steps' ? ox : 0), this.y + 0.04, this.z + (kind === 'steps' ? oz : 0));
+        if (kind !== 'steps') m.scale.setScalar(kind === 'rainbow' ? 1.6 : 1);
+        this.root.parent.add(m); this.trailBits.push({ m, t: 0 });
+      }
+      for (let i = this.trailBits.length - 1; i >= 0; i--) {
+        const b = this.trailBits[i]; b.t += dt;
+        if (b.t > 1.6) { b.m.removeFromParent(); b.m.geometry.dispose(); b.m.material.dispose(); this.trailBits.splice(i, 1); continue; }
+        b.m.material.opacity = 0.9 * (1 - b.t / 1.6);
+        if (this.trail.id !== 'steps') b.m.position.y += dt * 0.15;
+      }
+    }
     if (this.weapon && this.weapon.userData.orb) this.weapon.userData.orb.scale.setScalar(1 + Math.sin(performance.now() / 200) * 0.12);
     if (this.flashT > 0) {
       this.flashT -= dt;
@@ -382,7 +543,16 @@ export class Avatar {
       for (const m of this.mats) if (m.emissive) { m.emissive.setRGB(on ? 0.9 : 0, on ? 0.15 : 0, on ? 0.15 : 0); }
     }
   }
-  dispose() { this.root.removeFromParent(); if (this.plate) this.plate.element.remove(); }
+  dispose() { this.root.removeFromParent(); if (this.plate) this.plate.element.remove(); if (this.trailBits) for (const b of this.trailBits) { b.m.removeFromParent(); b.m.geometry.dispose(); b.m.material.dispose(); } }
+}
+function ownBox(obj) {
+  // только сама деталь, без вложенных (у туловища внутри голова и руки)
+  const meshes = obj.isMesh ? [obj] : obj.children.filter(c => c.isMesh);
+  if (!meshes.length) return localBox(obj);
+  const box = new THREE.Box3(); obj.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(obj.matrixWorld).invert();
+  for (const o of meshes) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld))); }
+  return box;
 }
 function localBox(obj) {
   // ограничивающий прямоугольник детей объекта в его собственных координатах
@@ -690,7 +860,7 @@ export class ShowroomView {
     this.fx = new FX(this.scene);
     this.heroes = [];
     this.angle = 0; this.t = 0;
-    this.offsetX = 0;
+    this.offsetX = 0; this.userRot = 0;
   }
   resize(w, h) { this.w = w; this.h = h; this.camera.aspect = w / h; this.portrait = w < h; this.applyShift(); }
   // сдвиг картинки, чтобы герои не прятались под панелью меню
@@ -722,7 +892,8 @@ export class ShowroomView {
   }
   update(dt) {
     this.t += dt;
-    this.angle = Math.sin(this.t * 0.25) * 0.35;
+    if (!this.dragging) this.userRot *= Math.pow(0.6, dt * 0.15);
+    this.angle = Math.sin(this.t * 0.25) * 0.35 * (this.dragging || Math.abs(this.userRot) > 0.3 ? 0.2 : 1) + (this.userRot || 0);
     const n = Math.max(1, this.heroes.length);
     const spread = n > 1 ? (n - 1) * 1.25 : 0;
     const dist = this.portrait ? Math.max(9.5, (spread + 2.2) / (0.69 * this.camera.aspect)) : (n > 1 ? 5.4 + n * 0.6 : 5.6);
@@ -1000,11 +1171,12 @@ function styledMap(map, style) {
   return t;
 }
 const GUN_LEN = { knife: 0.4, pistol: 0.42, laser: 0.42, water: 0.45, smg: 0.62, rifle: 0.9, shotgun: 0.85, sniper: 1.15, plasma: 0.8, railgun: 1.1, paint: 0.75, snow: 0.8, grenade: 0.18 };
-export function makeGun(id, W) {
+export function makeGun(id, W, skin) {
   const g = new THREE.Group();
   if (id === 'knife' || !W || !W.model || !A.has(W.model)) {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.05, 0.3), std('#e6ebf0', { metalness: 0.4, roughness: 0.3 })); blade.position.z = 0.16; g.add(blade);
     const h = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.12), std('#3a2a1c')); h.position.z = -0.04; g.add(h);
+    if (skin && id !== 'grenade') skinGun(g, skin);
     return g;
   }
   const src = A.makeProp(W.model, { s: 1 });
@@ -1019,6 +1191,7 @@ export function makeGun(id, W) {
     if (W.style === 'blaster') { o.material.emissive = new THREE.Color(W.tracer || '#66e0ff'); o.material.emissiveIntensity = 0.12; }
     o.castShadow = true;
   });
+  if (skin && id !== 'grenade') skinGun(src, skin);
   g.add(src);
   g.userData.len = GUN_LEN[id] || 0.6;
   return g;

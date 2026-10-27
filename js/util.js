@@ -68,6 +68,49 @@ export const AURAS = [
   { id: 'rainbow', name: 'Радуга', icon: 'aura', price: 350, color: 'rainbow' }
 ];
 
+// питомцы, рюкзаки, следы и раскраски оружия — только внешний вид
+// earn — редкая вещь: не продаётся, даётся за заслуги (см. EARN)
+export const PETS = [
+  { id: 'none', name: 'Без питомца', icon: 'close', price: 0 },
+  { id: 'chick', name: 'Цыплёнок', icon: 'paw', price: 70, color: '#ffd23f' },
+  { id: 'slime', name: 'Слизнюк', icon: 'paw', price: 100, color: '#5ee07a' },
+  { id: 'robot', name: 'Робо-шарик', icon: 'bot', price: 160, color: '#9fb4c8' },
+  { id: 'ghosty', name: 'Призрачок', icon: 'ghost', price: 200, color: '#e8f0ff' },
+  { id: 'dragon', name: 'Дракончик', icon: 'paw', price: 0, color: '#ff5d3d', earn: 'endless10' }
+];
+export const PACKS = [
+  { id: 'none', name: 'Без рюкзака', icon: 'close', price: 0 },
+  { id: 'school', name: 'Ранец', icon: 'backpack', price: 50, color: '#3a86ff' },
+  { id: 'rocket', name: 'Ракета', icon: 'backpack', price: 140, color: '#e63946' },
+  { id: 'wings', name: 'Крылышки', icon: 'angel', price: 220, color: '#ffffff' },
+  { id: 'cape', name: 'Плащ героя', icon: 'backpack', price: 0, color: '#ffd34d', earn: 'wins10' }
+];
+export const TRAILS = [
+  { id: 'none', name: 'Без следов', icon: 'close', price: 0 },
+  { id: 'steps', name: 'Следы-лапки', icon: 'paw', price: 60, color: '#ffffff' },
+  { id: 'stars', name: 'Звёздочки', icon: 'star', price: 120, color: '#ffd34d' },
+  { id: 'hearts', name: 'Сердечки', icon: 'heart', price: 120, color: '#ff6b9a' },
+  { id: 'rainbow', name: 'Радуга', icon: 'sparkles', price: 0, color: 'rainbow', earn: 'quests7' }
+];
+export const SKINS = [
+  { id: 'none', name: 'Обычная', icon: 'close', price: 0 },
+  { id: 'gold', name: 'Золото', icon: 'brush', price: 150, color: '#ffcf3f' },
+  { id: 'candy', name: 'Конфетка', icon: 'brush', price: 90, color: '#ff7ad9' },
+  { id: 'camo', name: 'Лесная', icon: 'brush', price: 80, color: '#5f8a3a' },
+  { id: 'ice', name: 'Ледяная', icon: 'brush', price: 110, color: '#8fe8ff' },
+  { id: 'diamond', name: 'Алмаз', icon: 'brush', price: 0, color: '#b8f4ff', earn: 'games30' }
+];
+// редкие вещи: за что дают
+export const EARN = {
+  wins10: { text: '10 побед за неделю', ok: st => (st.weekWins || 0) >= 10 },
+  endless10: { text: 'Дойти до 10 волны в «Бесконечно»', ok: st => (st.endless || 0) >= 10 },
+  quests7: { text: 'Выполнить 7 заданий дня', ok: st => (st.quests || 0) >= 7 },
+  games30: { text: 'Сыграть 30 матчей', ok: st => (st.games || 0) >= 30 }
+};
+export const SHOP_TABS = { hats: { key: 'hat', items: () => HATS, name: 'Шапки', icon: 'hat' }, auras: { key: 'aura', items: () => AURAS, name: 'Ауры', icon: 'aura' }, pets: { key: 'pet', items: () => PETS, name: 'Питомцы', icon: 'paw' }, packs: { key: 'pack', items: () => PACKS, name: 'Рюкзаки', icon: 'backpack' }, trails: { key: 'trail', items: () => TRAILS, name: 'Следы', icon: 'paw' }, skins: { key: 'skin', items: () => SKINS, name: 'Раскраски', icon: 'brush' } };
+export const LOOK_KEYS = ['hat', 'aura', 'pet', 'pack', 'trail', 'skin'];
+export const lookList = k => ({ hat: HATS, aura: AURAS, pet: PETS, pack: PACKS, trail: TRAILS, skin: SKINS }[k]);
+
 export const PHRASES = ['Это не я!', 'Я делал задание', 'Я видел тело', 'Кто был рядом?', 'Подозрительно…', 'Он врёт!', 'Видел, как кто-то вылез из люка', 'Пропустим голосование', 'Голосую против', 'Видел, как кто-то убегал', 'Давайте подумаем', 'Я вам верю', 'Да', 'Нет', 'Где тело?', 'Кто созвал?'];
 
 // Кошелёк и покупки — хранятся на этом устройстве

@@ -41,6 +41,11 @@
         <p>Шутер и «Найди предателя» — играйте все вместе!</p>
       </div>
       <div class="load" id="load"><div class="load-bar"><i></i></div><span>Загружаем героев… 0%</span></div>
+      <div class="home-tiles">
+        <button class="tile" data-act="daily"><i data-ic="calendar"></i><b>Задания дня</b></button>
+        <button class="tile" data-act="family"><i data-ic="trophy"></i><b>Рекорды семьи</b></button>
+        <button class="tile" data-act="fitting"><i data-ic="hat"></i><b>Примерочная</b></button>
+      </div>
       <div class="card">
         <label class="lbl" for="in-name">Как тебя зовут?</label>
         <input class="field" id="in-name" maxlength="14" placeholder="Имя" autocomplete="off">
@@ -82,6 +87,7 @@
             <button class="btn ghost sm" id="btn-share"><i data-ic="share"></i> Позвать</button>
             <button class="btn ghost sm" id="btn-hero"><i data-ic="edit"></i> Мой герой</button>
             <button class="btn ghost sm" data-act="shop"><i data-ic="shop"></i> Магазин</button>
+            <button class="btn ghost sm" data-act="family"><i data-ic="trophy"></i> Рекорды</button>
           </div>
         </div>
         <div class="qr" id="lb-qr"></div>
@@ -108,8 +114,9 @@
     </div>
     <div class="panel">
       <h2><i data-ic="shop"></i> Магазин</h2>
-      <p class="muted">Монеты дают за каждую игру. Покупки сохраняются на этом устройстве.</p>
-      <div class="tabs" id="shop-tabs"><button data-tab="hats" class="on"><i data-ic="hat"></i> Шапки</button><button data-tab="auras"><i data-ic="aura"></i> Ауры</button></div>
+      <p class="muted shop-about">Монеты дают за каждую игру. Покупки сохраняются на этом устройстве.</p>
+      <div class="tabs wrap" id="shop-tabs"></div>
+      <p class="muted small">Примерочная: крути героя пальцем. Нажми на вещь — примерить, ещё раз — купить.</p>
       <div class="shop-grid" id="shop-grid"></div>
     </div>
   </section>
@@ -250,7 +257,10 @@
   <div class="set-row touch-only"><span><i data-ic="edit"></i> Кнопки на экране</span><button class="btn ghost sm" id="set-layout">Настроить</button></div>
   <div class="set-row keys-only"><span><i data-ic="edit"></i> Клавиши</span><button class="btn ghost sm" id="set-keys">Настроить</button></div>
   <div class="set-row"><span><i data-ic="sparkles"></i> Графика</span><div class="seg" id="set-quality"><button data-v="high">Красиво</button><button data-v="low">Быстро</button></div></div>
-  <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро».</p>
+  <div class="set-row"><span><i data-ic="battery"></i> Экономия батареи</span><div class="seg" id="set-saver"><button data-v="1">Вкл</button><button data-v="0">Выкл</button></div></div>
+  <div class="set-row"><span><i data-ic="gamepad"></i> Геймпад</span><span class="muted small" id="set-pad">не подключён</span></div>
+  <p class="muted small">Если игра тормозит на телефоне — выбери «Быстро». «Экономия батареи» — меньше кадров в секунду, телефон меньше греется.</p>
+  <p class="muted small keys-only">Геймпад: левый стик — ходить, правый — смотреть, RT — огонь, LT — прицел, A — прыжок, B — присед, X — перезарядка, Y — оружие, RB — граната, LB — аптечка. В «Найди предателя»: A — действие, X — выбить, B — сообщить, Y — саботаж, RB — люк, LB — карта.</p>
 </div></div>
 <div id="m-hero" class="modal"><div class="modal-card wide">
   <div class="row"><h3 class="grow"><i data-ic="edit"></i> Мой герой</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
@@ -286,6 +296,23 @@
     <li><span class="a2-pic"><svg viewBox="0 0 48 48"><rect x="10" y="10" width="28" height="28" rx="7" fill="#1b1640"/><path d="M16 34V22l4 2v-6l4 2v-6l4 4 4-4v6l4-2v6l4-2v12z" transform="translate(-4 -2)" fill="#ffc94d"/></svg></span><b>Нажми «Добавить»</b><small>и открывай игру значком «Замок Героев»</small></li>
   </ol>
   <button class="btn gold big" data-close>Понятно</button>
+</div></div>
+<div id="m-daily" class="modal"><div class="modal-card">
+  <div class="row"><h3 class="grow"><i data-ic="calendar"></i> Задания дня</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <p class="muted small">Каждый день три новых задания — одинаковые для всей семьи. За каждое — монеты.</p>
+  <div id="daily-list"></div>
+  <p class="muted small" id="daily-stats"></p>
+</div></div>
+<div id="m-family" class="modal"><div class="modal-card">
+  <div class="row"><h3 class="grow"><i data-ic="trophy"></i> Рекорды семьи</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <p class="muted small">Рекорды хранятся на каждом устройстве и сводятся, когда вы вместе в одной комнате.</p>
+  <div id="fam-body" class="fam-body"></div>
+</div></div>
+<div id="m-gift" class="modal"><div class="modal-card">
+  <div class="row"><h3 class="grow"><i data-ic="gift"></i> Подарок</h3><button class="icon-btn" data-close><i data-ic="close"></i></button></div>
+  <p>Подарить монеты: <b id="gift-name"></b></p>
+  <p class="muted small">У тебя <span id="gift-have"></span> монет</p>
+  <div class="row" id="gift-opts"><button class="btn gold grow" data-n="10"><i data-ic="coin"></i> 10</button><button class="btn gold grow" data-n="20"><i data-ic="coin"></i> 20</button><button class="btn gold grow" data-n="50"><i data-ic="coin"></i> 50</button></div>
 </div></div>
 <div id="m-pause" class="modal"><div class="modal-card">
   <h3><i data-ic="pause"></i> Меню</h3>

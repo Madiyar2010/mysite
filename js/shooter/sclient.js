@@ -1,4 +1,5 @@
 // Клиент шутера: своё движение, обзор, стрельба, закупка, интерфейс.
+import { Pad } from '../gamepad.js';
 import * as THREE from 'three';
 import { $, $$, esc, clamp, rnd, fmtTime, TEAM_COLORS, TEAM_NAMES, LS } from '../util.js';
 import { icon } from '../icons.js';
@@ -187,7 +188,8 @@ export class ShooterClient {
   }
   moveInput() {
     let f = 0, s = 0;
-    if (this.joy) { let dx = (this.joy.x - this.joy.ox) / 50, dy = (this.joy.y - this.joy.oy) / 50; const m = Math.hypot(dx, dy); if (m > 0.15) { if (m > 1) { dx /= m; dy /= m; } s = dx; f = -dy; } }
+    if (Pad.connected && (Pad.lx || Pad.ly)) { s = Pad.lx; f = -Pad.ly; const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; } }
+    else if (this.joy) { let dx = (this.joy.x - this.joy.ox) / 50, dy = (this.joy.y - this.joy.oy) / 50; const m = Math.hypot(dx, dy); if (m > 0.15) { if (m > 1) { dx /= m; dy /= m; } s = dx; f = -dy; } }
     else { const k = this.keys, K = this.km; f = (k[K.fwd] || k.ArrowUp ? 1 : 0) - (k[K.back] || k.ArrowDown ? 1 : 0); s = (k[K.right] || k.ArrowRight ? 1 : 0) - (k[K.left] || k.ArrowLeft ? 1 : 0); const l = Math.hypot(f, s); if (l > 1) { f /= l; s /= l; } }
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
     return { mx: fx * f + rx * s, mz: fz * f + rz * s, moving: Math.hypot(f, s) > 0.1 };
@@ -320,6 +322,29 @@ export class ShooterClient {
     return new THREE.Vector3(this.p.x, this.p.y + 1.25, this.p.z).addScaledVector(d, 0.7).addScaledVector(r, 0.25);
   }
 
+  // геймпад: левый стик — ходить, правый — смотреть, RT — огонь, LT — прицел, A — прыжок, B — присед,
+  // X — перезарядка, Y — оружие, RB — граната (держать), LB — аптечка, крестовина вверх — закупка, вниз — вид, Старт — меню
+  padInput(dt) {
+    if (!Pad.connected) return;
+    if (!this.padSeen) { this.padSeen = true; this.updateLock(); }
+    if (document.querySelector('.modal.show')) { if (Pad.hit(9) || Pad.hit(1)) document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')); return; }
+    const s = (LS.get('sens', 1)) * 2.6 / this.view.zoom;
+    if (Pad.rx || Pad.ry) { this.yaw -= Pad.rx * Math.abs(Pad.rx) * s * dt; this.pitch = clamp(this.pitch - Pad.ry * Math.abs(Pad.ry) * s * 0.75 * dt, -1.45, 1.45); }
+    if (Pad.hit(7)) { this.fireHeld = true; this.firedThisPress = true; this.doFire(); }
+    if (Pad.up(7)) this.fireHeld = false;
+    if (Pad.hit(6)) this.toggleScope(true); if (Pad.up(6) && this.scoped) this.toggleScope(false);
+    if (Pad.hit(0)) { this.jumpReq = true; if (this.crouch) this.setCrouch(false); }
+    if (Pad.hit(1)) this.setCrouch();
+    if (Pad.hit(2)) this.reload();
+    if (Pad.hit(3)) this.cycle(1);
+    if (Pad.hit(5) && this.alive && this.pv.nades > 0 && this.ph === 'play') this.nadeAim = true;
+    if (Pad.up(5) && this.nadeAim) { this.nadeAim = false; this.throwNade(); }
+    if (Pad.hit(4)) this.ctx.send({ t: 'medkit' });
+    if (Pad.hit(12)) this.toggleBuy();
+    if (Pad.hit(13)) this.toggleCam();
+    if (Pad.hit(8)) $('#sh-board').classList.toggle('show');
+    if (Pad.hit(9)) document.querySelector('#s-shoot [data-act=pause]').click();
+  }
   // ---------- кадр ----------
   frame(dt) {
     const now = performance.now() / 1000;
@@ -327,6 +352,7 @@ export class ShooterClient {
     this.view.simTime = simT;
     updateDynamics(this.map, simT);
     const frozen = this.ph === 'buy' || this.ph === 'over';
+    this.padInput(dt);
     const mv = this.moveInput();
     if (this.alive) {
       let mul = this.scoped ? 0.5 : 1;
@@ -398,7 +424,7 @@ export class ShooterClient {
   }
   // помощь в прицеливании на телефоне: прицел слегка «липнет» к врагу, автоогонь
   aimHelp(dt) {
-    if (!window.__touch || this.ph !== 'play' || this.buyOpen || LS.get('aimhelp', true) === false) return;
+    if (!(window.__touch || Pad.connected) || this.ph !== 'play' || this.buyOpen || LS.get('aimhelp', true) === false) return;
     const W = WEAPONS[this.cur]; if (!W || W.throw) return;
     const eye = { x: this.p.x, y: this.p.y + this.eyeH(), z: this.p.z };
     const cp = Math.cos(this.pitch), fwd = { x: -Math.sin(this.yaw) * cp, y: Math.sin(this.pitch), z: -Math.cos(this.yaw) * cp };
@@ -733,7 +759,7 @@ export class ShooterClient {
     }).join('')}</table>`;
   }
   updateLock() {
-    const show = !window.__touch && !this.locked && !this.buyOpen && document.body.dataset.game === 'shooter';
+    const show = !window.__touch && !Pad.connected && !this.locked && !this.buyOpen && document.body.dataset.game === 'shooter';
     $('#sh-lock').className = show ? 'show' : '';
   }
 }

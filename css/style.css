@@ -902,3 +902,44 @@ body.ios #rotate .btn{display:none}
 .pill.warn{background:#b3243a}
 
 #res-coins .rec{font-size:20px;font-weight:900;color:var(--gold);margin-bottom:6px}
+
+/* ---------- 27.10: магазин, задания дня, рекорды, подарки ---------- */
+.home-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{pointer-events:auto;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:16px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:64px;font:800 13.5px Rubik,sans-serif;color:var(--text)}
+.tile svg{width:26px;height:26px;color:var(--gold)}
+.tile:active{transform:scale(.96)}
+.tabs.wrap{flex-wrap:wrap}
+.tabs.wrap button{flex:1 1 30%;padding:9px 6px;font-size:14px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px}
+.tabs.wrap button svg{width:18px;height:18px}
+.item{position:relative}
+.item.rare{background:linear-gradient(160deg,rgba(255,201,77,.16),rgba(179,107,255,.14))}
+.rare-tag{position:absolute;top:5px;left:6px;font-size:10.5px;font-weight:900;color:var(--gold);display:flex;align-items:center;gap:2px}
+.rare-tag svg{width:11px;height:11px}
+.item .pr.earn{color:var(--muted);font-size:11.5px;line-height:1.2}
+.item .pr.earn svg{width:11px;height:11px}
+.ic-col svg{width:40px;height:40px;filter:drop-shadow(0 0 8px currentColor)}
+#daily-list{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+.quest-row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:rgba(255,255,255,.06);border:2px solid transparent}
+.quest-row.done{border-color:var(--teal);background:rgba(62,224,192,.1)}
+.quest-row .qi svg{width:30px;height:30px;color:var(--gold)}
+.quest-row.done .qi svg{color:var(--teal)}
+.quest-row b{font-size:15px}
+.qbar{height:8px;border-radius:5px;background:rgba(0,0,0,.35);margin-top:5px;overflow:hidden}
+.qbar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--gold))}
+.quest-row .qn{font-weight:800;color:var(--muted);font-size:14px}
+.quest-row .qc{font-weight:900;color:var(--gold);font-size:14px;white-space:nowrap;display:flex;align-items:center;gap:3px}
+.quest-row .qc svg{width:16px;height:16px}
+.fam-body h4{margin:12px 0 6px;display:flex;align-items:center;gap:6px;font-size:16px}
+.fam-body h4 svg{width:20px;height:20px;color:var(--gold)}
+.fam-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);margin-bottom:4px;font-size:15px}
+.fam-row.me{outline:2px solid var(--gold)}
+.fam-row .fr{width:24px;text-align:center;font-weight:900;color:var(--muted)}
+.fam-row .fr svg{width:20px;height:20px;color:var(--gold)}
+.fam-row .fv{font-weight:800;color:var(--gold)}
+.pl .gift{position:absolute;top:4px;right:36px;width:30px;height:30px;border-radius:50%;background:rgba(255,201,77,.9);color:#2a1650;display:flex;align-items:center;justify-content:center}
+.pl .gift svg{width:16px;height:16px}
+#res-coins .rec{font-size:17px;margin-top:4px}
+#res-coins .rec.quest{color:var(--teal);font-size:15px}
+#res-coins .rec svg{width:18px;height:18px;vertical-align:-3px}
+@media (orientation:landscape) and (max-height:560px){.tile{min-height:54px;padding:6px 4px;font-size:12.5px}.tile svg{width:22px;height:22px}}
+@media (orientation:landscape) and (max-height:560px){.shop-about{display:none}}

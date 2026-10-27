@@ -134,6 +134,17 @@ export const Sound = {
     this.music = state;
   },
   stopMusic() { if (this.music) { const m = this.music; m.stop = true; clearTimeout(m.timer); try { m.out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.15); setTimeout(() => m.out.disconnect(), 800); } catch (e) { } this.music = null; } },
+  // звон монет: несколько коротких «дзинь» вверх
+  coin(n = 3) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t0 = ctx.currentTime;
+    for (let i = 0; i < n; i++) for (const [f, v] of [[1568, 0.12], [2093, 0.07]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i * 0.09;
+      o.type = 'triangle'; o.frequency.value = f * (1 + i * 0.12);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g); g.connect(this.uiGain); o.start(t); o.stop(t + 0.4);
+    }
+  },
   musicOff() { this.wantMusic = null; this.stopMusic(); }
 };
 // звук кнопок интерфейса

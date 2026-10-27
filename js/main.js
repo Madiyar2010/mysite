@@ -3,6 +3,7 @@ import * as A from './assets.js';
 import { R, ShowroomView, AmongView, hatThumb } from './render.js';
 import { Net } from './net.js';
 import { Input } from './input.js';
+import { Pad } from './gamepad.js';
 import { AMAPS, AMAP_LIST, amapModels } from './amap.js';
 import { ShooterSim, S_MONSTERS, SHOOT_DEFAULTS } from './shooter/ssim.js';
 import { ShooterView } from './shooter/sview.js';
@@ -13,8 +14,9 @@ import { AmongSim, DEFAULT_OPTS } from './among-sim.js';
 import { AmongClient } from './among-client.js';
 import * as Tasks from './among-tasks.js';
 import { Sound } from './sound.js';
+import { Stats, Daily, Family, QUEST_COINS } from './progress.js';
 import { icon } from './icons.js';
-import { $, $$, esc, rid, pick, shuffle, LS, CLASSES, MODES, HATS, AURAS, TEAM_COLORS, TEAM_NAMES, Wallet } from './util.js';
+import { $, $$, esc, rid, pick, shuffle, LS, CLASSES, MODES, HATS, AURAS, TEAM_COLORS, TEAM_NAMES, Wallet, SHOP_TABS, LOOK_KEYS, lookList, EARN } from './util.js';
 
 // ---------- я ----------
 let myPid;
@@ -22,14 +24,15 @@ let myPid;
 try { myPid = localStorage.getItem('ha_pid') || sessionStorage.getItem('ha_pid'); if (!myPid) myPid = rid(); localStorage.setItem('ha_pid', myPid); } catch (e) { myPid = rid(); }
 const me = {
   pid: myPid, name: LS.get('name', ''), model: LS.get('model', pick(A.HEROES)), cls: LS.get('cls', 'knight'),
-  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none'), color: LS.get('color', '#ffd166'), adult: LS.get('adult', false)
+  hat: LS.get('hat', 'none'), aura: LS.get('aura', 'none'), pet: LS.get('pet', 'none'), pack: LS.get('pack', 'none'), trail: LS.get('trail', 'none'), skin: LS.get('skin', 'none'), color: LS.get('color', '#ffd166'), adult: LS.get('adult', false)
 };
 const prefs = window.__prefs = { vibe: LS.get('vibe', true) };
 Net.myPid = myPid;
 const thumb = m => `assets/thumbs/${m}.png`;
 const PCOLORS = ['#ffd166', '#ff6b78', '#4da3ff', '#5ee07a', '#b46bff', '#ff9a3d', '#3dd6d0', '#ff7ad9'];
-function saveMe() { for (const k of ['name', 'model', 'cls', 'hat', 'aura', 'color', 'adult']) LS.set(k, me[k]); }
-function profile() { return { pid: me.pid, name: me.name, model: me.model, cls: me.cls, hat: me.hat, aura: me.aura, color: me.color, adult: !!me.adult }; }
+function saveMe() { for (const k of ['name', 'model', 'cls', 'color', 'adult', ...LOOK_KEYS]) LS.set(k, me[k]); }
+const look = o => Object.fromEntries(LOOK_KEYS.map(k => [k, o[k] || 'none']));
+function profile() { return { pid: me.pid, name: me.name, model: me.model, cls: me.cls, ...look(me), color: me.color, adult: !!me.adult }; }
 function hydrate(root = document) { root.querySelectorAll('[data-ic]').forEach(el => { if (!el.firstChild) el.innerHTML = icon(el.dataset.ic); }); }
 
 // ---------- общий интерфейс ----------
@@ -43,9 +46,11 @@ function show(id) {
   else Sound.playMusic(id === 's-among' ? 'tense' : 'battle');
   refreshShowroom();
 }
+window.__toast = (t, ms) => toast(t, ms);
 function toast(t, ms = 2600) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), ms); }
 function loading(t) { if (t) { $('#loading-text').textContent = t; $('#loading').classList.add('show'); } else $('#loading').classList.remove('show'); }
 function vibrate(p) { if (prefs.vibe && navigator.vibrate) try { navigator.vibrate(p); } catch (e) { } }
+function coinSound() { Sound.coin(); }
 function updateCoins() { $$('.coin-n').forEach(e => e.textContent = Wallet.coins()); }
 function openModal(id) { $(id).classList.add('show'); Sound.play('open', { vol: 0.5 }); }
 // на весь экран: повторное нажатие выходит; на iPhone браузер не умеет — подсказываем добавить на экран «Домой»
@@ -70,7 +75,7 @@ document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   if (a) {
     const k = a.dataset.act;
-    if (k === 'shop') openShop(); if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(true); if (k === 'pause') { renderPausePlayers(); openModal('#m-pause'); }
+    if (k === 'shop') openShop(); if (k === 'daily') openDaily(); if (k === 'family') openFamily(); if (k === 'fitting') { openShop(); toast('Примерочная: крути героя пальцем или мышкой'); } if (k === 'settings') openSettings(); if (k === 'fullscreen') goFullscreen(true); if (k === 'pause') { renderPausePlayers(); openModal('#m-pause'); }
   }
 });
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
@@ -110,10 +115,17 @@ function refreshShowroom() {
   if (S.screen === 's-lobby' && S.lobby) {
     const list = S.lobby.players.filter(p => p.online);
     list.sort((a, b) => (b.pid === me.pid) - (a.pid === me.pid));
-    showroom.setHeroes(list.slice(0, 8).map((p, i) => ({ model: p.model, gun: SHOW_GUNS[i % SHOW_GUNS.length], gunW: WEAPONS[SHOW_GUNS[i % SHOW_GUNS.length]], hat: p.hat, aura: p.aura, name: p.name, me: p.pid === me.pid })));
-  } else showroom.setHeroes([{ model: me.model, gun: 'rifle', gunW: WEAPONS.rifle, hat: S.preview?.hat ?? me.hat, aura: S.preview?.aura ?? me.aura, name: me.name, me: true }]);
+    showroom.setHeroes(list.slice(0, 8).map((p, i) => ({ model: p.model, gun: SHOW_GUNS[i % SHOW_GUNS.length], gunW: WEAPONS[SHOW_GUNS[i % SHOW_GUNS.length]], ...look(p), name: p.name, me: p.pid === me.pid })));
+  } else showroom.setHeroes([{ model: me.model, gun: 'rifle', gunW: WEAPONS.rifle, ...look(me), ...(S.preview || {}), name: me.name, me: true }]);
 }
 addEventListener('resize', refreshShowroom);
+// примерочная: героя можно крутить пальцем или мышкой
+(() => {
+  let d = null; const gl = $('#gl');
+  gl.addEventListener('pointerdown', e => { if (R.view !== showroom) return; d = { x: e.clientX, id: e.pointerId }; showroom.dragging = true; });
+  addEventListener('pointermove', e => { if (!d || e.pointerId !== d.id) return; showroom.userRot -= (e.clientX - d.x) * 0.012; d.x = e.clientX; });
+  addEventListener('pointerup', e => { if (d && e.pointerId === d.id) { d = null; showroom.dragging = false; } });
+})();
 
 // ---------- выбор героя и класса ----------
 function renderPickers() {
@@ -193,6 +205,9 @@ function openSettings() {
   $('#set-layout').onclick = () => { if (S.game) { toast('Кнопки настраиваются вне игры — выйди в лобби или на главный экран'); return; } $('#m-settings').classList.remove('show'); layoutEdit(true); };
   $('#set-quality').onclick = e => { const b = e.target.closest('button'); if (!b) return; R.setQuality(b.dataset.v); setSeg('#set-quality', b.dataset.v); };
   $('#set-vibe').onclick = e => { const b = e.target.closest('button'); if (!b) return; prefs.vibe = b.dataset.v === '1'; LS.set('vibe', prefs.vibe); setSeg('#set-vibe', b.dataset.v); vibrate(40); };
+  setSeg('#set-saver', R.saver ? 1 : 0);
+  $('#set-saver').onclick = e => { const b = e.target.closest('button'); if (!b) return; R.setSaver(b.dataset.v === '1'); setSeg('#set-saver', b.dataset.v); };
+  $('#set-pad').textContent = Pad.connected ? 'подключён' : 'не подключён — нажми любую кнопку на геймпаде';
   $('#set-quiet').onclick = e => { const b = e.target.closest('button'); if (!b) return; Sound.set('quiet', b.dataset.v === '1'); setSeg('#set-quiet', b.dataset.v); };
   openModal('#m-settings');
 }
@@ -205,27 +220,34 @@ function openShop() {
   S.preview = null;
   show('s-shop'); renderShop();
 }
+function earned(it) { return it.earn && EARN[it.earn] && EARN[it.earn].ok(Stats.get()); }
+function hasItem(it) { return it.price === 0 && !it.earn || Wallet.owned().has(it.id) || earned(it); }
+function itemPic(tab, it) {
+  if (tab === 'auras') return `<span class="swatch ${it.color ? 'glow' : ''}" style="--c:${it.color === 'rainbow' ? '#fff' : it.color || 'transparent'};background:${it.color === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : it.color ? `radial-gradient(circle,#fff 0 12%,${it.color} 35%,transparent 72%)` : 'transparent'}"></span>`;
+  const th = (tab === 'hats' || tab === 'pets' || tab === 'packs') && hatThumb(it.id, { hats: 'hat', pets: 'pet', packs: 'pack' }[tab]);
+  if (th) return `<img class="hat3d" src="${th}" alt="">`;
+  if (it.color && it.id !== 'none') return `<span class="ic-col" style="color:${it.color === 'rainbow' ? '#ffd34d' : it.color}">${icon(it.icon)}</span>`;
+  return icon(it.icon);
+}
 function renderShop() {
   updateCoins();
-  const items = shopTab === 'hats' ? HATS : AURAS, owned = Wallet.owned(), cur = shopTab === 'hats' ? me.hat : me.aura;
-  $$('#shop-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === shopTab));
+  const T = SHOP_TABS[shopTab], items = T.items(), cur = me[T.key];
+  $('#shop-tabs').innerHTML = Object.entries(SHOP_TABS).map(([id, t]) => `<button data-tab="${id}" class="${id === shopTab ? 'on' : ''}">${icon(t.icon)} ${t.name}</button>`).join('');
   $('#shop-grid').innerHTML = items.map(it => {
-    const has = owned.has(it.id) || it.price === 0, on = cur === it.id;
-    const pv = S.preview && (S.preview.hat === it.id || S.preview.aura === it.id);
-    const th = shopTab === 'hats' && hatThumb(it.id);
-    const pic = shopTab === 'auras' ? `<span class="swatch ${it.color ? 'glow' : ''}" style="--c:${it.color === 'rainbow' ? '#fff' : it.color || 'transparent'};background:${it.color === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : it.color ? `radial-gradient(circle,#fff 0 12%,${it.color} 35%,transparent 72%)` : 'transparent'}"></span>` : th ? `<img class="hat3d" src="${th}" alt="">` : icon(it.icon);
-    return `<button class="item ${on ? 'on' : ''} ${has ? '' : 'locked'} ${pv && !on ? 'preview' : ''}" data-id="${it.id}"><span class="ii">${pic}</span><b>${it.name}</b><span class="pr ${has ? 'own' : ''}">${on ? icon('check') + ' Надето' : has ? 'Надеть' : icon('coin') + ' ' + it.price}</span></button>`;
+    const has = hasItem(it), on = cur === it.id;
+    const pv = S.preview && S.preview[T.key] === it.id;
+    const price = it.earn && !has ? `${icon('lock')} ${EARN[it.earn].text}` : on ? icon('check') + ' Надето' : has ? 'Надеть' : icon('coin') + ' ' + it.price;
+    return `<button class="item ${on ? 'on' : ''} ${has ? '' : 'locked'} ${it.earn ? 'rare' : ''} ${pv && !on ? 'preview' : ''}" data-id="${it.id}">${it.earn ? `<span class="rare-tag">${icon('star')} Редкое</span>` : ''}<span class="ii">${itemPic(shopTab, it)}</span><b>${it.name}</b><span class="pr ${has ? 'own' : ''} ${it.earn && !has ? 'earn' : ''}">${price}</span></button>`;
   }).join('');
 }
 $('#shop-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; shopTab = b.dataset.tab; S.preview = null; renderShop(); refreshShowroom(); });
 $('#shop-grid').addEventListener('click', e => {
   const b = e.target.closest('.item'); if (!b) return;
-  const items = shopTab === 'hats' ? HATS : AURAS, it = items.find(x => x.id === b.dataset.id);
-  const key = shopTab === 'hats' ? 'hat' : 'aura';
-  const has = Wallet.owned().has(it.id) || it.price === 0;
-  if (has) { me[key] = it.id; saveMe(); S.preview = null; sendProfile(); vibrate(20); Sound.play('select'); }
+  const T = SHOP_TABS[shopTab], it = T.items().find(x => x.id === b.dataset.id), key = T.key;
+  if (hasItem(it)) { me[key] = it.id; saveMe(); S.preview = null; sendProfile(); vibrate(20); Sound.play('select'); }
+  else if (it.earn) { S.preview = { [key]: it.id }; toast(`Редкая вещь! Её не купить — получишь за заслугу: ${EARN[it.earn].text}`, 3500); }
   else if (S.preview && S.preview[key] === it.id) {
-    if (Wallet.buy(it)) { me[key] = it.id; saveMe(); S.preview = null; sendProfile(); toast(`Куплено: ${it.name}!`); Sound.play('j_win', { vol: 0.6 }); vibrate([30, 40, 30]); if (showroom.heroes[0]) showroom.heroes[0].play(7, true); }
+    if (Wallet.buy(it)) { me[key] = it.id; saveMe(); S.preview = null; sendProfile(); toast(`Куплено: ${it.name}!`); coinSound(); Sound.play('j_win', { vol: 0.6 }); vibrate([30, 40, 30]); if (showroom.heroes[0]) showroom.heroes[0].play(7, true); }
     else { toast(`Не хватает монет: нужно ${it.price}, у тебя ${Wallet.coins()}`); Sound.play('error'); }
   } else { S.preview = { [key]: it.id }; toast(`Примерка! Нажми ещё раз, чтобы купить за ${it.price} монет`); }
   renderShop(); refreshShowroom();
@@ -267,12 +289,12 @@ function hostStart(code) {
 }
 function lobbyMsg() {
   return { t: 'lobby', code: Net.code, hostId: me.pid, mode: H.mode, opts: H.opts, inGame: H.inGame,
-    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, color: p.color, adult: p.adult, team: p.team, online: p.online, pts: p.pts, ready: !!p.ready, vote: p.vote || null })) };
+    players: [...H.players.values()].map(p => ({ pid: p.pid, name: p.name, model: p.model, cls: p.cls, ...look(p), color: p.color, adult: p.adult, team: p.team, online: p.online, pts: p.pts, ready: !!p.ready, vote: p.vote || null })) };
 }
 function hostLobby(go) { const m = lobbyMsg(); if (go) m.go = 1; Net.broadcast(m); }
 function cleanProfile(m) {
   return { name: String(m.name || 'Игрок').slice(0, 14) || 'Игрок', model: A.HEROES.includes(m.model) ? m.model : 'character-a',
-    cls: CLASSES[m.cls] ? m.cls : 'knight', hat: HATS.some(h => h.id === m.hat) ? m.hat : 'none', aura: AURAS.some(a => a.id === m.aura) ? m.aura : 'none', color: PCOLORS.includes(m.color) ? m.color : '#ffd166', adult: !!m.adult };
+    cls: CLASSES[m.cls] ? m.cls : 'knight', ...Object.fromEntries(LOOK_KEYS.map(k => [k, lookList(k).some(x => x.id === m[k]) ? m[k] : 'none'])), color: PCOLORS.includes(m.color) ? m.color : '#ffd166', adult: !!m.adult };
 }
 Net.onHostMessage = (pid, m) => {
   switch (m.t) {
@@ -321,6 +343,13 @@ Net.onHostMessage = (pid, m) => {
       break;
     }
     case 'start': if (pid === me.pid) hostStartGame(); break;
+    case 'fam': if (Family.merge(m.fam) || m.ask) Net.broadcast({ t: 'fam', fam: Family.all() }); break;
+    case 'gift': {
+      const from = H.players.get(pid), n = +m.n;
+      if (!from || ![10, 20, 50].includes(n) || !H.players.has(m.to) || m.to === pid) return;
+      Net.sendTo(m.to, { t: 'gift', from: from.name, n });
+      break;
+    }
     case 'kick': {
       // хост выгоняет игрока: больше в эту комнату он не зайдёт
       if (pid !== me.pid || m.pid === me.pid || !H.players.has(m.pid)) return;
@@ -344,7 +373,7 @@ Net.onPeerLeft = pid => {
   if (H.pending) { const need = [...H.players.values()].filter(x => x.online).every(x => H.pending.ready.has(x.pid)); if (need) launchSim(); }
   hostLobby(false);
 };
-function rosterEntry(p) { return { pid: p.pid, name: p.name, model: p.model, cls: p.cls, hat: p.hat, aura: p.aura, team: p.team }; }
+function rosterEntry(p) { return { pid: p.pid, name: p.name, model: p.model, cls: p.cls, ...look(p), team: p.team }; }
 function startMsg() { return { t: 'start', mode: H.mode, roster: H.roster, opts: H.gameOpts || H.opts }; }
 // все нажали «Готов» — начинаем сами
 function checkAllReady() {
@@ -427,6 +456,7 @@ function hostEndGame(res) {
 Net.onMessage = m => {
   switch (m.t) {
     case 'lobby': {
+      if (m.go && !S.famSent) { S.famSent = true; Net.toHost({ t: 'fam', fam: Family.all(), ask: 1 }); }
       S.lobby = m; loading(false);
       if (m.go || S.screen === 's-home') { stopGame(); if (S.screen !== 's-shop') show('s-lobby'); }
       if (S.screen === 's-lobby') renderLobby();
@@ -435,6 +465,8 @@ Net.onMessage = m => {
     case 'start': startGame(m); break;
     case 'roster': if (S.game) { S.roster = new Map(m.roster.map(r => [r.pid, r])); S.game.ctrl.roster = S.roster; } break;
     case 'end': showResults(m.res); break;
+    case 'fam': if (!Net.isHost) Family.merge(m.fam); if ($('#m-family').classList.contains('show')) openFamily(); break;
+    case 'gift': Wallet.add(+m.n || 0); updateCoins(); coinSound(); toast(`${m.from} подарил(а) тебе ${m.n} монет!`, 4000); vibrate([30, 40, 30]); break;
     case 'wait': toast('Сейчас идёт игра — подожди конца раунда', 4000); break;
     case 'msg': if (!S.game) toast(m.text, 2500); else S.game.ctrl.onMsg(m); break;
     case 'full': toast('Комната заполнена', 4000); leaveRoom(); break;
@@ -468,7 +500,7 @@ function leaveRoom() {
   stopGame();
   if (H.sim) H.sim.stop();
   H.sim = null; H.inGame = false; H.pending = null;
-  Net.reset(); S.lobby = null;
+  Net.reset(); S.lobby = null; S.famSent = false;
   try { wakeLock && wakeLock.release(); } catch (e) { }
   history.replaceState(null, '', location.pathname);
   show('s-home');
@@ -545,6 +577,7 @@ function renderLobby() {
       <div style="min-width:0"><div class="pn" style="color:${p.color || '#fff'}">${esc(p.name)}${p.adult ? ` <span class="adult-i" title="взрослый">${icon('crown')}</span>` : ''}${p.pid === L.hostId ? '<span class="badge">ХОСТ</span>' : ''}</div>
       <div class="ps">${icon(CLASSES[p.cls].icon)} ${CLASSES[p.cls].name} · ${icon('star')} ${p.pts}</div></div>
       ${p.ready && !L.inGame ? `<span class="rdy" title="готов">${icon('check')}</span>` : ''}
+      ${p.pid !== me.pid ? `<span class="gift" data-gift="${p.pid}" title="Подарить монеты">${icon('gift')}</span>` : ''}
       ${isHost && p.pid !== me.pid ? `<span class="kick" data-kick="${p.pid}" title="Убрать из комнаты">${icon('close')}</span>` : ''}
     </button>`;
   if (teams) {
@@ -601,6 +634,7 @@ function askKick(pid) {
 }
 $('#lb-players').addEventListener('click', e => {
   const k = e.target.closest('[data-kick]'); if (k) { e.stopPropagation(); askKick(k.dataset.kick); return; }
+  const gf = e.target.closest('[data-gift]'); if (gf) { e.stopPropagation(); openGift(gf.dataset.gift); return; }
   const la = e.target.closest('[data-lact]'); if (la) { Net.toHost({ t: 'lact', a: la.dataset.lact }); return; }
   const j = e.target.closest('.tc-join'); if (j) { vibrate(10); Net.toHost({ t: 'team', pid: me.pid, to: +j.dataset.team }); return; }
   const b = e.target.closest('.pl'); if (!b || !S.lobby) return;
@@ -628,7 +662,7 @@ function metaShoot(k) {
   const mine = k === me.pid;
   const myTeam = (S.roster.get(me.pid) || {}).team;
   const ally = S.game.mode === 'pve' || (teams && r.team === myTeam);
-  return { model: r.model, hat: r.hat, aura: r.aura, name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
+  return { model: r.model, ...look(r), name: r.name, me: mine, hpBar: ally && !mine, gun: 'pistol', gunW: WEAPONS.pistol,
     ring: teams ? TEAM_COLORS[r.team] : null, nameColor: teams ? TEAM_COLORS[r.team] : '#fff', label: ally && !mine, tint: teams && !mine ? TEAM_COLORS[r.team] : null, ally: teams && ally && !mine };
 }
 // обучение перед первой игрой в каждом режиме: на телефоне про кнопки, на компьютере про клавиши
@@ -699,6 +733,56 @@ Input.onKey = a => {
 $$('#am-topr button, #am-actions .act').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
 $('#btn-quit').onclick = () => { $('#m-pause').classList.remove('show'); if (!confirm(Net.isHost ? 'Ты хост. Комната закроется для всех. Выйти?' : 'Выйти из комнаты?')) return; leaveRoom(); };
 
+// ---------- успехи: счётчики, задания дня, семейные рекорды ----------
+function countProgress(row, res) {
+  const st = Stats.get(), before = new Set([...Object.values(SHOP_TABS)].flatMap(t => t.items()).filter(it => it.earn && earned(it)).map(it => it.id));
+  st.games++; if (row.win) { st.wins++; st.weekWins++; }
+  st.kills += res.mode === 'traitor' ? 0 : (row.kills || 0); st.tasks += row.tasks || 0;
+  if (res.endless) st.endless = Math.max(st.endless || 0, res.wave || 0);
+  const fresh = Daily.count(row, res);
+  if (fresh.length) { st.quests += fresh.length; Wallet.add(QUEST_COINS * fresh.length); updateCoins(); }
+  Stats.save(st);
+  // новые редкие вещи
+  for (const t of Object.values(SHOP_TABS)) for (const it of t.items()) if (it.earn && !before.has(it.id) && earned(it)) setTimeout(() => toast(`Новая редкая вещь: «${it.name}»! Надень её в магазине`, 4500), 2500);
+  const mineFam = Family.mine(me, st);
+  if (Net.code) Net.toHost({ t: 'fam', fam: mineFam });
+  return fresh;
+}
+function openDaily() {
+  const d = Daily.today();
+  $('#daily-list').innerHTML = d.list.map(q => `<div class="quest-row ${q.done ? 'done' : ''}"><span class="qi">${icon(q.done ? 'check' : q.icon)}</span><div class="grow"><b>${esc(q.text)}</b><div class="qbar"><i style="width:${Math.round(q.prog / q.n * 100)}%"></i></div></div><span class="qn">${q.prog}/${q.n}</span><span class="qc">${q.done ? 'Готово' : '+' + QUEST_COINS + ' ' + icon('coin')}</span></div>`).join('');
+  const st = Stats.get();
+  $('#daily-stats').innerHTML = `${icon('play')} Матчей: ${st.games} · ${icon('trophy')} Побед: ${st.wins} · ${icon('calendar')} Заданий выполнено: ${st.quests}`;
+  openModal('#m-daily');
+}
+const DIFF = ['Лёгкая', 'Обычная', 'Трудная'];
+function openFamily() {
+  Family.mine(me, Stats.get());
+  const wk = Stats.get().week, fam = Object.entries(Family.all()).map(([pid, e]) => ({ pid, ...e, ww: e.week === wk ? e.weekWins : 0 }));
+  const row = (e, val, i) => `<div class="fam-row ${e.pid === me.pid ? 'me' : ''}"><span class="fr">${i === 0 && val ? icon('crown') : i + 1}</span><b style="color:${e.color}">${esc(e.name)}</b><span class="grow"></span><span class="fv">${val}</span></div>`;
+  const week = [...fam].sort((a, b) => b.ww - a.ww || b.wins - a.wins);
+  const best = e => Math.max(0, ...Object.values(e.endless || {}));
+  const endl = [...fam].filter(e => best(e) > 0).sort((a, b) => best(b) - best(a));
+  $('#fam-body').innerHTML = `<h4>${icon('trophy')} Победы за эту неделю</h4>${week.map((e, i) => row(e, e.ww, i)).join('') || '<div class="muted small">Пока пусто</div>'}
+    <h4>${icon('hourglass')} Рекорд «Бесконечно»</h4>${endl.map((e, i) => row(e, `волна ${best(e)}${Object.keys(e.endless).length ? ' · ' + DIFF[+Object.entries(e.endless).sort((a, b) => b[1] - a[1])[0][0]].toLowerCase() : ''}`, i)).join('') || '<div class="muted small">Ещё никто не играл в «Бесконечно»</div>'}
+    <h4>${icon('medal')} Всего побед</h4>${[...fam].sort((a, b) => b.wins - a.wins).map((e, i) => row(e, `${e.wins} из ${e.games}`, i)).join('')}`;
+  openModal('#m-family');
+}
+// подарок монет другому игроку в комнате
+let giftTo = null;
+function openGift(pid) {
+  const p = S.lobby && S.lobby.players.find(x => x.pid === pid); if (!p) return;
+  giftTo = pid; $('#gift-name').textContent = p.name; $('#gift-have').textContent = Wallet.coins();
+  $$('#gift-opts button').forEach(b => b.disabled = Wallet.coins() < +b.dataset.n);
+  openModal('#m-gift');
+}
+$('#gift-opts').addEventListener('click', e => {
+  const b = e.target.closest('button[data-n]'); if (!b || !giftTo) return;
+  const n = +b.dataset.n; if (Wallet.coins() < n) { toast('Не хватает монет'); return; }
+  Wallet.add(-n); updateCoins(); Net.toHost({ t: 'gift', to: giftTo, n });
+  $('#m-gift').classList.remove('show'); toast('Подарок отправлен!'); coinSound(); giftTo = null;
+});
+
 // ---------- итоги ----------
 const SUBN = { sheriff: 'Шериф', engineer: 'Инженер', scientist: 'Учёный', angel: 'Ангел', shapeshifter: 'Оборотень' };
 function showResults(res) {
@@ -706,12 +790,15 @@ function showResults(res) {
   show('s-results');
   const mine = res.rows.find(r => r.pid === me.pid);
   if (mine && mine.coins) { Wallet.add(mine.coins); updateCoins(); }
+  const fresh = mine ? countProgress(mine, res) : [];
   $('#res-title').textContent = res.winText;
   // рекорд «Бесконечно» хранится на устройстве, отдельно для каждой сложности
   if (res.endless) { const best = LS.get('endlessBest', {}) || {}, d = res.pveDiff ?? 1, was = best[d] || 0; if (res.wave > was) { best[d] = res.wave; LS.set('endlessBest', best); } res.recordText = res.wave > was ? `Новый рекорд: волна ${res.wave}!` : `Рекорд: волна ${was}`; }
   const impWin = res.mode === 'traitor' && res.win === 'impostor';
   $('#res-icon').innerHTML = icon(mine && mine.win ? 'trophy' : impWin ? 'impostor' : 'medal');
-  $('#res-coins').innerHTML = (res.recordText ? `<div class="rec">${icon('trophy')} ${res.recordText}</div>` : '') + (mine && mine.coins ? `+${mine.coins} ${icon('coin')} <span class="muted small">монет в копилку</span>` : '');
+  $('#res-coins').innerHTML = (res.recordText ? `<div class="rec">${icon('trophy')} ${res.recordText}</div>` : '') + (mine && mine.coins ? `+${mine.coins} ${icon('coin')} <span class="muted small">монет в копилку</span>` : '')
+    + fresh.map(q => `<div class="rec quest">${icon('calendar')} Задание дня выполнено: ${esc(q.text)} <b>+${QUEST_COINS} ${icon('coin')}</b></div>`).join('');
+  if (mine && (mine.coins || fresh.length)) setTimeout(coinSound, 400);
   const roster = S.roster || new Map();
   $('#res-list').innerHTML = res.rows.map((r, i) => {
     const info = roster.get(r.pid) || {};

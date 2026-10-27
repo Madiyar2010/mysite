@@ -70,6 +70,7 @@ export class AmongClient {
     else if (a === 'vent') this.ventAction();
     else if (a === 'map') this.overlay === 'map' ? this.closeOverlay() : this.openMap(this.role === 'impostor');
     else if (a === 'emo') this.ctx.send({ t: 'emo', v: 1 });
+    else if (a === 'sab') { if (this.role === 'impostor') this.openMap(true); }
     else if (a === 'esc') { if (Tasks.isOpen()) Tasks.close(); else this.closeOverlay(); }
   }
   tick() {
@@ -101,7 +102,7 @@ export class AmongClient {
   meta(pid, ghost, asPid) {
     const r = this.info(asPid || pid), real = this.info(pid);
     const mate = this.role === 'impostor' && (this.mates.includes(pid) || pid === this.me) && this.role === 'impostor';
-    return { model: ghost ? 'grave/character-ghost' : r.model, hat: ghost ? 'halo' : r.hat, aura: ghost ? 'none' : r.aura, name: ghost ? real.name : r.name,
+    return { model: ghost ? 'grave/character-ghost' : r.model, hat: ghost ? 'halo' : r.hat, aura: ghost ? 'none' : r.aura, pet: ghost ? 'none' : r.pet, pack: ghost ? 'none' : r.pack, trail: ghost ? 'none' : r.trail, name: ghost ? real.name : r.name,
       me: pid === this.me, scale: 1.3, ring: pid === this.me ? '#ffd166' : null, nameColor: mate && !ghost ? '#ff4d5e' : '#fff' };
   }
   restyle() { for (const [id, a] of this.view.ents) a.dispose(); this.view.ents.clear(); this.appearance.clear(); }

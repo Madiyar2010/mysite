@@ -1,3 +1,4 @@
+import { Pad } from './gamepad.js';
 // Управление: джойстик и кнопки на телефоне/планшете, клавиатура и мышь на компьютере.
 export const Input = {
   touch: matchMedia('(pointer:coarse)').matches,
@@ -60,6 +61,7 @@ export const Input = {
     el.firstElementChild.style.transform = `translate(${dx}px,${dy}px)`;
   },
   getMove() {
+    if (Pad.connected && (Pad.lx || Pad.ly)) { let x = Pad.lx, z = Pad.ly; const m = Math.hypot(x, z); if (m > 1) { x /= m; z /= m; } return { x, z }; }
     if (this.joy) {
       let dx = (this.joy.x - this.joy.ox) / 50, dy = (this.joy.y - this.joy.oy) / 50;
       const m = Math.hypot(dx, dy);
@@ -74,3 +76,13 @@ export const Input = {
   attacking() { return this.atkHeld || this.mouseDown; },
   reset() { this.joy = null; this.atkHeld = false; this.mouseDown = false; this.keys = {}; this.drawJoy(); }
 };
+
+// геймпад в «Найди предателя»: A — действие, X — выбить, B — сообщить, Y — саботаж, RB — люк, LB или «Назад» — карта, Старт — меню
+const PAD_ACT = { 0: 'use', 2: 'kill', 1: 'rep', 3: 'sab', 5: 'vent', 4: 'map', 8: 'map' };
+(function padLoop() {
+  requestAnimationFrame(padLoop);
+  if (!Pad.connected || !Input.active) return;
+  if (document.querySelector('.modal.show')) { if (Pad.hit(9) || Pad.hit(1)) document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')); return; }
+  for (const [b, a] of Object.entries(PAD_ACT)) if (Pad.hit(+b)) Input.fire(a);
+  if (Pad.hit(9)) { const p = document.querySelector('#s-among [data-act=pause]'); if (p) p.click(); }
+})();
